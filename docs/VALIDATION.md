@@ -73,3 +73,27 @@ se apagaron pantallas, se bloqueó la sesión ni se cambiaron widgets reales.
 
 La [matriz de compatibilidad](COMPATIBILITY.md) separa lo implementado, lo probado
 y las funciones del cliente original que aún no están migradas a la ventana C++.
+
+## Ampliación biométrica del mismo día
+
+Se compiló e instaló `umbriel-connect-remote` y el helper `umbriel-remote-session`.
+APK Android API36 empaquetado y firmado con APK Signature Scheme v3; firma verificada.
+La aplicación Android ocupa 33.241 bytes y el receptor instalado 333.848 bytes.
+No hay mediciones de CPU/RAM en el Galaxy A24 físico.
+
+Suite final: 3/3 grupos de CTest aprobados (12 casos TLS, pruebas del helper y la
+suite QtTest de 15 resultados). La misma SessionGuard Java de la app pasó 20
+comprobaciones. Se conservaron 23 checks Luau y lint0/0. Las pruebas usan un
+receptor loopback, claves y archivos temporales; no capturaron pantallas reales.
+
+Se probó recuperación tras interrupción del receptor y limpieza de sus procesos
+hijos. El código Android impide aceptar una autorización enviada antes de firmar
+con la huella o utilizar un segundo mensaje de autorización para prolongar la lease.
+Tailscale 1.104.7 se preparó sin sudo y se inició en userspace, sin TUN, DNS/rutas
+aceptadas, SSH ni exit node. La cuenta sigue pendiente de inicio de sesión del
+usuario; no se inició el receptor de control ni se generó un registro real del teléfono.
+
+Pendiente: primer arranque y huella real del Galaxy A24 con Android16/OneUI8.5,
+notificaciones, accesibilidad, capturas y gestos, bloqueo, rotación y conexión
+Android↔computadora sobre la tailnet. La implementación es experimental y el
+intercambio de aplicación no tiene auditoría externa ni Key Attestation remota.

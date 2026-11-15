@@ -5,3 +5,14 @@ build/
 dist/
 .venv/
 .ruff_cache/
+# Local enrollment and signing material; never publish session/device secrets.
+pairing.json
+enrollment.json
+clients.json
+server-key.pem
+server-cert.pem
+*.p12
+*.p12.password
+*.jks
+*.keystore
+phone-screen*.png

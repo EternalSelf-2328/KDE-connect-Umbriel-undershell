@@ -1,116 +1,208 @@
-# Acceso remoto y aprobación biométrica
+# Canal remoto con aprobación biométrica
 
-**Estado: diseño propuesto el 2026-11-15; no implementado ni habilitado.**
-La versión 0.1.0 instalada no exige biometría y no establece una VPN por sí sola.
+**Estado: implementación experimental del 2026-11-15, compilada y probada con
+clientes simulados; sin activar ni verificar en un teléfono físico.**
 
-## Objetivo
+Equipo objetivo informado por el usuario: **Galaxy A24, Android 16, One UI 8.5**.
+No se registran IMEI, serie, número telefónico ni capturas de información personal.
+La clasificación biométrica real se comprueba en ejecución con `BIOMETRIC_STRONG`.
 
-Conectar los dispositivos por Internet y autorizar explícitamente el acceso desde
-el teléfono. Antes de implementar falta confirmar el modelo/versión de Android y
-si se requiere controlar la computadora, el teléfono o ambos. El usuario está
-fuera de casa y depende del acceso remoto: no modificar red, firewall ni sesión
-mientras se define la solución.
+## Qué está implementado
 
-## Transporte
+- **Android → computadora:** app `Umbriel Remote` con los controles de Umbriel,
+  Noctalia y undershell y carga de perfiles, mediante el receptor C++.
+- **Computadora → Android:** ventana de control con Atrás, Inicio, Recientes,
+  capturas manuales y toques sobre la captura. CLI adicional para gestos y texto en
+  campos editables que no sean contraseñas. Requiere permiso explícito de Android.
+- TLS 1.2 o posterior, certificado de computadora fijado al registrar, clave EC
+  P-256 de Android Keystore que exige biometría fuerte por uso y autorización de
+  diez minutos como máximo. No hay sustitución silenciosa por PIN o biometría débil.
+- Rechazo de firmas inválidas, desafíos de otra conexión, permisos alterados,
+  identidades no registradas, repetición de mensajes y autorizaciones repetidas.
+- Cierre al desconectar, bloquear/apagar pantalla del teléfono, vencer o revocar la
+  clave desde la computadora. Aviso persistente en Android con botón Desconectar.
 
-Propuesta: una red privada mediante Tailscale/WireGuard y el emparejamiento TLS de
-KDE Connect. Limitar la política de la red a los dispositivos y servicios elegidos;
-no publicar KDE Connect ni ADB directamente en Internet. Tailscale añade un cliente
-en cada dispositivo y una cuenta/coordinación externa. WireGuard administrado
-manualmente requiere resolver alcance entre redes/NAT y distribución de claves.
-No se ha medido el costo de estas opciones en este equipo ni instalado Tailscale.
+Son controles y capturas bajo demanda. **No es todavía un escritorio remoto con
+video continuo, streaming de audio ni touchpad/teclado general de la computadora.**
+Los plugins habituales de KDE Connect conservan sus permisos propios y no quedan
+protegidos por este canal. Tampoco se bloquean automáticamente ADB, scrcpy, SFTP,
+notificaciones o accesos remotos que ya existan.
 
-La VPN proporciona conectividad y cifrado. La pertenencia a esa red no debe
-conceder automáticamente permiso de control. El acceso por IP debe conservar la
-verificación de certificados/identidad del emparejamiento, sin aceptar certificados
-nuevos silenciosamente. La dirección de red no sustituye la identidad criptográfica.
+## Instalar la app Android
 
-## Biometría en el teléfono
+APK de prueba: [UmbrielRemote-0.1.0.apk](../downloads/UmbrielRemote-0.1.0.apk).
+Está firmado con una identidad de desarrollo propia que se conserva fuera del
+repositorio; la clave privada de firma y su contraseña no están en Git. La app no
+pide acceso a contactos, SIM, número de teléfono, cámara ni micrófono.
 
-Android ofrece `BiometricPrompt` y claves de Android Keystore que requieren
-comprobación del usuario para cada uso. Para aprobación criptográfica estricta,
-usar una operación `Signature` en un `CryptoObject` y un autenticador
-`BIOMETRIC_STRONG`. El reconocimiento facial disponible depende de la clasificación
-del hardware; no asumir que cualquier desbloqueo facial sirve. Una alternativa con
-PIN debe ser una política explícita, no una degradación silenciosa.
+1. Instalar el APK y permitir notificaciones, para mantener visible la sesión.
+2. Conectar ambos equipos a la misma red privada de Tailscale.
+3. Importar el archivo de registro privado generado por la computadora.
+4. Presionar **Conectar y aprobar con huella**. La app comprueba biometría fuerte y
+   usa `BiometricPrompt.CryptoObject` para producir la firma.
+5. Si deseas controlar el celular, marcar esa opción antes de conectar y activar
+   el servicio de accesibilidad de Umbriel Remote en los ajustes de Android.
 
-El escritorio sigue en C++. La integración con el diálogo y Keystore de Android
-necesita una pequeña capa Kotlin/Java o JNI. Los datos biométricos no se envían al
-escritorio: este verifica una respuesta firmada con la clave pública previamente
-registrada. La política de uso de esa clave se establece en el teléfono.
+No instalar automáticamente ni habilitar accesibilidad por ADB. Los permisos y la
+huella requieren intervención de la persona en el teléfono. Al cambiar las huellas
+registradas, Android puede invalidar la clave: borrar los datos de la app, retirar
+la identidad anterior en la computadora y volver a registrar explícitamente.
 
-## Punto de aplicación de la autorización
+## Receptor de escritorio
 
-Se revisaron `Device.kt` y `MouseReceiverPlugin.kt` del cliente KDE Connect Android:
-el dispositivo emparejado entrega los paquetes a los plugins activos; el receptor
-de mouse depende del permiso de accesibilidad. Esas rutas inspeccionadas no exigen
-una aprobación biométrica por sesión.
+Se compila si se dispone de headers OpenSSL 3 o posterior; puede desactivarse con
+`-DUMBRIEL_REMOTE=OFF`. Solo se inicia manualmente. No crea servicios o reglas de
+firewall ni se enlaza a `0.0.0.0`.
 
-Por tanto, un diálogo en el frontend de Linux o una app acompañante que solo
-devuelva «aprobado» **no protege** las funciones que sigan accesibles directamente
-por los plugins oficiales. Es necesario aplicar la política en el receptor de cada
-operación y cubrir las rutas alternativas. La opción que conserva las funciones de
-KDE Connect es modificar también su cliente Android.
+```bash
+~/.local/bin/umbriel-connect-remote init
+# Sustituye la dirección por la IPv4 real de tailscale0, si usas Tailscale de sistema.
+~/.local/bin/umbriel-connect-remote pair 100.64.1.2
+~/.local/bin/umbriel-connect-remote serve 100.64.1.2
+```
 
-- **Computadora → teléfono:** el receptor Android bloquea las operaciones protegidas
-  hasta que se apruebe esa computadora y el conjunto de permisos. Debe cubrir mouse,
-  teclado, archivos, notificaciones/datos y cualquier otra función incluida en la
-  política, tanto solicitudes entrantes como transmisión de datos protegidos.
-- **Teléfono → computadora:** el receptor C++ valida una aprobación criptográfica
-  reciente y los permisos antes de ejecutar. Las órdenes estándar de `runcommand`
-  y otros servicios no pueden continuar como rutas equivalentes sin protección.
-- La app oficial sin modificar no debe presentarse como compatible con el modo
-  obligatorio de biometría. Un modo heredado debe quedar identificado por separado.
+La dirección ilustrativa no es la de un dispositivo real. El programa exige que
+la dirección exista en la interfaz activa `tailscale0`. También acepta loopback
+para pruebas y para un proxy privado de Tailscale en modo de usuario. No acepta
+interfaces públicas ni otras redes. El modo de usuario requiere publicar el TCP
+internamente en la tailnet y anunciar su dirección en el registro, manteniendo TLS
+sin terminación en el proxy.
 
-## Flujo propuesto
+`pair` genera `~/.config/umbriel-connect/remote/pairing.json`, privado (0600), válido
+cinco minutos y de un solo uso. Transfiérelo por un medio privado; **no agregarlo a
+Git ni publicarlo**. El receptor necesita estar en ejecución cuando Android conecte.
+La huella TLS del archivo debe corresponder a la identidad creada en esa computadora.
 
-1. Registrar dispositivos y claves con confirmación local y verificación visual.
-2. Establecer el transporte autenticado y comprobar la identidad emparejada.
-3. Pedir acceso mostrando dispositivo solicitante, destino y permisos concretos.
-4. Aprobar en Android mediante el diálogo biométrico del sistema y una firma.
-5. Verificar aprobación, desafío de un solo uso, destino, solicitante, permisos,
-   vencimiento y asociación a la sesión autenticada antes de permitir operaciones.
-6. Mostrar acceso activo y una acción visible para revocarlo.
-7. Invalidar el permiso al cerrar, vencer, revocar, bloquear el teléfono o perder
-   la conexión. Una reconexión no restaura permisos por defecto.
+```bash
+~/.local/bin/umbriel-connect-remote clients
+~/.local/bin/umbriel-connect-remote --phone
+~/.local/bin/umbriel-connect-remote phone ID home
+~/.local/bin/umbriel-connect-remote phone ID tap 0.5 0.5
+~/.local/bin/umbriel-connect-remote revoke ID
+```
 
-Valores iniciales para revisar: desafío válido durante 60 segundos y autorización
-máxima de 10 minutos. No se implementarán formatos o intercambios criptográficos
-propios sin revisar bibliotecas, serialización, almacenamiento y modelo de amenazas.
-No basta con un campo JSON `biometric=true` ni con comprobar un booleano en la UI.
+La ventana también se abre desde Umbriel Connect → Más funciones → Controlar
+ teléfono con aprobación biométrica. Las coordenadas son proporciones del tamaño
+actual del teléfono, sin resolución fija. El CLI `phone ID screen` guarda una
+captura privada en la carpeta actual; la ventana mantiene la imagen en memoria.
 
-## Pantalla y control completo de Android
+## Tailscale sin cambiar la sesión remota
 
-El acceso a datos de KDE Connect y ver/controlar la pantalla son funciones distintas.
-Para una implementación Android basada en `MediaProjection`, Android exige permiso
-de captura por sesión; la biometría no sustituye ese consentimiento. La inyección
-de entrada requiere además una API/permiso permitido por Android. No se ofrecerá
-eludir pantalla de bloqueo, diálogos de consentimiento ni permisos del sistema.
+Se preparó Tailscale 1.104.7 en `~/.local/libexec/umbriel-connect-tailscale/`.
+El helper usa `--tun=userspace-networking`, no acepta DNS ni rutas, no activa SSH
+ni un exit node y deshabilita la subida de logs de Tailscale. Requiere que el usuario
+inicie sesión en ambos equipos con la misma cuenta. No se utiliza Tailscale Funnel.
 
-La ruta de scrcpy original usa ADB por separado. No se debe afirmar que está
-protegida por una autorización del nuevo cliente si ADB conserva un acceso directo.
-Debe excluirse del modo biométrico obligatorio o integrarse con una política que
-controle efectivamente esa vía.
+```bash
+# Solo al instalar o restaurar las herramientas:
+python3 scripts/setup-tailscale-user.py
+# Terminal 1: deja el cliente de red en ejecución.
+~/.local/bin/umbriel-remote-session vpn
+# Terminal 2: abre el enlace de autorización que muestre el comando.
+~/.local/bin/umbriel-remote-session login
+# Cuando ya esté vinculado, genera el registro privado para el teléfono.
+~/.local/bin/umbriel-remote-session pair
+# Inicia receptor local y proxy TCP de la tailnet; Ctrl+C cierra ambos.
+~/.local/bin/umbriel-remote-session start
+```
 
-## Pruebas necesarias antes de habilitar
+El cliente Android debe usar la dirección de la tailnet del archivo generado por
+`pair-proxy`; el receptor escucha solo en `127.0.0.1`. Tailscale reenvía TCP sin
+terminar el TLS de la aplicación. Si Tailscale pide habilitar Serve en su consola,
+la cuenta requiere ese paso adicional. No se han probado aún los dos extremos por
+Internet; falta completar la cuenta y conectar el teléfono físico.
 
-- Identidad desconocida, certificado cambiado, clave revocada y dispositivo no autorizado.
-- Acceso sin huella, cancelación, intentos fallidos y hardware biométrico no compatible.
-- Reutilización de aprobación, cambio de permisos/destino/sesión y desafío vencido.
-- Reconexión, reinicio, bloqueo del teléfono y revocación durante una transferencia.
-- Intento de saltarse el frontend mediante KDE Connect oficial, `runcommand`, ADB
-  u otra ruta previamente habilitada.
-- Permisos de captura/entrada y sesiones reales sobre datos móviles y otra red Wi-Fi.
+La configuración de acceso de Tailscale debería limitar este puerto a los dos
+dispositivos elegidos. Aunque haya otros miembros en la tailnet, la aplicación
+mantiene su propio registro y rechaza sus claves desconocidas. Las reglas de la
+red y la aprobación biométrica cumplen funciones diferentes.
 
-Hasta esas comprobaciones, conservar la etiqueta **experimental, no habilitado**.
+## Qué verifica cada extremo
 
-## Fuentes primarias consultadas
+La app Android confía exclusivamente en el SHA256 del certificado registrado y
+comprueba su vigencia; un certificado cambiado requiere un nuevo registro manual.
+La computadora identifica al teléfono por SHA256 de su clave pública SPKI DER y
+verifica una firma ECDSA/SHA256. No se usa un campo `biometric=true` como autorización.
 
-- [BiometricPrompt y autenticadores](https://developer.android.com/identity/sign-in/biometric-auth).
-- [CryptoObject y claves por uso](https://developer.android.com/reference/android/hardware/biometrics/BiometricPrompt.CryptoObject).
+El servidor utiliza OpenSSL para aleatoriedad, certificados y verificación de
+firmas. TLS se establece mediante Qt/Android. El intercambio de aplicación es
+propio de este prototipo y **no tiene auditoría externa**. No se ha implementado
+validación remota de Android Key Attestation: se confía en registrar la app legítima
+y en la integridad del teléfono; el receptor no puede demostrar por sí solo que
+una clave arbitraria fue generada dentro de hardware seguro.
+
+La firma cubre estos bytes ASCII exactos, incluido el salto final:
+
+```text
+umbriel-connect-auth-v1\n
+SHA256_HEX_DEL_CERTIFICADO\n
+SHA256_HEX_DE_LA_CLAVE_PUBLICA\n
+phone-control|desktop-control\n
+BASE64_DEL_NONCE_DE_32_BYTES\n
+```
+
+`phone-control` autoriza además el sentido computadora → teléfono. El desafío nace
+para una única conexión TLS, vence en 60 segundos y solo admite un intento de
+firma. Tras aprobar, los mensajes llevan secuencia estrictamente creciente. Se
+mantiene una única sesión por clave y no se guardan tokens reutilizables de sesión.
+La lease usa tiempo monotónico; una reconexión vuelve a exigir huella.
+
+Android rechaza el mensaje `authorized` antes de producir una firma, otro destino
+ o permiso y una segunda autorización que intente renovar la duración. La app usa
+una clave `AndroidKeyStore` por uso, con invalidación al cambiar biometría y uso
+restringido al dispositivo desbloqueado. El archivo de registro tiene un secreto
+aleatorio de 256 bits, cuyo hash se consume antes de crear confianza en el servidor.
+
+## Capturas y accesibilidad
+
+La ruta implementada usa el API oficial `AccessibilityService.takeScreenshot`,
+con permiso visible de accesibilidad y aprobación biométrica previa. No usa ADB ni
+se instala como servicio oculto. Android puede rechazar capturas y ventanas
+protegidas; ese error se informa sin intentar evadirlo. Las capturas se reducen
+proporcionalmente a un máximo de 1024 píxeles en el lado mayor para limitar memoria
+y tráfico; esa cifra es un límite de calidad, no una resolución asumida del equipo.
+
+Para una futura ruta basada en `MediaProjection`, se mantendrá también el
+consentimiento de captura por sesión que exige Android.
+
+## Pruebas realizadas y pendientes
+
+- 12 pruebas de integración con TLS real y firmas EC sobre el receptor C++:
+  registro, token de un solo uso/vencido, certificado fijado, ausencia de autorización,
+  firma/curva incorrecta, repetición, permisos, acción sobre un socket undershell falso,
+  control inverso, reinicio tras interrupción y revocación. Solo sockets y archivos temporales.
+- 20 comprobaciones Java sobre la misma `SessionGuard` usada por Android:
+  aprobación prematura, identidad/permiso cambiado, repetición, vencimiento,
+  reconexión y cierre.
+- Compilación contra API 36, empaquetado DEX y firma APK v3 verificada. SDK/JDK de
+  fuentes oficiales, descargados y comprobados por checksum. No se necesita Gradle.
+- Se mantienen las pruebas QtTest y del widget anteriores.
+
+**Sin verificar físicamente:** clasificación de la huella del A24, primer arranque,
+notificación de servicio, restricciones de batería Samsung, accesibilidad, gestos,
+rotación y capturas, cierre al bloquear, cambio de red y tráfico por Tailscale.
+El túnel/cuenta de Tailscale todavía requieren configuración del usuario. No hubo
+capturas del escritorio real ni se enviaron pulsaciones o cambios de red en la sesión.
+
+## Compilar Android
+
+```bash
+python3 scripts/setup-android-tools.py
+bash android/build.sh
+bash tests/android-guard.sh
+```
+
+Las herramientas ocupan una caché de usuario y no cambian Java ni el SDK del sistema.
+Se pueden indicar instalaciones propias mediante `UMBRIEL_JDK`,
+`UMBRIEL_ANDROID_PLATFORM` y `UMBRIEL_ANDROID_BUILD_TOOLS`. La clave de firma APK y
+su archivo de contraseña se crean fuera del repo con permisos privados. No borrarlos
+si quieres instalar futuras actualizaciones conservando la misma firma.
+
+## Fuentes primarias
+
+- [BiometricPrompt](https://developer.android.com/identity/sign-in/biometric-auth).
 - [Android Keystore](https://developer.android.com/privacy-and-security/keystore).
-- [Consentimiento de MediaProjection](https://developer.android.com/media/grow/media-projection).
-- [Tipos de conexión cifrada de Tailscale](https://tailscale.com/docs/reference/connection-types).
-- [Políticas de acceso de Tailscale](https://tailscale.com/docs/features/access-control/grants).
-- [Despacho de paquetes Android](https://github.com/KDE/kdeconnect-android/blob/master/src/main/java/org/kde/kdeconnect/Device.kt).
-- [Receptor de mouse Android](https://github.com/KDE/kdeconnect-android/blob/master/src/main/java/org/kde/kdeconnect/plugins/mousereceiver/MouseReceiverPlugin.kt).
+- [Capturas por accesibilidad](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService#takeScreenshot(int,java.util.concurrent.Executor,android.accessibilityservice.AccessibilityService.TakeScreenshotCallback)).
+- [Servicios foreground](https://developer.android.com/develop/background-work/services/fgs/service-types).
+- [MediaProjection](https://developer.android.com/media/grow/media-projection).
+- [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve).

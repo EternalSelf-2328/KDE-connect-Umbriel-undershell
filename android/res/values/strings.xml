@@ -1,0 +1,3 @@
+<resources>
+    <string name="accessibility_explanation">Permite tocar, escribir y solicitar capturas del teléfono desde tu computadora únicamente durante una sesión aprobada con huella. La sesión termina al bloquear el teléfono, desconectarse o después de diez minutos. Activa solo si deseas controlar este teléfono.</string>
+</resources>

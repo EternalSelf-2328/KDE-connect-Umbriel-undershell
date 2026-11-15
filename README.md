@@ -25,6 +25,8 @@ ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/
   conservando las órdenes personales. Se pueden retirar por separado.
 - Widget opcional de Noctalia: estado y batería en el tooltip; clic para abrir.
 - Una sola ventana por sesión. CLI sin dependencia de un servidor gráfico.
+- [Canal biométrico experimental y APK Android](docs/REMOTE-SECURITY.md): controles
+  de computadora desde el teléfono y navegación/capturas del teléfono desde C++.
 
 `Mostrar todos los widgets` hace visibles también los que ocultaste individualmente;
 ambas acciones de visibilidad persisten mediante el IPC de undershell.
@@ -56,7 +58,21 @@ ctest --test-dir build --output-on-failure
 DESTDIR="$PWD/staging" cmake --install build
 ```
 
-## Controles desde Android
+## Acceso remoto con aprobación biométrica (experimental)
+
+[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.1.0.apk) ·
+[Guía de registro, VPN y límites](docs/REMOTE-SECURITY.md).
+
+Esta ruta usa un receptor C++ separado y una clave de Android Keystore autorizada
+con biometría fuerte por sesión. El APK está compilado contra API 36 y firmado;
+**todavía requiere prueba física en el teléfono**. Ofrece los controles de escritorio
+y, con permiso explícito de accesibilidad, navegación, gestos, texto y capturas del
+celular. No incluye video continuo ni control general de teclado/mouse de la computadora.
+
+No requiere habilitar `runcommand` del KDE Connect habitual. Las funciones heredadas
+conservan sus propios permisos; esta ruta no les añade biometría automáticamente.
+
+## Controles desde Android con KDE Connect habitual (sin biometría por sesión)
 
 1. Empareja el teléfono con el KDE Connect oficial de la computadora.
 2. Habilita **Ejecutar órdenes** en los ajustes de plugins de KDE Connect.
@@ -131,7 +147,7 @@ invocan mediante `argv`, sin interpretar texto del teléfono como una orden de s
 - [Compatibilidad, pruebas reales y pendientes](docs/COMPATIBILITY.md).
 - [Documentación original de Caelestia](docs/CAELESTIA.md).
 - [Resultados de validación](docs/VALIDATION.md).
-- [Diseño de acceso remoto y biometría — aún no habilitado](docs/REMOTE-SECURITY.md).
+- [Canal remoto biométrico — experimental, pendiente de prueba física](docs/REMOTE-SECURITY.md).
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo

@@ -132,6 +132,13 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
             if (!QProcess::startDetached(Integration::executable(entry.first), {})) result({false, "No se pudo abrir la aplicación", {}});
         });
     }
+    auto *securePhone = button("Controlar teléfono con aprobación biométrica", moreLayout);
+    securePhone->setEnabled(!preview && !Integration::executable("umbriel-connect-remote").isEmpty());
+    connect(securePhone, &QPushButton::clicked, this, [this] {
+        if (!QProcess::startDetached(Integration::executable("umbriel-connect-remote"), {"--phone"}))
+            result({false, "No se pudo abrir el control del teléfono", {}});
+    });
+    moreLayout->addWidget(plainLabel("El canal biométrico es experimental y requiere Umbriel Remote en Android, registro previo y una sesión aprobada. Los permisos del KDE Connect habitual se administran por separado."));
     moreLayout->addWidget(plainLabel("Cámara, scrcpy y monitor virtual del cliente original siguen en la ruta heredada. Consulta la matriz de compatibilidad del proyecto antes de activarlos."));
     moreLayout->addStretch(); tabs->addTab(more, "Más funciones");
     m_status = plainLabel("Conectando con KDE Connect…");

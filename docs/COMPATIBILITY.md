@@ -21,6 +21,7 @@ sesión de desarrollo del 2026-11-15.
 | Mascotas / demo / salvapantallas | Socket de undershell | Catálogo y validación; pendiente efecto visual real |
 | Órdenes desde Android | Configuración oficial de `runcommand` | Fusión/respaldo/idempotencia/retirada probados en archivos temporales |
 | Widget Noctalia | Servicio y widget Luau | Lint válido; pendiente activación y prueba gráfica real |
+| Canal biométrico Android ↔ C++ | Implementado por separado; APK API36 firmado | 12 pruebas TLS y 20 checks Java; pendiente huella y accesibilidad reales |
 | scrcpy y cámara/webcam | Código Python original conservado | Sin migrar a interfaz C++; no ofrecer como validado para Umbriel |
 | Audio Bluetooth del teléfono | Código original / herramientas del sistema | Sin integrar en la ventana C++; depende del perfil Bluetooth |
 | Monitor virtual | Motor KDE o backend original | No validado; original usa Hyprland; Android no ofrece la función de monitor entre computadoras |

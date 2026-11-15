@@ -71,6 +71,15 @@ los argumentos generados se escapan individualmente con comillas POSIX; no se
 interpolan nombres de dispositivos ni texto recibido desde el teléfono. El
 ejecutable resultante solo expone el catálogo, sin un comando de shell arbitrario.
 
+## Canal biométrico opcional
+
+`connect-remote`, `umbriel-connect-remote` y `android/` implementan un canal separado
+con aprobación biométrica. Tiene su propia identidad y una sesión TLS con duración
+limitada; no modifica la confianza del daemon KDE. Requiere OpenSSL al compilar y
+puede desactivarse con `UMBRIEL_REMOTE=OFF`. Tailscale de usuario se administra con
+`umbriel-remote-session`; su cuenta y el teléfono necesitan vinculación manual.
+Consulta [REMOTE-SECURITY.md](REMOTE-SECURITY.md) para el protocolo y sus límites.
+
 ## Siguientes migraciones
 
 La interfaz nueva delega las funciones avanzadas del motor oficial a su aplicación
