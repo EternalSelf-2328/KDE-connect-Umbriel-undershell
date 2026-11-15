@@ -1,0 +1,23 @@
+id = "eternalself-2328/umbriel-connect"
+name = "Umbriel Connect"
+version = "0.1.0"
+plugin_api = 45
+author = "EternalSelf-2328"
+license = "GPL-3.0-or-later"
+description = "Phone connection and battery status with native KDE Connect integration."
+icon = "device-mobile"
+tags = ["bar", "service", "utility"]
+
+[[setting]]
+key = "binary"
+type = "string"
+label_key = "settings.binary"
+default = "~/.local/bin/umbriel-connect"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"

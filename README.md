@@ -1,171 +1,156 @@
-# Caelestia Connect
+# Umbriel Connect
 
-A KDE Connect compatible client for the [Caelestia shell](https://github.com/caelestia-dots/shell), written
-from scratch in Python and GTK4. It works with the official KDE Connect Android app and needs no KDE or Qt
-libraries.
+Cliente nativo **C++20 / Qt6** para integrar KDE Connect con **Umbriel, Noctalia y
+undershell**. Este fork proviene de [Caelestia Connect](https://github.com/maylton/caelestia-connect).
 
-![Overview](docs/screenshots/overview.png)
+La ruta nativa usa el daemon oficial `kdeconnectd`, escrito en C++, mediante D-Bus.
+No necesita Plasma ni un segundo daemon de protocolo. La aplicación, el CLI y los
+controles de escritorio nuevos están en `native/`; no requieren Python.
 
-| Messages | Settings |
-|---|---|
-| ![Messages](docs/screenshots/messages.png) | ![Settings](docs/screenshots/settings.png) |
-| **Remote input** | |
-| ![Remote input](docs/screenshots/remote.png) | |
+**Estado: 0.1.0, migración inicial.** No es una traducción completa de las 14.000
+líneas del cliente original. Su código y sus extras se conservan en
+`caelestia_connect/`. Cámara, scrcpy y monitor virtual aún requieren trabajo para
+ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/COMPATIBILITY.md).
 
-## Features
+## Funciones nativas
 
-- Discovery over UDP broadcast and mDNS, and connections over Wi-Fi or Bluetooth
-- Pairing with verification key
-- Battery and mobile signal of the phone
-- Phone notifications with actions, replies and dismissal
-- Sending this computer's notifications to the phone
-- Files, links and text in both directions
-- Shared clipboard
-- Phone media players in the shell's media widgets (MPRIS), and the phone as a remote for local players
-- SMS and MMS conversations, with contact names
-- Call notifications, muting, and pausing media during calls
-- Ring the phone, or let the phone ring this computer
-- Choose whether the phone's sound plays on the phone or on this computer (over Bluetooth)
-- Phone as touchpad and keyboard; remote control and keyboard for the phone
-- Mirror and control the phone in a window, and use its camera as this computer's webcam
-- Sharing this computer's mouse and keyboard with the phone: move the cursor past a screen edge
-- Commands the phone can run on this computer
-- System volume, screen lock, presentation remote and drawing tablet
-- Browsing the phone's files
-- Another computer running KDE Connect as an extra monitor
-- Bar icon and popout in the Caelestia shell
+- Lista de dispositivos, batería, conexión y solicitudes de emparejamiento por eventos.
+- Emparejar, aceptar solicitudes con clave visible y desvincular.
+- Enviar archivos, enlaces y texto; encontrar el teléfono y explorar sus archivos.
+- Controles de escritorios, foco, vista general y DPMS de Umbriel.
+- Volumen, bloqueo, reposo, no molestar y tema claro/oscuro de Noctalia.
+- Editor, visibilidad de widgets, demo, salvapantallas, cinco niveles de rendimiento,
+  seis reacciones de mascotas y perfiles guardados de undershell.
+- Publicar estos controles en **Ejecutar órdenes** del teléfono, con respaldo y
+  conservando las órdenes personales. Se pueden retirar por separado.
+- Widget opcional de Noctalia: estado y batería en el tooltip; clic para abrir.
+- Una sola ventana por sesión. CLI sin dependencia de un servidor gráfico.
 
-## Installation
+`Mostrar todos los widgets` hace visibles también los que ocultaste individualmente;
+ambas acciones de visibilidad persisten mediante el IPC de undershell.
 
-Dependencies on Arch Linux:
+## Instalar
 
-```sh
-sudo pacman -S --needed python-gobject libadwaita python-cryptography python-evdev wl-clipboard libpulse
-sudo pacman -S --needed sshfs gtk4-layer-shell   # optional: file browsing, presentation pointer
-sudo pacman -S --needed scrcpy android-tools android-udev   # optional: screen mirroring, phone camera
-sudo pacman -S --needed wayvnc freerdp           # optional: virtual monitor
-```
+En Arch/CachyOS:
 
-Install:
-
-```sh
+```bash
+sudo pacman -S --needed base-devel cmake qt6-base qt6-wayland kdeconnect
 ./install.sh
+~/.local/bin/umbriel-connect
 ```
 
-This installs `caelestia-connect`, `caelestia-connectd` and `caelestia-connect-cli` in `~/.local/bin`, enables
-the `caelestia-connectd` user service, adds the desktop entry, icon and Nautilus extension, and integrates
-the shell. Restart the shell afterwards.
+El instalador compila, ejecuta las pruebas en un bus privado e instala en `~/.local`.
+No cambia atajos, firewall, servicios, emparejamientos ni ajustes del escritorio.
+Para otro prefijo: `./install.sh --prefix /ruta`.
 
-If a firewall is active, open the KDE Connect ports:
+`umbriel`, `noctalia` y `undershell` son integraciones opcionales. Si falta alguno,
+la aplicación sigue administrando el teléfono. Busca los ejecutables también en
+`~/.local/bin`, aunque el compositor no incluya esa carpeta en `PATH`.
 
-```sh
-sudo ufw allow 1714:1764/udp && sudo ufw allow 1714:1764/tcp
+Para una instalación de sistema o paquetes:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build --parallel 2
+ctest --test-dir build --output-on-failure
+DESTDIR="$PWD/staging" cmake --install build
 ```
 
-Uninstall with `./install.sh --uninstall` (pairing data in `~/.config/caelestia-connect` is kept).
+## Controles desde Android
 
-## Screen mirroring and phone camera
+1. Empareja el teléfono con el KDE Connect oficial de la computadora.
+2. Habilita **Ejecutar órdenes** en los ajustes de plugins de KDE Connect.
+3. Abre Umbriel Connect y selecciona el teléfono.
+4. Presiona **Configurar controles remotos…**, revisa la lista y aplica.
+5. En Android, abre **Ejecutar órdenes**. Si agregas perfiles de undershell,
+   vuelve a publicar para actualizar la lista.
 
-**Mirror screen** opens the phone in a window you can control with the mouse and keyboard, and **Phone
-camera** opens a camera preview that turns with the phone. Both use [scrcpy](https://github.com/Genymobile/scrcpy)
-over Android debugging, which is separate from KDE Connect pairing:
+También puedes revisar y publicar desde el CLI:
 
-- **USB:** enable *USB debugging* in the phone's Developer options, plug in a data cable and allow the prompt.
-- **Wi-Fi:** turn on *Wireless debugging* and pair once with `adb pair` (see
-  [scrcpy's guide](https://github.com/Genymobile/scrcpy/blob/master/doc/connection.md)). The phone is then
-  connected automatically when it announces itself on the network.
-
-The phone is recognised by its IP address or device name; if several devices are connected and none matches,
-you can pick one. The camera needs Android 12 or newer.
-
-Screen mirroring and the phone camera were contributed by [ProSahil (@KingSahil)](https://github.com/KingSahil).
-
-### Webcam
-
-The phone camera can also be used by any application on this computer (Meet, OBS, browsers) as **Caelestia
-Phone Camera**. Set up the virtual camera once:
-
-```sh
-sudo pacman -S --needed scrcpy android-tools android-udev ffmpeg v4l-utils v4l2loopback-dkms linux-headers
-./install.sh --webcam
+```bash
+~/.local/bin/umbriel-connect list
+~/.local/bin/umbriel-connect commands
+~/.local/bin/umbriel-connect publish ID_DEL_TELEFONO
+~/.local/bin/umbriel-connect withdraw ID_DEL_TELEFONO
 ```
 
-Use the headers package of your kernel (`linux-zen-headers`, `linux-lts-headers`...).
+Se guarda una copia `config.bak-umbriel-connect-*` junto a la configuración del
+plugin. Solo se administran claves JSON con prefijo `umbriel_connect__`. El
+archivo se escribe con `QSettings` de forma atómica y se emite la misma señal
+`configChanged` que usa KDE; no se reinicia el daemon. El bloqueo de nuestra
+aplicación evita dos publicaciones simultáneas desde Umbriel Connect. Evita editar
+las órdenes en la app oficial mientras publicas: la app oficial no comparte ese bloqueo.
 
-This creates the device now and at every boot. From then on it works by itself while the phone is connected:
-the phone camera only turns on while an application is using the webcam, and pauses while the preview window
-is open. The camera, an extra rotation and turning the webcam off are in the device settings, under *Screen
-mirroring and camera*.
+## Widget de Noctalia
 
-If you already use v4l2loopback (for OBS, for example), `install.sh` leaves your configuration alone: add two
-devices labelled `Caelestia Phone Camera` and `Caelestia Camera Input` to it instead.
+Requiere API 45 o posterior. Una vez instalado el cliente:
 
-## Shell integration
-
-`caelestia/integrate.py` copies the QML files into the shell and applies small, marked patches to the status
-icons and the bar popouts. It can be re-run safely and reverted with `--uninstall`; the original files are
-kept as `.orig`. To patch another checkout, use `--shell <dir>`.
-
-The icon is placed next to bluetooth. To choose its position, add `{"id": "kdeConnect", "enabled": true}`
-to `bar.statusIcons` in `shell.json`.
-
-## CLI
-
-```sh
-caelestia-connect-cli list
-caelestia-connect-cli ping "hello"
-caelestia-connect-cli share photo.jpg https://example.com
-caelestia-connect-cli send-clipboard
-caelestia-connect-cli sms +15551234567 "message"
-caelestia-connect-cli media PlayPause
-caelestia-connect-cli ring
-caelestia-connect-cli call <plugin> <action> '<json args>'
-caelestia-connect-cli watch
+```bash
+noctalia msg plugins source add umbriel-connect-local path ~/.local/share/umbriel-connect/noctalia
+noctalia msg plugins enable eternalself-2328/umbriel-connect
 ```
 
-## Development
+Después agrega **Umbriel Connect** desde los ajustes de widgets de la barra. El
+plugin comparte un único proceso C++ `watch` entre todas las barras, además de una
+shell de supervisión. No hace sondeo periódico; al salir el proceso, limpia el estado
+y reintenta después de tres segundos. La ruta del ejecutable se puede configurar.
 
-```
-caelestia_connect/
-  daemon.py, api.py   background service and the methods it exposes over IPC
-  lan.py              discovery, TLS links and payload transfers
-  mdns.py             mDNS responder and browser
-  bluetooth.py        RFCOMM links over BlueZ, with KDE Connect's channel multiplexing
-  device.py           pairing and packet routing
-  plugins/            one module per feature
-  desktop/            notifications, MPRIS, clipboard, audio, input, power, session, ADB and webcam
-  ui/                 GTK4 app
-  cli.py              command line client
-caelestia/            shell QML and integrate.py
-data/                 desktop entry, icon, systemd unit and Nautilus extension
-tests/                fake Android peer, end-to-end test and demo
+No cambia automáticamente tus barras. Para desactivarlo:
+
+```bash
+noctalia msg plugins disable eternalself-2328/umbriel-connect
 ```
 
-```sh
-ruff check . && ruff format --check .
-for t in tests/test_*.py; do python3 "$t"; done   # unit tests
-python3 tests/run_integration.py <local-ip>   # stop caelestia-connectd and close the app first
-python3 tests/demo.py                         # demo phone, no real device needed
+## CLI y atajos
+
+```bash
+umbriel-connect --help
+umbriel-connect list
+umbriel-connect watch
+umbriel-connect share ID /ruta/al/archivo
+umbriel-connect text ID 'Un texto para el teléfono'
+umbriel-connect actions
+umbriel-connect profiles
+umbriel-connect action undershell.edit-on
+umbriel-connect action undershell.perf-eco
+umbriel-connect action undershell.pet-dance
+umbriel-connect action undershell.profile ID_DEL_PERFIL
+umbriel-connect action umbriel.overview-toggle
 ```
 
-## Notes
+En los atajos del compositor, usa la ruta absoluta al ejecutable. El catálogo
+`actions` indica disponibilidad de las dependencias; la ejecución valida errores.
+Los mensajes enviados por el socket de undershell tienen límite, timeout y control
+del propietario. Una respuesta de error produce un código de salida distinto de cero.
+Los argumentos de teléfono se pasan por D-Bus; los programas de escritorio se
+invocan mediante `argv`, sin interpretar texto del teléfono como una orden de shell.
 
-- **Bluetooth:** pair the phone with the computer in the system Bluetooth settings and enable Bluetooth in the
-  KDE Connect app settings. Wi-Fi is preferred when both are available; file browsing needs Wi-Fi.
-- **Audio output** needs the phone paired over Bluetooth with *Media audio* enabled for this computer. The
-  button in the media card connects or disconnects the phone's audio; PipeWire does the routing.
-- **Mouse and keyboard sharing** is off by default: enable *Share mouse and keyboard* in the device settings
-  and choose the screen edge. The phone needs the *Mouse receiver* plugin and its accessibility permission.
-  Moving the pointer back past the phone's edge returns it; Ctrl+Alt+Esc always does.
-- **Virtual monitor** works between computers (the Android app has no support for it). Extending this
-  computer's display needs `wayvnc`; showing another computer's virtual monitor needs FreeRDP, Remmina or KRDC.
+## Arquitectura y comprobaciones
 
-## Credits
+- [Arquitectura, decisiones y migración](docs/NATIVE.md).
+- [Compatibilidad, pruebas reales y pendientes](docs/COMPATIBILITY.md).
+- [Documentación original de Caelestia](docs/CAELESTIA.md).
+- [Resultados de validación](docs/VALIDATION.md).
 
-- [ProSahil (@KingSahil)](https://github.com/KingSahil): screen mirroring and the phone camera as a webcam.
-- [KDE Connect](https://invent.kde.org/network/kdeconnect-kde), whose protocol this app implements, and
-  [scrcpy](https://github.com/Genymobile/scrcpy), which powers screen mirroring and the camera.
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build --parallel 2
+ctest --test-dir build --output-on-failure
+noctalia plugins lint integrations/noctalia/umbriel-connect
+QT_QPA_PLATFORM=offscreen build/umbriel-connect --preview build/preview.png
+```
 
-## License
+Las pruebas nativas usan un bus D-Bus privado, un teléfono falso y sockets/configs
+temporales. No debes probar DPMS, bloqueo, red o escritura de widgets en tu sesión
+real mientras trabajas de forma remota.
 
-GPL-3.0-or-later
+La ruta heredada se instala explícitamente con `bash scripts/install-legacy.sh
+--no-shell`; no ejecutes simultáneamente ambos daemons de protocolo. Sus
+emparejamientos son independientes y sus adaptaciones exclusivas de Hyprland siguen
+pendientes. El instalador original ya no es la instalación predeterminada del fork.
+
+## Licencia y créditos
+
+GPL-3.0-or-later. Cliente original: Caelestia Connect y sus colaboradores. Motor
+nativo: [KDE Connect](https://invent.kde.org/network/kdeconnect-kde). Integración con
+Umbriel y undershell: EternalSelf-2328. Se conservan los avisos de autoría del proyecto original.
