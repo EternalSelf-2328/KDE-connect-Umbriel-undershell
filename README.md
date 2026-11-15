@@ -131,6 +131,7 @@ invocan mediante `argv`, sin interpretar texto del teléfono como una orden de s
 - [Compatibilidad, pruebas reales y pendientes](docs/COMPATIBILITY.md).
 - [Documentación original de Caelestia](docs/CAELESTIA.md).
 - [Resultados de validación](docs/VALIDATION.md).
+- [Diseño de acceso remoto y biometría — aún no habilitado](docs/REMOTE-SECURITY.md).
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
