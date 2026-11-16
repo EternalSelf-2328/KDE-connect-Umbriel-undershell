@@ -7,7 +7,7 @@ La ruta nativa usa el daemon oficial `kdeconnectd`, escrito en C++, mediante D-B
 No necesita Plasma ni un segundo daemon de protocolo. La aplicación, el CLI y los
 controles de escritorio nuevos están en `native/`; no requieren Python.
 
-**Estado: 0.1.0, migración inicial.** No es una traducción completa de las 14.000
+**Estado: 0.2.0, migración parcial.** No es una traducción completa de las 14.000
 líneas del cliente original. Su código y sus extras se conservan en
 `caelestia_connect/`. Cámara, scrcpy y monitor virtual aún requieren trabajo para
 ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/COMPATIBILITY.md).
@@ -35,6 +35,22 @@ ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/
 `Mostrar todos los widgets` hace visibles también los que ocultaste individualmente;
 ambas acciones de visibilidad persisten mediante el IPC de undershell.
 
+## Controles y fondos en 0.2.0
+
+- Touchpad móvil: movimiento relativo, clic izquierdo/derecho, desplazamiento con
+  dos dedos, mantener para arrastrar y sensibilidad. Requiere Xwayland/XTest y
+  puede solicitar aprobación local en Umbriel; no usa accesibilidad Android.
+- Navegación con cruceta de foco, vista general y escritorios anterior/siguiente.
+- Volumen real con deslizador de 0–100 %, silencio y reproducción; tema claro/oscuro,
+  no molestar y reposo con controles dedicados.
+- Biblioteca de **undershell-wall** en escritorio y móvil: búsqueda, favoritos,
+  doce elementos por página, miniaturas y confirmación para aplicar. Utiliza su
+  CLI para conservar renderizadores, hooks y tema; no cambia fondos al explorar.
+
+[Funcionamiento, restricciones de Tailscale y pendientes](docs/REMOTE-CONTROLS.md).
+Las rutas nuevas están probadas con servicios simulados; el touchpad y la nueva
+interfaz móvil todavía requieren prueba física en el Galaxy.
+
 ## Instalar
 
 En Arch/CachyOS:
@@ -49,7 +65,10 @@ El instalador compila, ejecuta las pruebas en un bus privado e instala en `~/.lo
 No cambia atajos, firewall, servicios, emparejamientos ni ajustes del escritorio.
 Para otro prefijo: `./install.sh --prefix /ruta`.
 
-`umbriel`, `noctalia` y `undershell` son integraciones opcionales. Si falta alguno,
+`libwebp` permite leer las miniaturas del proveedor sin el plugin WebP de Qt.
+`libxtst` y `libx11` habilitan opcionalmente el touchpad de escritorio; se detectan
+al compilar. `umbriel`, `noctalia`, `undershell` y `undershell-wallctl` son
+integraciones opcionales. Si falta alguno,
 la aplicación sigue administrando el teléfono. Busca los ejecutables también en
 `~/.local/bin`, aunque el compositor no incluya esa carpeta en `PATH`.
 
@@ -64,12 +83,12 @@ DESTDIR="$PWD/staging" cmake --install build
 
 ## Acceso remoto con aprobación biométrica (experimental)
 
-[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.1.1.apk) ·
+[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.2.0.apk) ·
 [Guía de registro, VPN y límites](docs/REMOTE-SECURITY.md).
 
-La descarga **0.1.1 tiene permisos mínimos y solo controla la computadora**. No
-incluye accesibilidad ni captura/control del teléfono. La versión anterior fue
-bloqueada por Play Protect: consulta el [diagnóstico y cambio de alcance](docs/PLAY-PROTECT.md).
+La descarga **0.2.0 tiene permisos mínimos y solo controla la computadora**. No
+incluye accesibilidad ni captura/control del teléfono. El APK 0.1.0 fue
+bloqueado por Play Protect: consulta el [diagnóstico y cambio de alcance](docs/PLAY-PROTECT.md).
 La nueva instalación todavía debe verificarse en el Galaxy; no se pide desactivar
 Play Protect.
 

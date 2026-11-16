@@ -1,10 +1,11 @@
 # Canal remoto con aprobación biométrica
 
-**Estado: implementación experimental del 2026-11-15.** El APK 0.1.0 fue bloqueado
-por Play Protect al intentar instalarlo en el Galaxy. La descarga 0.1.1 reduce permisos
-y funciones a teléfono→computadora; todavía no se comprobó su instalación física.
-El control inverso se conserva como variante de código separada, pendiente de revisión.
-[Diagnóstico y límites](PLAY-PROTECT.md).
+**Estado actualizado el 2026-11-16: versión 0.2.0, experimental.** El APK 0.1.0 fue
+bloqueado por Play Protect; la edición mínima 0.1.1 después registró una sesión
+Android autorizada. La 0.2.0 conserva permisos mínimos y añade controles de
+computadora, touchpad y galería; su nueva UI/entrada física siguen pendientes de
+prueba en el Galaxy. El control inverso continúa como variante de código separada,
+pendiente de revisión. [Diagnóstico](PLAY-PROTECT.md) y [alcance actual](REMOTE-CONTROLS.md).
 
 Equipo objetivo informado por el usuario: **Galaxy A24, Android 16, One UI 8.5**.
 No se registran IMEI, serie, número telefónico ni capturas de información personal.
@@ -33,8 +34,9 @@ notificaciones o accesos remotos que ya existan.
 
 ## Instalar la app Android
 
-APK mínimo de prueba: [UmbrielRemote-0.1.1.apk](../downloads/UmbrielRemote-0.1.1.apk).
+APK mínimo de prueba: [UmbrielRemote-0.2.0.apk](../downloads/UmbrielRemote-0.2.0.apk).
 Esta edición no declara accesibilidad y no permite controlar ni capturar el teléfono.
+La 0.2.0 añade mouse de computadora, controles dedicados y fondos; [uso y límites](REMOTE-CONTROLS.md).
 Está firmado con una identidad de desarrollo propia que se conserva fuera del
 repositorio; la clave privada de firma y su contraseña no están en Git. La app no
 pide acceso a contactos, SIM, número de teléfono, cámara ni micrófono.

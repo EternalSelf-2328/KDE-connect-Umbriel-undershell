@@ -32,7 +32,10 @@ public class MainActivity extends Activity {
     private UiDesign design;
     private Button connectButton;
     private TextView deviceState;
-    private LinearLayout setup;
+    private LinearLayout setup,connectionPanel;
+    private TextView intro,tagline;
+    private Button disconnectButton;
+    private RemoteDashboard dashboard;
 
     private Button button(String label, LinearLayout parent, Runnable onClick) {
         Button b = design.button(label,false); design.add(parent,b,8);
@@ -51,8 +54,8 @@ public class MainActivity extends Activity {
         });
         scroll.addView(root); setContentView(scroll);
         design.add(root,design.label("Umbriel Connect",14,design.accent,true),16);
-        design.add(root,design.label("Tu escritorio,\na un toque.",32,design.text,true),12);
-        design.add(root,design.label("Conecta de forma privada y autoriza el acceso con tu huella.",15,design.muted,false),24);
+        intro=design.label("Tu escritorio,\na un toque.",32,design.text,true);design.add(root,intro,12);
+        tagline=design.label("Conecta de forma privada y autoriza el acceso con tu huella.",15,design.muted,false);design.add(root,tagline,24);
         LinearLayout hero=design.card();
         LinearLayout heroRow=new LinearLayout(this);heroRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         android.view.View computer=design.glyph("desktop");heroRow.addView(computer,new LinearLayout.LayoutParams(design.dp(48),design.dp(48)));
@@ -60,6 +63,7 @@ public class MainActivity extends Activity {
         design.add(deviceInfo,design.label("Mi computadora",21,design.text,true),4);
         deviceState=design.label("Sin conexión",13,design.muted,false);deviceInfo.addView(deviceState);
         heroRow.addView(deviceInfo,new LinearLayout.LayoutParams(0,-2,1));hero.addView(heroRow);design.add(root,hero,16);
+        connectionPanel=design.column();design.add(root,connectionPanel,8);
         pairing = new EditText(this); pairing.setHint("Registro privado de la computadora"); pairing.setMinLines(3); pairing.setMaxLines(6);
         pairing.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         setup=design.card();design.add(setup,design.label("Conecta tus dispositivos",18,design.text,true),8);
@@ -76,7 +80,7 @@ public class MainActivity extends Activity {
             }).setNegativeButton("Cancelar",null)
             .setOnDismissListener(dialog->{if(pairing.getParent()!=null)((android.view.ViewGroup)pairing.getParent()).removeView(pairing);}).show();
         });
-        design.add(root,setup,16);
+        design.add(connectionPanel,setup,16);
         LinearLayout permission=design.card();
         phoneControl = new CheckBox(this); phoneControl.setText("Permitir controlar este teléfono");phoneControl.setTextSize(15);phoneControl.setTextColor(design.text);
         phoneControl.setButtonTintList(android.content.res.ColorStateList.valueOf(design.accent));
@@ -98,13 +102,14 @@ public class MainActivity extends Activity {
             design.add(permission,design.label("Control de computadora",16,design.text,true),8);
             design.add(permission,design.label("Esta edición permite controlar tu escritorio con huella. No puede leer la pantalla, capturar ni manejar este teléfono.",14,design.muted,false),0);
         }
-        design.add(root,permission,16);
-        connectButton=design.button("Conectar con huella",true);connectButton.setOnClickListener(v->connect());design.add(root,connectButton,8);
-        button("Desconectar y revocar esta sesión", root, () -> {
+        design.add(connectionPanel,permission,16);
+        connectButton=design.button("Conectar con huella",true);connectButton.setOnClickListener(v->connect());design.add(connectionPanel,connectButton,8);
+        disconnectButton=button("Cerrar sesión", root, () -> {
             stopService(new Intent(this, RemoteService.class)); clearActions(); showStatus("Sesión cerrada");
         });
+        disconnectButton.setVisibility(View.GONE);
         status = design.label("",13,design.muted,false); status.setTextIsSelectable(true);design.add(root,status,20);
-        button("Cambiar computadora…",root,()->{
+        button("Cambiar computadora…",connectionPanel,()->{
             RemoteService owner=RemoteService.instance;if(owner!=null)owner.closeConnection();
             stopService(new Intent(this,RemoteService.class));clearActions();setup.setVisibility(View.VISIBLE);
             showStatus("Importa el nuevo registro y aprueba otra sesión con tu huella.");
@@ -168,7 +173,7 @@ public class MainActivity extends Activity {
             showStatus("Conectando con la identidad registrada…");
         } catch (Exception e) { showStatus("Importa un archivo pairing.json válido generado en la computadora."); }
     }
-    void clearActions() { generation++; commands.removeAllViews();if(deviceState!=null)deviceState.setText("Sin conexión"); }
+    void clearActions() { generation++;if(dashboard!=null){dashboard.dispose();dashboard=null;}commands.removeAllViews();if(deviceState!=null)deviceState.setText("Sin conexión");connectionPanel.setVisibility(View.VISIBLE);intro.setVisibility(View.VISIBLE);tagline.setVisibility(View.VISIBLE);disconnectButton.setVisibility(View.GONE); }
     void showStatus(String text) { runOnUiThread(() -> status.setText(text)); }
     void approve(Signature signature, byte[] challenge, RemoteService owner, long connection) {
         runOnUiThread(() -> {
@@ -192,6 +197,7 @@ public class MainActivity extends Activity {
     }
     void authorized(RemoteService owner) {
         runOnUiThread(() -> {
+            if(RemoteService.instance!=owner||!owner.isAuthorized())return;
             // The enrollment token is single-use and must not remain in preferences.
             try { JSONObject config = new JSONObject(pairing.getText().toString()); config.remove("token"); config.remove("expires");
                 pairing.setText(config.toString()); getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server", config.toString()).apply();
@@ -199,43 +205,8 @@ public class MainActivity extends Activity {
             clearActions();
             deviceState.setText("Sesión aprobada con huella");
             showStatus("Sesión aprobada con huella. Se cerrará al bloquear el teléfono o al cumplirse 10 minutos.");
-            owner.request("catalog", new JSONObject(), response -> showCatalog(response, owner));
-            owner.request("profiles", new JSONObject(), response -> showProfiles(response, owner));
+            connectionPanel.setVisibility(View.GONE);intro.setVisibility(View.GONE);tagline.setVisibility(View.GONE);disconnectButton.setVisibility(View.VISIBLE);
+            dashboard=new RemoteDashboard(this,design,owner,this::showStatus);commands.addView(dashboard);
         });
     }
-    private void showCatalog(JSONObject reply, RemoteService owner) {
-        runOnUiThread(() -> {
-            if (RemoteService.instance != owner || !owner.isAuthorized()) return;
-            JSONArray actions = reply.optJSONArray("value"); if (actions == null) return;
-            String group = "";GridLayout grid=null;int column=0;
-            for (int i=0; i<actions.length(); i++) {
-                JSONObject action = actions.optJSONObject(i); if (action == null) continue;
-                if (grid==null || !group.equals(action.optString("group"))) {
-                    group=action.optString("group");design.add(commands,design.label(group.equals("undershell")?"Tus widgets":group.equals("umbriel")?"Escritorios y ventanas":"Sonido y apariencia",20,design.text,true),12);
-                    grid=new GridLayout(this);grid.setColumnCount(2);design.add(commands,grid,20);column=0;
-                }
-                String id = action.optString("id");
-                Button b = design.tile(action.optString("name"));b.setOnClickListener(v -> {
-                    try { owner.request("action", new JSONObject().put("action", id).put("args", new JSONArray()), this::showResult); }
-                    catch (JSONException ignored) { }
-                });
-                GridLayout.LayoutParams cell=new GridLayout.LayoutParams(GridLayout.spec(column/2),GridLayout.spec(column%2,1f));cell.width=0;cell.setMargins(0,0,design.dp(6),design.dp(8));grid.addView(b,cell);column++;
-                b.setEnabled(action.optBoolean("available"));
-            }
-        });
-    }
-    private void showProfiles(JSONObject reply, RemoteService owner) {
-        runOnUiThread(() -> {
-            if (RemoteService.instance != owner || !owner.isAuthorized()) return;
-            JSONArray profiles=reply.optJSONArray("value"); if (profiles == null) return;
-            for (int i=0; i<profiles.length(); i++) {
-                JSONObject profile=profiles.optJSONObject(i); if (profile == null) continue;
-                button("Perfil: " + profile.optString("name"), commands, () -> {
-                    try { owner.request("action", new JSONObject().put("action", "undershell.profile").put("args", new JSONArray().put(profile.optString("id"))), this::showResult); }
-                    catch (JSONException ignored) { }
-                });
-            }
-        });
-    }
-    private void showResult(JSONObject reply) { showStatus(reply.optBoolean("ok") ? "Acción completada" : reply.optString("error", "No se pudo completar la acción")); }
 }

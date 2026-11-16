@@ -1,12 +1,13 @@
 # Compatibilidad y alcance
 
-La versión 0.1.0 es una aplicación nativa funcional sobre el motor oficial. No se
-afirma compatibilidad del 100 %: no hubo un teléfono físico disponible en la
-sesión de desarrollo del 2026-11-15.
+Actualizado el 2026-11-16 para 0.2.0. Se confirmó una sesión Android autorizada
+sobre Tailscale y transferencia de registro aceptada por KDE Connect. La matriz
+separa implementación de prueba física; no se afirma compatibilidad del 100%.
+Consulta [controles, fondos y restricciones](REMOTE-CONTROLS.md).
 
 | Función | Ruta nativa | Verificación |
 |---|---|---|
-| Lista, estado y batería | D-Bus KDE Connect | Teléfono simulado; daemon real con un dispositivo emparejado desconectado |
+| Lista, estado y batería | D-Bus KDE Connect | Teléfono simulado; daemon real con A24 emparejado y conectado |
 | Emparejar / aceptar / desvincular | D-Bus; clave visible | Guardas y aceptación simuladas; pendiente Android real |
 | Archivos, URL, texto, ping y encontrar teléfono | Plugins oficiales | API verificada; texto/archivo probados con teléfono D-Bus falso |
 | Explorar archivos | Plugin SFTP oficial | Método y resultado booleano implementados; pendiente teléfono real |
@@ -21,10 +22,13 @@ sesión de desarrollo del 2026-11-15.
 | Mascotas / demo / salvapantallas | Socket de undershell | Catálogo y validación; pendiente efecto visual real |
 | Órdenes desde Android | Configuración oficial de `runcommand` | Fusión/respaldo/idempotencia/retirada probados en archivos temporales |
 | Widget Noctalia | Servicio y widget Luau | Lint válido; pendiente activación y prueba gráfica real |
-| Canal biométrico Android ↔ C++ | Implementado por separado; APK API36 firmado | 12 pruebas TLS y 20 checks Java; pendiente huella y accesibilidad reales |
+| Canal biométrico Android ↔ C++ | Implementado por separado; APK API36 firmado | 13 pruebas TLS y 20 checks Java; sesión real autorizada, control inverso fuera del APK mínimo |
 | scrcpy y cámara/webcam | Código Python original conservado | Sin migrar a interfaz C++; no ofrecer como validado para Umbriel |
 | Audio Bluetooth del teléfono | Código original / herramientas del sistema | Sin integrar en la ventana C++; depende del perfil Bluetooth |
 | Monitor virtual | Motor KDE o backend original | No validado; original usa Hyprland; Android no ofrece la función de monitor entre computadoras |
+| Touchpad biométrico | C++ XTest/Xwayland y UI Android | Límites, arrastre/liberación y cancelación simulados; puntero real pendiente |
+| Galería undershell-wall | CLI oficial, metadatos y miniaturas restringidas | 462 registros consultados; paginación/rutas/aplicar con proveedor falso; Galaxy pendiente |
+| Navegación y sonido dedicados | Cruceta, escritorios, volumen y reproducción | API/argv probados con servicios falsos; nueva UI Android pendiente de inspección física |
 
 ## Prueba final cuando el teléfono esté disponible
 

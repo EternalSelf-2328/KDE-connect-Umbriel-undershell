@@ -73,3 +73,19 @@ ctest --test-dir build --output-on-failure
 UMBRIEL_CONNECT_THEME=dark QT_QPA_PLATFORM=offscreen build/umbriel-connect --preview build/design.png
 UMBRIEL_CONNECT_THEME=light QT_QPA_PLATFORM=offscreen build/umbriel-connect --preview build/design-light.png
 ```
+
+## Ampliación 0.2.0
+
+Las vistas móviles se separan en Navegación, Mouse, Sonido y apariencia, y Fondos.
+Se reduce el encabezado tras aprobar la sesión. La cruceta organiza el foco espacial;
+los escritorios y controles avanzados mantienen su significado por texto. Sonido
+usa deslizador, silencio con estado y reproducción. La galería muestra doce tarjetas
+por página y un diálogo con imagen antes de aplicar.
+
+En Qt, Mi escritorio separa navegación/sonido/widgets. Fondos ofrece búsqueda,
+favoritos y miniaturas. Se revisaron los renders sintéticos; falta render físico
+Android de esta ampliación. No se publican fondos reales de la biblioteca del usuario.
+
+![Sonido y apariencia](screenshots/native-sound.png)
+
+![Selector de fondos con imágenes sintéticas](screenshots/native-wallpapers.png)

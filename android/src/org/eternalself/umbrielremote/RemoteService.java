@@ -192,7 +192,7 @@ public class RemoteService extends Service {
         if(callbacks.size()>=16){tell("Espera a que terminen las solicitudes anteriores");return;}
         try{String id; synchronized(this){id=Long.toString(++requestNumber);}
             args.put("type",type).put("request",id);callbacks.put(id,callback);send(args);
-            main.postDelayed(()->callbacks.remove(id),12000);
+            main.postDelayed(()->{Consumer<JSONObject> waiting=callbacks.remove(id);if(waiting!=null)try{waiting.accept(new JSONObject().put("ok",false).put("error","La computadora no respondió a tiempo"));}catch(JSONException ignored){}},12000);
         }catch(JSONException e){closeConnection();}
     }
 }

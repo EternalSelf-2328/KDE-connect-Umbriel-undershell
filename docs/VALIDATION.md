@@ -112,8 +112,8 @@ APK actualizado: **37.337 bytes**, firma v3 verificada. La SessionGuard de Andro
 mantiene sus 20 comprobaciones aprobadas. No se renderizó Android en emulador ni en
 el teléfono. Ninguna captura publicada representa una conexión física validada.
 
-Instalación nativa final: `366744` bytes; receptor
-`379544` bytes, sin símbolos. No se repitieron las mediciones de
+Instalación nativa final: `366744`  bytes; receptor
+`379544`  bytes, sin símbolos. No se repitieron las mediciones de
 latencia/RSS iniciales ni se extrapolan al nuevo diseño.
 
 ## Bloqueo físico de Play Protect y APK mínimo 0.1.1
@@ -133,3 +133,37 @@ APK publicado: **33170 bytes**, SHA256
 
 No se afirma aprobación de Google ni instalación exitosa de 0.1.1 en el Galaxy.
 No se cambió código nativo, la red, la sesión remota ni las protecciones del teléfono.
+
+## Ampliación 0.2.0 —2026-11-16
+
+Seis grupos de CTest aprobaron en 9,98 s: 13 pruebas TLS reales con clientes simulados,
+15 resultados nativos, 7 diseño, 6 servicios y 5 mouse (QtTest incluye init/cleanup),
+más el helper. Los nuevos casos comprueban autenticación, rutas privadas, paginación,
+favoritos, miniaturas JPEG, argumentos de aplicación, volumen y liberación de botones.
+XTest está simulado; no se tocó el puntero o el fondo real. El bus de pruebas es privado.
+
+APK mínimo 49554 bytes, variante opcional 53721  bytes; firma v3 y misma identidad,
+versionCode 3. La inspección del manifiesto/DEX confirma permisos mínimos, inclusión
+de RemoteDashboard/Touchpad y exclusión de accesibilidad en la descarga. SessionGuard
+mantiene 20 checks. No hay render físico/emulador Android de la nueva interfaz.
+
+Lecturas reales: 462 registros en undershell-wall, Noctalia desbloqueado y portal
+RemoteDesktop ausente. No se publicaron sus imágenes. Renders Qt offscreen con
+imágenes sintéticas, temas claros/oscuros y tamaños compactos comprobados.
+
+Las pruebas reales de mouse, permisos del compositor, cambio de fondo desde el
+celular y otra red siguen pendientes. [Detalle de alcance](REMOTE-CONTROLS.md).
+
+Se detectó ausencia del plugin Qt WebP en el equipo y se añadió decodificación
+directa con libwebp 1.6.0 ya instalado. Un caso adicional comprueba WebP→JPEG
+escalado sin ese plugin; la suite de servicios ahora tiene 6 resultados.
+
+Comprobación real sin aplicar fondos: 462 registros visibles,
+miniatura JPEG de 320×180 y 12137 bytes,
+obtenida por el mismo adaptador C++. Solo se guardaron métricas, ninguna imagen real.
+Después del ajuste final de textos se repitió diseño: 1/1 grupo, 7 resultados aprobados.
+
+APK mínimo final SHA256 `0513119426ab7b7b8b4c0bf18eff8c3188227203e7c6f43413d44e23be7b3ae2`.
+Escritorio instalado: 478104 bytes;
+receptor: 470264 bytes, sin símbolos.
+Claves y registro conservados, receptor reiniciado, Tailscale sin reiniciar.
