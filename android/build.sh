@@ -6,16 +6,18 @@ CACHE="${UMBRIEL_ANDROID_TOOLS:-$HOME/.cache/umbriel-connect-android}"
 JAVA_HOME_UC="${UMBRIEL_JDK:-$CACHE/jdk-21.0.13+9}"
 PLATFORM="${UMBRIEL_ANDROID_PLATFORM:-$CACHE/sdk/android-36}"
 BUILD_TOOLS="${UMBRIEL_ANDROID_BUILD_TOOLS:-$CACHE/sdk/android-16}"
-OUT="$SOURCE/../build/android"
+VARIANT="${1:-desktop}"
+case "$VARIANT" in desktop|phone-control) ;; *) echo "Usage: bash android/build.sh [desktop|phone-control]" >&2; exit 2;; esac
+OUT="$SOURCE/../build/android/$VARIANT"
 SIGNING_KEY="${UMBRIEL_ANDROID_SIGNING_KEY:-$HOME/.local/share/umbriel-connect/android-release.p12}"
 SIGNING_PASSWORD="${UMBRIEL_ANDROID_SIGNING_PASSWORD_FILE:-$SIGNING_KEY.password}"
 [[ -x "$JAVA_HOME_UC/bin/javac" && -f "$PLATFORM/android.jar" && -x "$BUILD_TOOLS/aapt2" ]] || {
   echo "Set UMBRIEL_JDK, UMBRIEL_ANDROID_PLATFORM and UMBRIEL_ANDROID_BUILD_TOOLS to installed tools." >&2; exit 1;
 }
-mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/generated"
-"$BUILD_TOOLS/aapt2" compile --dir "$SOURCE/res" -o "$OUT/resources.zip"
-"$BUILD_TOOLS/aapt2" link -o "$OUT/base.apk" -I "$PLATFORM/android.jar" --manifest "$SOURCE/AndroidManifest.xml" --java "$OUT/generated" "$OUT/resources.zip"
-mapfile -t SOURCES < <(find "$SOURCE/src" "$OUT/generated" -name '*.java' -print)
+python3 "$SOURCE/prepare.py" "$VARIANT" "$OUT"
+"$BUILD_TOOLS/aapt2" compile --dir "$OUT/res" -o "$OUT/resources.zip"
+"$BUILD_TOOLS/aapt2" link -o "$OUT/base.apk" -I "$PLATFORM/android.jar" --manifest "$OUT/AndroidManifest.xml" --java "$OUT/generated" "$OUT/resources.zip"
+mapfile -t SOURCES < <(find "$SOURCE/src" "$SOURCE/variants/$VARIANT" "$OUT/generated" -name '*.java' -print)
 "$JAVA_HOME_UC/bin/javac" -encoding UTF-8 -source 8 -target 8 -Xlint:-options -classpath "$PLATFORM/android.jar" -d "$OUT/classes" "${SOURCES[@]}"
 "$JAVA_HOME_UC/bin/jar" --create --file "$OUT/classes.jar" -C "$OUT/classes" .
 PATH="$JAVA_HOME_UC/bin:$PATH" JAVA_HOME="$JAVA_HOME_UC" "$BUILD_TOOLS/d8" --lib "$PLATFORM/android.jar" --min-api 30 --output "$OUT/dex" "$OUT/classes.jar"

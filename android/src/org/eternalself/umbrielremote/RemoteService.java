@@ -55,7 +55,7 @@ public class RemoteService extends Service {
             .setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,"Desconectar",stop).build()).build();
         startForeground(17,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
         try {config=new JSONObject(intent.getStringExtra("config"));}catch(Exception e){tell("Registro inválido"); stopSelf(); return START_NOT_STICKY;}
-        requestedPhone=intent.getBooleanExtra("phoneControl",false);
+        requestedPhone=BuildFeatures.PHONE_CONTROL && intent.getBooleanExtra("phoneControl",false);
         final long generation=connection;
         final JSONObject settings=config;
         readerExecutor.execute(()->connect(settings,generation));
@@ -148,7 +148,7 @@ public class RemoteService extends Service {
                     final JSONObject command=message;
                     main.post(()->{
                         if(generation!=connection||!isAuthorized()||!unlocked())return;
-                        PhoneAccessibility.perform(command,(ok,error,value)->{
+                        PhoneControl.perform(command,(ok,error,value)->{
                             if(generation!=connection||!isAuthorized()||!unlocked())return;
                             try{send(new JSONObject().put("type","phone-result").put("id",command.optString("id")).put("ok",ok).put("error",error).put("value",value));}catch(JSONException ignored){}
                         });

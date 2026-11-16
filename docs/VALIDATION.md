@@ -77,7 +77,7 @@ y las funciones del cliente original que aún no están migradas a la ventana C+
 ## Ampliación biométrica del mismo día
 
 Se compiló e instaló `umbriel-connect-remote` y el helper `umbriel-remote-session`.
-APK Android API36 empaquetado y firmado con APK Signature Scheme v3; firma verificada.
+APK Android API 36 empaquetado y firmado con APK Signature Scheme v3; firma verificada.
 La primera compilación de esta fase ocupaba 33.241 bytes (APK) y 333.848 bytes
 (receptor); las cifras posteriores al rediseño se registran abajo.
 No hay mediciones de CPU/RAM en el Galaxy A24 físico.
@@ -115,3 +115,21 @@ el teléfono. Ninguna captura publicada representa una conexión física validad
 Instalación nativa final: `366744` bytes; receptor
 `379544` bytes, sin símbolos. No se repitieron las mediciones de
 latencia/RSS iniciales ni se extrapolan al nuevo diseño.
+
+## Bloqueo físico de Play Protect y APK mínimo 0.1.1
+
+El primer intento de instalación real del APK 0.1.0 fue bloqueado por Play Protect
+(según captura enviada por el usuario). No se llegó a probar la app o la huella.
+El [diagnóstico](PLAY-PROTECT.md) documenta la causa probable y las limitaciones.
+
+Se construyeron dos variantes aisladas. La descarga mínima 0.1.1 excluye del
+manifiesto, recursos y DEX el servicio de accesibilidad/captura/gestos. Se verifican
+sus permisos exactos, firma v3 y la misma identidad que0.1.0. Una prueba Java ejecuta
+el backend mínimo y confirma su rechazo; SessionGuard mantiene 20 checks aprobados.
+El control inverso queda en una variante de código opcional no publicada como APK.
+
+APK publicado: **33170 bytes**, SHA256
+`6b6f700cd347248f3a5641a375413d0662bfcb8c99888b40de969be4df21a064`.
+
+No se afirma aprobación de Google ni instalación exitosa de 0.1.1 en el Galaxy.
+No se cambió código nativo, la red, la sesión remota ni las protecciones del teléfono.

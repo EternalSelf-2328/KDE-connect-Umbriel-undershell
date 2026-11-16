@@ -30,7 +30,7 @@ ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/
 - Widget opcional de Noctalia: estado y batería en el tooltip; clic para abrir.
 - Una sola ventana por sesión. CLI sin dependencia de un servidor gráfico.
 - [Canal biométrico experimental y APK Android](docs/REMOTE-SECURITY.md): controles
-  de computadora desde el teléfono y navegación/capturas del teléfono desde C++.
+  de computadora desde el teléfono; control inverso en una variante opcional pendiente de revisión.
 
 `Mostrar todos los widgets` hace visibles también los que ocultaste individualmente;
 ambas acciones de visibilidad persisten mediante el IPC de undershell.
@@ -64,14 +64,22 @@ DESTDIR="$PWD/staging" cmake --install build
 
 ## Acceso remoto con aprobación biométrica (experimental)
 
-[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.1.0.apk) ·
+[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.1.1.apk) ·
 [Guía de registro, VPN y límites](docs/REMOTE-SECURITY.md).
+
+La descarga **0.1.1 tiene permisos mínimos y solo controla la computadora**. No
+incluye accesibilidad ni captura/control del teléfono. La versión anterior fue
+bloqueada por Play Protect: consulta el [diagnóstico y cambio de alcance](docs/PLAY-PROTECT.md).
+La nueva instalación todavía debe verificarse en el Galaxy; no se pide desactivar
+Play Protect.
 
 Esta ruta usa un receptor C++ separado y una clave de Android Keystore autorizada
 con biometría fuerte por sesión. El APK está compilado contra API 36 y firmado;
-**todavía requiere prueba física en el teléfono**. Ofrece los controles de escritorio
-y, con permiso explícito de accesibilidad, navegación, gestos, texto y capturas del
-celular. No incluye video continuo ni control general de teclado/mouse de la computadora.
+**todavía requiere prueba física en el teléfono**. Ofrece los controles de escritorio.
+La variante de código
+`phone-control` conserva navegación, gestos, texto y capturas del celular con
+accesibilidad explícita, pendiente de revisión de distribución y prueba física. No
+incluye video continuo ni control general de teclado/mouse de la computadora.
 
 No requiere habilitar `runcommand` del KDE Connect habitual. Las funciones heredadas
 conservan sus propios permisos; esta ruta no les añade biometría automáticamente.

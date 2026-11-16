@@ -1,7 +1,10 @@
 # Canal remoto con aprobación biométrica
 
-**Estado: implementación experimental del 2026-11-15, compilada y probada con
-clientes simulados; sin activar ni verificar en un teléfono físico.**
+**Estado: implementación experimental del 2026-11-15.** El APK 0.1.0 fue bloqueado
+por Play Protect al intentar instalarlo en el Galaxy. La descarga 0.1.1 reduce permisos
+y funciones a teléfono→computadora; todavía no se comprobó su instalación física.
+El control inverso se conserva como variante de código separada, pendiente de revisión.
+[Diagnóstico y límites](PLAY-PROTECT.md).
 
 Equipo objetivo informado por el usuario: **Galaxy A24, Android 16, One UI 8.5**.
 No se registran IMEI, serie, número telefónico ni capturas de información personal.
@@ -11,7 +14,7 @@ La clasificación biométrica real se comprueba en ejecución con `BIOMETRIC_STR
 
 - **Android → computadora:** app `Umbriel Remote` con los controles de Umbriel,
   Noctalia y undershell y carga de perfiles, mediante el receptor C++.
-- **Computadora → Android:** ventana de control con Atrás, Inicio, Recientes,
+- **Computadora → Android (variante `phone-control`, no incluida en la descarga mínima):** ventana de control con Atrás, Inicio, Recientes,
   capturas manuales y toques sobre la captura. CLI adicional para gestos y texto en
   campos editables que no sean contraseñas. Requiere permiso explícito de Android.
 - TLS 1.2 o posterior, certificado de computadora fijado al registrar, clave EC
@@ -30,7 +33,8 @@ notificaciones o accesos remotos que ya existan.
 
 ## Instalar la app Android
 
-APK de prueba: [UmbrielRemote-0.1.0.apk](../downloads/UmbrielRemote-0.1.0.apk).
+APK mínimo de prueba: [UmbrielRemote-0.1.1.apk](../downloads/UmbrielRemote-0.1.1.apk).
+Esta edición no declara accesibilidad y no permite controlar ni capturar el teléfono.
 Está firmado con una identidad de desarrollo propia que se conserva fuera del
 repositorio; la clave privada de firma y su contraseña no están en Git. La app no
 pide acceso a contactos, SIM, número de teléfono, cámara ni micrófono.
@@ -40,8 +44,9 @@ pide acceso a contactos, SIM, número de teléfono, cámara ni micrófono.
 3. Importar el archivo de registro privado generado por la computadora.
 4. Presionar **Conectar con huella**. La app comprueba biometría fuerte y
    usa `BiometricPrompt.CryptoObject` para producir la firma.
-5. Si deseas controlar el celular, marcar esa opción antes de conectar y activar
-   el servicio de accesibilidad de Umbriel Remote en los ajustes de Android.
+5. La descarga mínima no ofrece control del celular ni un permiso de accesibilidad.
+   La variante de código con esa capacidad requiere revisión previa de distribución
+   y consentimiento explícito; no continuar si Play Protect bloquea su instalación.
 
 No instalar automáticamente ni habilitar accesibilidad por ADB. Los permisos y la
 huella requieren intervención de la persona en el teléfono. Al cambiar las huellas
@@ -188,9 +193,17 @@ capturas del escritorio real ni se enviaron pulsaciones o cambios de red en la s
 
 ```bash
 python3 scripts/setup-android-tools.py
-bash android/build.sh
+bash android/build.sh desktop
+# Variante opcional solo para revisión/desarrollo, puede ser bloqueada por Play Protect:
+bash android/build.sh phone-control
+python3 tests/android-artifacts.py
 bash tests/android-guard.sh
 ```
+
+Los resultados van a `build/android/desktop/` y `build/android/phone-control/`.
+Solo se publica la edición mínima. Las variantes comparten paquete y firma: no
+son dos apps instalables simultáneamente. No se descarga ni activa código adicional
+en la edición mínima; cambiar de variante requiere un APK diferente.
 
 Las herramientas ocupan una caché de usuario y no cambian Java ni el SDK del sistema.
 Se pueden indicar instalaciones propias mediante `UMBRIEL_JDK`,

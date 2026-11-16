@@ -39,6 +39,10 @@ los controles del teléfono usan sus dimensiones actuales, sin resolución fija.
 
 ## Android
 
+La descarga 0.1.1 muestra una tarjeta «Control de computadora» y no ofrece control
+del celular. El selector de accesibilidad descrito abajo corresponde únicamente a
+la variante opcional `phone-control`, pendiente de revisión.
+
 `UiDesign.java` centraliza colores, tipografía, tarjetas, botones y estados. Usa la
 configuración clara/oscura y el acento dinámico de Android cuando está disponible.
 Los tamaños emplean dp/sp e insets del sistema, con desplazamiento vertical.

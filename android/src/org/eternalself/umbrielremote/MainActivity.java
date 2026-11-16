@@ -77,17 +77,27 @@ public class MainActivity extends Activity {
             .setOnDismissListener(dialog->{if(pairing.getParent()!=null)((android.view.ViewGroup)pairing.getParent()).removeView(pairing);}).show();
         });
         design.add(root,setup,16);
-        LinearLayout permission=design.card();design.add(permission,design.label("Acceso al teléfono",16,design.text,true),8);
+        LinearLayout permission=design.card();
         phoneControl = new CheckBox(this); phoneControl.setText("Permitir controlar este teléfono");phoneControl.setTextSize(15);phoneControl.setTextColor(design.text);
-        phoneControl.setButtonTintList(android.content.res.ColorStateList.valueOf(design.accent));permission.addView(phoneControl);
-        phoneControl.setOnCheckedChangeListener((control,checked)->{
-            RemoteService owner=RemoteService.instance;
-            if(owner!=null&&checked!=owner.phoneControlAllowed()){
-                stopService(new Intent(this,RemoteService.class));owner.closeConnection();showStatus("Permiso cambiado. Aprueba una nueva sesión para aplicarlo.");
-            }
-        });
-        design.add(permission,design.label("Navegación, texto y capturas. Solo durante una sesión aprobada.",13,design.muted,false),8);
-        button("Configurar permiso de control…",permission,()->startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+        phoneControl.setButtonTintList(android.content.res.ColorStateList.valueOf(design.accent));
+        if(BuildFeatures.PHONE_CONTROL){
+            design.add(permission,design.label("Acceso al teléfono",16,design.text,true),8);permission.addView(phoneControl);
+            phoneControl.setOnCheckedChangeListener((control,checked)->{
+                RemoteService owner=RemoteService.instance;
+                if(owner!=null&&checked!=owner.phoneControlAllowed()){
+                    stopService(new Intent(this,RemoteService.class));owner.closeConnection();showStatus("Permiso cambiado. Aprueba una nueva sesión para aplicarlo.");
+                }
+            });
+            design.add(permission,design.label("Navegación, texto y capturas. Solo durante una sesión aprobada.",13,design.muted,false),8);
+            button("Configurar permiso de control…",permission,()->new android.app.AlertDialog.Builder(this)
+                .setTitle("Permitir controlar este teléfono")
+                .setMessage("El servicio de accesibilidad permite a tu computadora solicitar capturas, leer el campo enfocado, escribir y realizar gestos. Podría mostrar datos personales de las aplicaciones abiertas. Solo funciona durante una sesión aprobada con huella, por hasta 10 minutos. Puedes desconectar o retirar el permiso en cualquier momento.")
+                .setNegativeButton("Cancelar",null)
+                .setPositiveButton("Abrir ajustes",(dialog,which)->startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))).show());
+        }else{
+            design.add(permission,design.label("Control de computadora",16,design.text,true),8);
+            design.add(permission,design.label("Esta edición permite controlar tu escritorio con huella. No puede leer la pantalla, capturar ni manejar este teléfono.",14,design.muted,false),0);
+        }
         design.add(root,permission,16);
         connectButton=design.button("Conectar con huella",true);connectButton.setOnClickListener(v->connect());design.add(root,connectButton,8);
         button("Desconectar y revocar esta sesión", root, () -> {
@@ -153,7 +163,7 @@ public class MainActivity extends Activity {
             if (config.getString("pin").length() != 64) throw new JSONException("Huella TLS inválida");
             getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server", config.toString()).apply();
             clearActions();
-            Intent intent = new Intent(this, RemoteService.class).putExtra("config", config.toString()).putExtra("phoneControl", phoneControl.isChecked());
+            Intent intent = new Intent(this, RemoteService.class).putExtra("config", config.toString()).putExtra("phoneControl", BuildFeatures.PHONE_CONTROL && phoneControl.isChecked());
             startForegroundService(intent);
             showStatus("Conectando con la identidad registrada…");
         } catch (Exception e) { showStatus("Importa un archivo pairing.json válido generado en la computadora."); }

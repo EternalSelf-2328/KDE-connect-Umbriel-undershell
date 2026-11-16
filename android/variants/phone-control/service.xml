@@ -1,0 +1,4 @@
+<service xmlns:android="http://schemas.android.com/apk/res/android" android:name=".PhoneAccessibility" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:label="Control del teléfono con huella">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility"/>
+        </service>
