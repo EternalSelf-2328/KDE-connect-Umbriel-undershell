@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "remoteserver.h"
 #include "remoteauth.h"
+#include "pointer.h"
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QFile>
@@ -26,11 +27,12 @@ QByteArray base64(const QJsonValue &value, int limit) {
 }
 class RemotePeer : public QObject {
 public:
-    RemotePeer(RemoteServer *owner, QSslSocket *socket) : QObject(owner), server(owner), wire(socket) {
+    RemotePeer(RemoteServer *owner, QSslSocket *socket) : QObject(owner), server(owner), pointer(this), wire(socket) {
         expiry.setSingleShot(true); expiry.setInterval(15000);
         connect(&expiry, &QTimer::timeout, this, [this] { wire->abort(); });
         connect(wire, &QSslSocket::readyRead, this, [this] { read(); });
         connect(wire, &QSslSocket::disconnected, this, [this] {
+            pointer.stop();
             server->m_peers.removeAll(this);
             const auto callbacks = pending;
             pending.clear();
@@ -42,6 +44,7 @@ public:
         connect(&heartbeat, &QTimer::timeout, this, [this] { send({{"type", "ping"}}); });
     }
     RemoteServer *server;
+    Pointer pointer;
     QSslSocket *wire;
     QTimer expiry, heartbeat;
     QElapsedTimer challengeTime, rateTime, leaseTime;
@@ -50,6 +53,7 @@ public:
     bool ready = false, wantsPhone = false, hello = false, authTried = false, actionPending = false;
     qint64 sequence = 0;
     int rate = 0;
+    unsigned pointerGeneration=0;
     QHash<QString, Done> pending;
     void send(QJsonObject message) {
         if (wire->state() != QAbstractSocket::ConnectedState) return;
@@ -71,7 +75,7 @@ public:
             const auto doc = QJsonDocument::fromJson(line, &error);
             if (error.error != QJsonParseError::NoError || !doc.isObject()) { fail("JSON inválido"); return; }
             if (!rateTime.isValid() || rateTime.elapsed() >= 1000) { rateTime.start(); rate = 0; }
-            if (++rate > 30) { fail("Demasiadas solicitudes"); return; }
+            if (++rate > 90) { fail("Demasiadas solicitudes"); return; }
             handle(doc.object());
             if (wire->state() != QAbstractSocket::ConnectedState) return;
         }
@@ -140,6 +144,31 @@ public:
             }
             return;
         }
+        if(type=="features"){respond({true,{},QVariantMap{{"pointer",Pointer::available()},{"wallpapers",Wallpapers::available()},{"version","0.2.0"}}});return;}
+        if(type=="pointer"){
+            auto op=message["op"].toString();
+            if(op=="stop"){++pointerGeneration;pointer.stop();if(server->m_pointerOwner==this)server->m_pointerOwner.clear();respond({true,{}, {}});return;}
+            if(op=="start"){
+                if(server->m_pointerOwner&&server->m_pointerOwner!=this){respond({false,"Otro teléfono tiene el control del mouse",{}});return;}
+                server->m_pointerOwner=this;const auto generation=++pointerGeneration;
+                pointer.start([guard=QPointer<RemotePeer>(this),respond,generation](Reply r){if(!guard)return;if(generation==guard->pointerGeneration&&!r.ok&&guard->server->m_pointerOwner==guard)guard->server->m_pointerOwner.clear();respond(r);});return;
+            }
+            if(server->m_pointerOwner!=this){respond({false,"Primero activa el mouse",{}});return;}
+            respond(pointer.input(message));return;
+        }
+        if(type=="wallpapers"||type=="wallpaper-thumb"||type=="wallpaper-apply"||type=="audio-state"){
+            if(actionPending){respond({false,"Hay una solicitud en curso",{}});return;}
+            actionPending=true;
+            auto complete=[guard=QPointer<RemotePeer>(this),respond](Reply r){if(!guard)return;guard->actionPending=false;respond(r);};
+            if(type=="wallpapers"){
+                auto offset=message["offset"];
+                if(!offset.isDouble()||offset.toDouble()!=offset.toInt()){complete({false,"Página inválida",{}});return;}
+                server->wallpapers.page(offset.toInt(),message["filter"].toString(),message["favourites"].toBool(),complete);
+            }else if(type=="wallpaper-thumb")server->wallpapers.thumbnail(message["id"].toString(),complete);
+            else if(type=="wallpaper-apply")server->wallpapers.apply(message["id"].toString(),complete);
+            else server->integration.audioState(complete);
+            return;
+        }
         if (type == "catalog") { respond({true, {}, Integration::catalog().toVariantList()}); return; }
         if (type == "profiles") {
             if (actionPending) { respond({false, "Hay una acción en curso", {}}); return; }
@@ -167,7 +196,7 @@ public:
         respond({false, "Solicitud desconocida", {}});
     }
 };
-RemoteServer::RemoteServer(QString directory, QObject *parent) : QTcpServer(parent), integration(this), m_directory(std::move(directory)) {
+RemoteServer::RemoteServer(QString directory, QObject *parent) : QTcpServer(parent), integration(this), wallpapers(this), m_directory(std::move(directory)) {
     connect(&m_files, &QFileSystemWatcher::directoryChanged, this, [this] {
         const auto peers = m_peers;
         for (auto *peer : peers) if (peer->ready && !peer->stillTrusted()) peer->wire->abort();

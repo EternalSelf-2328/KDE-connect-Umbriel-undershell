@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include "integration.h"
+#include "wallpapers.h"
 #include <QHash>
+#include <QPointer>
 #include <QLocalServer>
 #include <QTcpServer>
 #include <QSslConfiguration>
@@ -21,6 +23,7 @@ public:
     QString directory() const { return m_directory; }
     QString pin() const { return m_pin; }
     Integration integration;
+    Wallpapers wallpapers;
     void phoneRequest(const QJsonObject &request, Done done);
 signals:
     void authorized(const QString &keyId);
@@ -31,6 +34,7 @@ private:
     QString m_directory, m_pin;
     QSslConfiguration m_tls;
     QList<RemotePeer *> m_peers;
+    QPointer<RemotePeer> m_pointerOwner;
     QLocalServer m_control;
     QFileSystemWatcher m_files;
     std::unique_ptr<QLockFile> m_instanceLock;

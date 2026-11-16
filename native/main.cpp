@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     }
     const auto command = args.value(0);
     if (command == "--help" || command == "-h") { help(); return 0; }
-    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.1.0\n"; return 0; }
+    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.2.0\n"; return 0; }
     KdeClient client;
     Integration integration;
     auto done = [&app](Reply reply) {

@@ -20,4 +20,6 @@ public:
     void undershell(const QString &command, Done done);
     void execute(const QString &id, const QStringList &args, Done done);
     void profiles(Done done);
+    static void run(QObject *owner,const QString &program,const QStringList &args,Done done);
+    void audioState(Done done);
 };

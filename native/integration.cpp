@@ -60,6 +60,12 @@ QList<DesktopAction> Integration::actions() {
              {"caffeine-enable", "Evitar reposo"}, {"caffeine-disable", "Permitir reposo"},
              {"notification-dnd-toggle", "Alternar no molestar"}, {"theme-mode-toggle", "Cambiar tema claro / oscuro"}})
         add("noctalia", entry.first, entry.second, {"msg", entry.first});
+    add("noctalia","theme-light","Tema claro",{"msg","theme-mode-set","light"});
+    add("noctalia","theme-dark","Tema oscuro",{"msg","theme-mode-set","dark"});
+    add("noctalia","dnd-on","Activar no molestar",{"msg","notification-dnd-set","on"});
+    add("noctalia","dnd-off","Desactivar no molestar",{"msg","notification-dnd-set","off"});
+    for(const auto &entry:QList<QPair<QString,QString>>{{"previous","Pista anterior"},{"play-pause","Reproducir / pausar"},{"next","Pista siguiente"}})
+        add("noctalia","media-"+entry.first,entry.second,{"msg","media",entry.first=="play-pause"?QString("toggle"):entry.first});
     return list;
 }
 QJsonArray Integration::catalog() {
@@ -134,38 +140,38 @@ void Integration::execute(const QString &id, const QStringList &args, Done done)
         undershell("save-load " + args.join(' '), done);
         return;
     }
+    if(id=="noctalia.volume-set"||id=="noctalia.brightness-set"){
+        bool ok=false;int value=args.value(0).toInt(&ok);
+        if(args.size()!=1||!ok||value<0||value>100){done({false,"El nivel debe estar entre 0 y 100",{}});return;}
+        run(this,"noctalia",{"msg",id.mid(9),QString::number(value)+"%"},done);return;
+    }
     if (!args.isEmpty()) { done({false, "Esta acción no recibe argumentos", {}}); return; }
     for (const auto &a : actions()) {
         if (a.id != id) continue;
         if (!a.ipc.isEmpty()) { undershell(a.ipc, done); return; }
-        const auto program = executable(a.program);
-        if (program.isEmpty()) { done({false, "No se encontró " + a.program, {}}); return; }
-        auto *process = new QProcess(this);
-        auto *timer = new QTimer(process);
-        timer->setSingleShot(true);
-        auto finished = std::make_shared<bool>(false);
-        auto finish = [process, timer, finished, done](Reply reply) {
-            if (*finished) return;
-            *finished = true;
-            timer->stop();
-            if (process->state() != QProcess::NotRunning) process->kill();
-            process->deleteLater();
-            done(reply);
-        };
-        connect(timer, &QTimer::timeout, this, [finish] { finish({false, "La acción superó el límite de 5 s", {}}); });
-        connect(process, &QProcess::errorOccurred, this, [process, finish] { finish({false, process->errorString(), {}}); });
-        connect(process, &QProcess::readyReadStandardOutput, this, [process, finish] {
-            if (process->bytesAvailable() > 1024 * 1024) finish({false, "Respuesta demasiado grande", {}});
-        });
-        connect(process, &QProcess::finished, this, [process, finish](int code, QProcess::ExitStatus status) {
-            const auto out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
-            const auto err = QString::fromUtf8(process->readAllStandardError()).trimmed();
-            const bool ok = status == QProcess::NormalExit && code == 0 && !out.startsWith("error:");
-            finish({ok, ok ? QString() : (err.isEmpty() ? out : err), out});
-        });
-        timer->start(5000);
-        process->start(program, a.arguments);
+        run(this,a.program,a.arguments,done);
         return;
     }
     done({false, "Acción desconocida: " + id, {}});
+}
+
+void Integration::run(QObject *owner,const QString &name,const QStringList &args,Done done){
+    const auto program=executable(name);if(program.isEmpty()){done({false,"No se encontró "+name,{}});return;}
+    auto *process=new QProcess(owner);auto *timer=new QTimer(process);timer->setSingleShot(true);
+    auto finished=std::make_shared<bool>(false);
+    auto finish=[process,timer,finished,done](Reply r){if(*finished)return;*finished=true;timer->stop();if(process->state()!=QProcess::NotRunning)process->kill();process->deleteLater();done(r);};
+    connect(timer,&QTimer::timeout,process,[finish]{finish({false,"La aplicación no respondió en 5 s",{}});});
+    connect(process,&QProcess::errorOccurred,process,[process,finish](auto){finish({false,process->errorString(),{}});});
+    connect(process,&QProcess::readyReadStandardOutput,process,[process,finish]{if(process->bytesAvailable()>8*1024*1024)finish({false,"Respuesta demasiado grande",{}});});
+    connect(process,&QProcess::readyReadStandardError,process,[process,finish]{if(process->readAllStandardError().size()>65536)finish({false,"Error demasiado grande",{}});});
+    connect(process,&QProcess::finished,process,[process,finish](int code,QProcess::ExitStatus status){const auto out=QString::fromUtf8(process->readAllStandardOutput()).trimmed();bool ok=status==QProcess::NormalExit&&code==0&&!out.startsWith("error:");finish({ok,ok?QString():"La aplicación rechazó la solicitud",out});});
+    timer->start(5000);process->start(program,args);
+}
+void Integration::audioState(Done done){
+    run(this,"wpctl",{"get-volume","@DEFAULT_AUDIO_SINK@"},[done](Reply r){
+        if(!r.ok){done(r);return;}
+        auto match=QRegularExpression("Volume:\\s+([0-9.]+)").match(r.value.toString());
+        if(!match.hasMatch()){done({false,"No se pudo leer el volumen actual",{}});return;}
+        done({true,{},QVariantMap{{"volume",qBound(0,qRound(match.captured(1).toDouble()*100),100)},{"muted",r.value.toString().contains("MUTED")}}});
+    });
 }

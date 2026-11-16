@@ -31,14 +31,14 @@ private slots:
         qunsetenv("UMBRIEL_CONNECT_THEME");
     }
     void typingPreservesNavigationLetters(){
-        Window window(true);window.show();auto *field=window.findChild<QLineEdit*>();QVERIFY(field);
+        Window window(true);window.show();auto *field=window.findChild<QLineEdit*>("shareUrl");QVERIFY(field);
         field->setFocus();field->clear();QTest::keyClicks(field,"ijklq");QCOMPARE(field->text(),"ijklq");QVERIFY(window.isVisible());
     }
     void ijklMovesInDeviceList(){
         Window window(true);window.applyState({{"available",true},{"devices",QJsonArray{
             QJsonObject{{"id","one"},{"name","Uno"},{"paired",true},{"reachable",true}},
             QJsonObject{{"id","two"},{"name","Dos"},{"paired",true},{"reachable",true}}}}});
-        window.show();window.activateWindow();auto *list=window.findChild<QListWidget*>();QVERIFY(list);list->setFocus();list->setCurrentRow(0);
+        window.show();window.activateWindow();auto *list=window.findChild<QListWidget*>("deviceList");QVERIFY(list);list->setFocus();list->setCurrentRow(0);
         QTRY_COMPARE(QApplication::focusWidget(),static_cast<QWidget*>(list));
         QTest::keyClick(list,Qt::Key_K);QCOMPARE(list->currentRow(),1);QTest::keyClick(list,Qt::Key_I);QCOMPARE(list->currentRow(),0);
     }
@@ -46,11 +46,12 @@ private slots:
         Window window(true);window.show();
         for(const auto size:{QSize(760,480),QSize(780,600),QSize(900,640),QSize(1100,720)}){
             window.resize(size);QTest::qWait(30);QCOMPARE(window.size(),size);QVERIFY(!window.grab().isNull());
-            auto *tabs=window.findChild<QTabWidget*>();QVERIFY(tabs);
+            auto *tabs=window.findChild<QTabWidget*>("mainTabs");QVERIFY(tabs);
             for(int tab=0;tab<tabs->count();++tab){
                 tabs->setCurrentIndex(tab);QTest::qWait(20);
-                for(auto *area:tabs->currentWidget()->findChildren<QScrollArea*>())
-                    QCOMPARE(area->horizontalScrollBar()->maximum(),0);
+                auto areas=tabs->currentWidget()->findChildren<QScrollArea*>();
+                if(auto *area=qobject_cast<QScrollArea*>(tabs->currentWidget()))areas.prepend(area);
+                for(auto *area:areas)QCOMPARE(area->horizontalScrollBar()->maximum(),0);
             }
         }
     }

@@ -2,6 +2,8 @@
 #include "window.h"
 #include "commandstore.h"
 #include "design.h"
+#include "controlpanel.h"
+#include "wallpaperpanel.h"
 #include <QApplication>
 #include <QFrame>
 #include <QGuiApplication>
@@ -61,12 +63,12 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
     discover->setProperty("glyph","phone");
     layout->addLayout(header);
     auto *subtitle=plainLabel("Tus dispositivos, en un mismo lugar.");subtitle->setProperty("role","muted");layout->addWidget(subtitle);
-    auto *tabs = new QTabWidget;
+    auto *tabs = new QTabWidget;tabs->setObjectName("mainTabs");
     layout->addWidget(tabs);
     auto *phone = new QWidget;
     auto *phoneLayout = new QHBoxLayout(phone);
     phoneLayout->setContentsMargins(0,0,0,0);phoneLayout->setSpacing(20);
-    m_devices = new QListWidget;
+    m_devices = new QListWidget;m_devices->setObjectName("deviceList");
     m_devices->setMinimumWidth(170); m_devices->setMaximumWidth(240);
     m_devices->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);m_devices->setTextElideMode(Qt::ElideRight);
     m_devices->setProperty("glyph","phone");
@@ -105,7 +107,7 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
     m_sendFile = button("Enviar un archivo…", shareLayout);m_sendFile->setProperty("kind","primary");m_sendFile->setIcon(Design::icon("send",Design::palette().onAccent));
     m_sendFile->setProperty("glyph","send");m_sendFile->setProperty("glyphPrimary",true);
     auto *urlRow = new QHBoxLayout;
-    m_url = new QLineEdit; m_url->setPlaceholderText("https://…"); urlRow->addWidget(m_url);
+    m_url = new QLineEdit;m_url->setObjectName("shareUrl"); m_url->setPlaceholderText("https://…"); urlRow->addWidget(m_url);
     m_sendUrl = button("Enviar enlace", urlRow); shareLayout->addLayout(urlRow);
     m_text = new QTextEdit; m_text->setPlaceholderText("Comparte una nota o un mensaje…"); m_text->setMaximumHeight(76);
     shareLayout->addWidget(m_text); m_sendText = button("Enviar texto", shareLayout);
@@ -122,24 +124,7 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
     desktopScroll->setWidgetResizable(true);
     auto *desktop = new QWidget;
     auto *desktopLayout = new QVBoxLayout(desktop);
-    for (const auto &group : {QString("undershell"), QString("umbriel"), QString("noctalia")}) {
-        auto *box = new QGroupBox(group == "umbriel" ? "Umbriel" : group == "noctalia" ? "Noctalia" : "undershell");
-        auto *grid = new QGridLayout(box);
-        int index = 0;
-        for (const auto &entry : Integration::catalog()) {
-            const auto a = entry.toObject();
-            if (a["group"].toString() != group) continue;
-            auto *b = new QPushButton(a["name"].toString());
-            b->setProperty("kind","tile");
-            b->setEnabled(a["available"].toBool() && !preview);
-            m_desktopButtons.append({b, a["id"].toString()});
-            grid->addWidget(b, index / 3, index % 3); ++index;
-            connect(b, &QPushButton::clicked, this, [this, a] {
-                m_integration.execute(a["id"].toString(), {}, [this](Reply r) { result(r); });
-            });
-        }
-        desktopLayout->addWidget(box);
-    }
+    auto *controls=new ControlPanel(&m_integration,preview,[this](Reply r){result(r);});desktopLayout->addWidget(controls);
     auto *profileRow = new QHBoxLayout;
     m_profiles = new QComboBox; profileRow->addWidget(m_profiles, 1);
     auto *profileRefresh = button("Actualizar perfiles", profileRow);
@@ -147,14 +132,10 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
     desktopLayout->addStretch(); desktopScroll->setWidget(desktop); tabs->addTab(desktopScroll, "Mi escritorio");
     connect(tabs, &QTabWidget::currentChanged, this, [this](int index) {
         if (index != 1 || m_preview) return;
-        const auto catalog = Integration::catalog();
-        for (const auto &entry : catalog) {
-            const auto action = entry.toObject();
-            for (const auto &b : m_desktopButtons)
-                if (b.second == action["id"].toString()) b.first->setEnabled(action["available"].toBool());
-        }
         loadProfiles();
     });
+    auto *wallpapers=new WallpaperPanel(preview,[this](Reply r){result(r);});tabs->addTab(wallpapers,"Fondos");
+    connect(tabs,&QTabWidget::currentChanged,this,[wallpapers,preview](int index){if(index==2&&!preview)wallpapers->refresh();});
     auto *more = new QWidget; auto *moreLayout = new QVBoxLayout(more);
     auto *secureHero=new QFrame;secureHero->setObjectName("card");auto *secureLayout=new QVBoxLayout(secureHero);secureLayout->setContentsMargins(28,28,28,28);secureLayout->setSpacing(12);
     auto *secureIcon=plainLabel("");secureIcon->setPixmap(Design::icon("shield").pixmap(48,48));secureLayout->addWidget(secureIcon);

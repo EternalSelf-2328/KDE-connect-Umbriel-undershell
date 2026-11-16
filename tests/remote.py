@@ -74,7 +74,7 @@ class RemoteTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="uc-remote-")
         self.root = Path(self.temp.name)
-        self.env = {**os.environ, "XDG_CONFIG_HOME": str(self.root / "config"), "XDG_RUNTIME_DIR": str(self.root / "run")}
+        self.env = {**os.environ, "XDG_CONFIG_HOME": str(self.root / "config"), "XDG_RUNTIME_DIR": str(self.root / "run"), "HOME": str(self.root / "home"), "XDG_CACHE_HOME": str(self.root / "cache"), "DISPLAY": ""}
         (self.root / "run").mkdir(mode=0o700)
         self.directory = self.root / "config/umbriel-connect/remote"
         self.cli("init")
@@ -211,6 +211,32 @@ class RemoteTests(unittest.TestCase):
         self.cli("revoke", peer.id)
         self.assertIsNone(peer.receive())
         self.assertEqual(json.loads(self.cli("clients").stdout), [])
+
+    def test_desktop_endpoints_are_authenticated_and_wallpapers_are_bounded(self):
+        programs=self.root/"programs";programs.mkdir()
+        self.env["PATH"]=str(programs)+os.pathsep+self.env["PATH"]
+        # Restart only the isolated receiver with fake programs; never invoke the real wallpaper daemon.
+        self.server.terminate();self.server.communicate(timeout=5)
+        items={"wallpapers":[{"key":"static:sample","name":"Ejemplo","type":"static","hidden":False},{"key":"static:secret","name":"Oculto","hidden":True}]}
+        listing=self.root/"library.json";listing.write_text(json.dumps(items))
+        fake=programs/"undershell-wallctl";fake.write_text("#!/bin/sh\nif [ \"$1\" = list ]; then /usr/bin/cat '"+str(listing)+"'; else /usr/bin/printf '%s\\n' \"$@\" > '"+str(self.root/"wall-args")+"'; fi\n");fake.chmod(0o700)
+        fake=programs/"wpctl";fake.write_text("#!/bin/sh\nprintf 'Volume: 0.37\\n'\n");fake.chmod(0o700)
+        self.server=subprocess.Popen([BINARY,"serve","127.0.0.1",str(self.port)],env=self.env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        self.assertTrue(select.select([self.server.stdout],[],[],4)[0]);self.server.stdout.readline()
+        denied=self.peer();denied.hello();denied.send({"type":"wallpapers","offset":0});self.assertEqual(denied.receive()["type"],"error")
+        peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        def request(kind,**fields):
+            peer.send({"type":kind,"request":"check",**fields},sequenced=True)
+            return peer.receive()
+        self.assertEqual(request("features")["value"]["version"],"0.2.0")
+        page=request("wallpapers",offset=0)["value"];self.assertEqual(page["total"],1)
+        item=page["items"][0];self.assertEqual(len(item["id"]),64);self.assertNotIn("key",item)
+        self.assertFalse(request("wallpaper-thumb",id="../../server-key.pem")["ok"])
+        self.assertFalse(request("wallpaper-apply",id="static:sample")["ok"])
+        self.assertTrue(request("wallpaper-apply",id=item["id"])["ok"])
+        self.assertEqual((self.root/"wall-args").read_text(),"apply\nstatic:sample\n")
+        self.assertEqual(request("audio-state")["value"]["volume"],37)
+        self.assertFalse(request("pointer",op="move",dx=1,dy=1)["ok"])
 
     def test_malformed_and_oversized_frames_fail_closed(self):
         peer = self.peer()

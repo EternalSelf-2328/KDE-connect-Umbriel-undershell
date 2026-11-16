@@ -108,6 +108,7 @@ QPushButton[kind="primary"]:pressed { background:@accentPressed; }
 QPushButton[kind="primary"]:disabled { background:@raised; color:@muted; }
 QPushButton[kind="ghost"] { background:transparent; color:@muted; }
 QPushButton[kind="danger"] { color:@danger; background:transparent; }
+QPushButton[kind="pad"] { min-height:48px; text-align:center; font-size:24px; }
 QPushButton[kind="tile"] { min-height:48px; border-radius:18px; text-align:left; padding:12px 16px; }
 QLineEdit, QTextEdit, QComboBox { background:@background; border:1px solid @outline; border-radius:12px; padding:10px 12px; selection-background-color:@accent; }
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus { border:1px solid @accent; }
@@ -128,6 +129,13 @@ QScrollBar:vertical { background:transparent; width:6px; margin:6px 0; }
 QScrollBar::handle:vertical { background:@outline; border-radius:3px; min-height:36px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background:transparent; }
+QCheckBox { spacing:8px; }
+QCheckBox::indicator { width:16px; height:16px; border:1px solid @outline; border-radius:4px; background:@background; }
+QCheckBox::indicator:checked { background:@accent; }
+QSlider::groove:horizontal { height:6px; border-radius:3px; background:@raised; }
+QSlider::sub-page:horizontal { background:@accent; border-radius:3px; }
+QSlider::handle:horizontal { width:18px; margin:-6px 0; border-radius:9px; background:@accent; }
+QSlider::handle:horizontal:focus { border:2px solid @text; }
 QToolTip { color:@text; background:@raised; border:1px solid @outline; padding:8px; border-radius:8px; }
 )CSS";
         const QHash<QString,QColor> colors{{"accentPressed",mix(p.accent,p.onAccent,.16)},{"accentHover",mix(p.accent,p.onAccent,.08)},
