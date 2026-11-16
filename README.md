@@ -12,6 +12,10 @@ líneas del cliente original. Su código y sus extras se conservan en
 `caelestia_connect/`. Cámara, scrcpy y monitor virtual aún requieren trabajo para
 ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/COMPATIBILITY.md).
 
+![Interfaz nativa con datos de ejemplo](docs/screenshots/native-dark.png)
+
+[Diseño, variantes y comprobaciones visuales](docs/DESIGN.md).
+
 ## Funciones nativas
 
 - Lista de dispositivos, batería, conexión y solicitudes de emparejamiento por eventos.
@@ -77,7 +81,7 @@ conservan sus propios permisos; esta ruta no les añade biometría automáticame
 1. Empareja el teléfono con el KDE Connect oficial de la computadora.
 2. Habilita **Ejecutar órdenes** en los ajustes de plugins de KDE Connect.
 3. Abre Umbriel Connect y selecciona el teléfono.
-4. Presiona **Configurar controles remotos…**, revisa la lista y aplica.
+4. Presiona **Configurar controles…**, revisa la lista y aplica.
 5. En Android, abre **Ejecutar órdenes**. Si agregas perfiles de undershell,
    vuelve a publicar para actualizar la lista.
 

@@ -78,10 +78,11 @@ y las funciones del cliente original que aún no están migradas a la ventana C+
 
 Se compiló e instaló `umbriel-connect-remote` y el helper `umbriel-remote-session`.
 APK Android API36 empaquetado y firmado con APK Signature Scheme v3; firma verificada.
-La aplicación Android ocupa 33.241 bytes y el receptor instalado 333.848 bytes.
+La primera compilación de esta fase ocupaba 33.241 bytes (APK) y 333.848 bytes
+(receptor); las cifras posteriores al rediseño se registran abajo.
 No hay mediciones de CPU/RAM en el Galaxy A24 físico.
 
-Suite final: 3/3 grupos de CTest aprobados (12 casos TLS, pruebas del helper y la
+Suite previa al rediseño: 3/3 grupos de CTest aprobados (12 casos TLS, pruebas del helper y la
 suite QtTest de 15 resultados). La misma SessionGuard Java de la app pasó 20
 comprobaciones. Se conservaron 23 checks Luau y lint0/0. Las pruebas usan un
 receptor loopback, claves y archivos temporales; no capturaron pantallas reales.
@@ -93,7 +94,24 @@ Tailscale 1.104.7 se preparó sin sudo y se inició en userspace, sin TUN, DNS/r
 aceptadas, SSH ni exit node. La cuenta sigue pendiente de inicio de sesión del
 usuario; no se inició el receptor de control ni se generó un registro real del teléfono.
 
-Pendiente: primer arranque y huella real del Galaxy A24 con Android16/OneUI8.5,
+Pendiente: primer arranque y huella real del Galaxy A24 con Android 16/One UI 8.5,
 notificaciones, accesibilidad, capturas y gestos, bloqueo, rotación y conexión
 Android↔computadora sobre la tailnet. La implementación es experimental y el
 intercambio de aplicación no tiene auditoría externa ni Key Attestation remota.
+
+## Rediseño de escritorio y Android
+
+Suite final **4/4 grupos de CTest aprobados en 8,90 s**, incluyendo 7 resultados del
+nuevo QtTest de diseño (5 casos más inicialización/cierre). Incluye todas las
+pestañas a 760×480, 780×600, 900×640 y 1100×720 sin scroll horizontal, IJKL/flechas,
+escritura de letras en campos, contraste >= 4,5:1 y recarga atómica de Noctalia.
+Renders offscreen claros, oscuros y monocromos revisados con datos sintéticos.
+El [informe de diseño](DESIGN.md) conserva las capturas y los límites de inspección.
+
+APK actualizado: **37.337 bytes**, firma v3 verificada. La SessionGuard de Android
+mantiene sus 20 comprobaciones aprobadas. No se renderizó Android en emulador ni en
+el teléfono. Ninguna captura publicada representa una conexión física validada.
+
+Instalación nativa final: `366744` bytes; receptor
+`379544` bytes, sin símbolos. No se repitieron las mediciones de
+latencia/RSS iniciales ni se extrapolan al nuevo diseño.

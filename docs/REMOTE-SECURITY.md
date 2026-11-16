@@ -38,7 +38,7 @@ pide acceso a contactos, SIM, número de teléfono, cámara ni micrófono.
 1. Instalar el APK y permitir notificaciones, para mantener visible la sesión.
 2. Conectar ambos equipos a la misma red privada de Tailscale.
 3. Importar el archivo de registro privado generado por la computadora.
-4. Presionar **Conectar y aprobar con huella**. La app comprueba biometría fuerte y
+4. Presionar **Conectar con huella**. La app comprueba biometría fuerte y
    usa `BiometricPrompt.CryptoObject` para producir la firma.
 5. Si deseas controlar el celular, marcar esa opción antes de conectar y activar
    el servicio de accesibilidad de Umbriel Remote en los ajustes de Android.
@@ -81,7 +81,7 @@ La huella TLS del archivo debe corresponder a la identidad creada en esa computa
 ~/.local/bin/umbriel-connect-remote revoke ID
 ```
 
-La ventana también se abre desde Umbriel Connect → Más funciones → Controlar
+La ventana también se abre desde Umbriel Connect → Acceso protegido → Controlar
  teléfono con aprobación biométrica. Las coordenadas son proporciones del tamaño
 actual del teléfono, sin resolución fija. El CLI `phone ID screen` guarda una
 captura privada en la carpeta actual; la ventana mantiene la imagen en memoria.

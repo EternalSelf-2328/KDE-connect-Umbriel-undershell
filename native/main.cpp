@@ -2,6 +2,7 @@
 #include "commandstore.h"
 #include "integration.h"
 #include "window.h"
+#include "design.h"
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDBusConnectionInterface>
@@ -44,6 +45,7 @@ int main(int argc, char **argv) {
     if (gui) QGuiApplication::setDesktopFileName("org.eternalself.UmbrielConnect");
     const auto args = app->arguments().mid(1);
     if (gui) {
+        Design::install(static_cast<QApplication*>(app.get()));
         if (!args.isEmpty() && args.size() != 2) { help(); return 2; }
         auto bus = QDBusConnection::sessionBus();
         if (args.isEmpty() && bus.isConnected() && !bus.registerService("org.eternalself.UmbrielConnect")) {

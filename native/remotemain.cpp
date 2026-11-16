@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "remoteauth.h"
 #include "remoteserver.h"
+#include "design.h"
 #include <QApplication>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QFrame>
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -90,12 +94,19 @@ int main(int argc, char **argv) {
     const auto args = app->arguments().mid(1);
     const auto dir = RemoteAuth::root();
     if (gui) {
-        QWidget window; window.setWindowTitle("Teléfono · Umbriel Connect"); window.resize(480, 780);
+        Design::install(static_cast<QApplication*>(app.get()));
+        QWidget window; window.setWindowTitle("Teléfono · Umbriel Connect");window.setAutoFillBackground(true);
+        const auto size=QGuiApplication::primaryScreen()->availableGeometry().size();window.resize(std::min(520,int(size.width()*.8)),std::min(760,int(size.height()*.9)));
         auto *layout = new QVBoxLayout(&window);
+        layout->setContentsMargins(24,24,24,24);layout->setSpacing(12);
+        auto *title=new QLabel("Tu teléfono, a mano.");title->setProperty("role","title");layout->addWidget(title);
+        auto *subtitle=new QLabel("Solo durante una sesión aprobada por ti.");subtitle->setProperty("role","muted");layout->addWidget(subtitle);
         auto *peers = new QComboBox; layout->addWidget(peers);
         auto *refreshPeers = new QPushButton("Buscar teléfonos autorizados"); layout->addWidget(refreshPeers);
-        auto *image = new PhoneImage; image->setAlignment(Qt::AlignCenter); image->setMinimumSize(120, 180); layout->addWidget(image, 1);
+        auto *frame=new QFrame;frame->setObjectName("card");auto *frameLayout=new QVBoxLayout(frame);frameLayout->setContentsMargins(16,16,16,16);
+        auto *image = new PhoneImage;image->setText("Tu teléfono aparecerá aquí.\nAprueba la conexión desde Android.");image->setProperty("role","muted"); image->setAlignment(Qt::AlignCenter); image->setMinimumSize(120, 180);frameLayout->addWidget(image);layout->addWidget(frame,1);
         auto *status = new QLabel("Activa la sesión con huella y permite controlar el teléfono en Android."); status->setWordWrap(true); status->setTextFormat(Qt::PlainText);
+        status->setProperty("role","muted");
         auto send = [&window, peers, status, image](QJsonObject request) {
             request["peer"] = peers->currentData().toString();
             localCall(&window, request, [status, image](Reply reply) {
@@ -112,6 +123,7 @@ int main(int argc, char **argv) {
         auto *row = new QHBoxLayout;
         for (const auto &entry : QList<QPair<QString, QString>>{{"Atrás", "back"}, {"Inicio", "home"}, {"Recientes", "recents"}, {"Ver pantalla", "screen"}}) {
             auto *b = new QPushButton(entry.first); row->addWidget(b);
+            if(entry.second=="screen")b->setProperty("kind","primary");
             QObject::connect(b, &QPushButton::clicked, &window, [send, entry] { send({{"action", entry.second}}); });
         }
         layout->addLayout(row); layout->addWidget(status);

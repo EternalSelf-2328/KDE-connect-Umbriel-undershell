@@ -29,14 +29,20 @@ public class MainActivity extends Activity {
     private CheckBox phoneControl;
     private CancellationSignal biometric;
     private int generation = 0;
+    private UiDesign design;
+    private Button connectButton;
+    private TextView deviceState;
+    private LinearLayout setup;
 
     private Button button(String label, LinearLayout parent, Runnable onClick) {
-        Button b = new Button(this); b.setText(label); parent.addView(b);
+        Button b = design.button(label,false); design.add(parent,b,8);
         b.setOnClickListener(v -> onClick.run()); return b;
     }
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
+        design=new UiDesign(this);
         ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(design.background);scroll.setFillViewport(true);
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
         int pad = (int)(20 * getResources().getDisplayMetrics().density); root.setPadding(pad,pad,pad,pad);
         root.setOnApplyWindowInsetsListener((view,insets)->{
@@ -44,29 +50,64 @@ public class MainActivity extends Activity {
             view.setPadding(pad+bars.left,pad+bars.top,pad+bars.right,pad+bars.bottom);return insets;
         });
         scroll.addView(root); setContentView(scroll);
-        TextView title = new TextView(this); title.setText("Umbriel Remote"); title.setTextSize(26); root.addView(title);
-        TextView description = new TextView(this);
-        description.setText("Versión experimental · acceso con huella\nConexión privada con tu computadora. La aprobación dura hasta 10 minutos y se cancela al bloquear este teléfono."); root.addView(description);
-        pairing = new EditText(this); pairing.setHint("Pega el contenido privado de pairing.json"); pairing.setMinLines(3); pairing.setMaxLines(6); root.addView(pairing);
+        design.add(root,design.label("Umbriel Connect",14,design.accent,true),16);
+        design.add(root,design.label("Tu escritorio,\na un toque.",32,design.text,true),12);
+        design.add(root,design.label("Conecta de forma privada y autoriza el acceso con tu huella.",15,design.muted,false),24);
+        LinearLayout hero=design.card();
+        LinearLayout heroRow=new LinearLayout(this);heroRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.view.View computer=design.glyph("desktop");heroRow.addView(computer,new LinearLayout.LayoutParams(design.dp(48),design.dp(48)));
+        LinearLayout deviceInfo=design.column();deviceInfo.setPadding(design.dp(18),0,0,0);
+        design.add(deviceInfo,design.label("Mi computadora",21,design.text,true),4);
+        deviceState=design.label("Sin conexión",13,design.muted,false);deviceInfo.addView(deviceState);
+        heroRow.addView(deviceInfo,new LinearLayout.LayoutParams(0,-2,1));hero.addView(heroRow);design.add(root,hero,16);
+        pairing = new EditText(this); pairing.setHint("Registro privado de la computadora"); pairing.setMinLines(3); pairing.setMaxLines(6);
         pairing.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
-        button("Importar archivo de registro", root, () -> {
+        setup=design.card();design.add(setup,design.label("Conecta tus dispositivos",18,design.text,true),8);
+        design.add(setup,design.label("1  Activa Tailscale en ambos equipos.\n2  Importa el registro privado de tu computadora.\n3  Aprueba la conexión con tu huella.",14,design.muted,false),12);
+        button("Importar registro…", setup, () -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT); intent.setType("application/json"); intent.addCategory(Intent.CATEGORY_OPENABLE); startActivityForResult(intent, 41);
         });
-        phoneControl = new CheckBox(this); phoneControl.setText("Permitir controlar este teléfono y solicitar capturas durante la sesión"); root.addView(phoneControl);
-        button("Conectar y aprobar con huella", root, this::connect);
+        button("Pegar registro…",setup,()->{
+            if(pairing.getParent()!=null)((android.view.ViewGroup)pairing.getParent()).removeView(pairing);
+            new android.app.AlertDialog.Builder(this).setTitle("Vincular computadora").setView(pairing)
+            .setPositiveButton("Guardar",(dialog,which)->{
+                getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",pairing.getText().toString()).apply();
+                updateRegistration();
+            }).setNegativeButton("Cancelar",null)
+            .setOnDismissListener(dialog->{if(pairing.getParent()!=null)((android.view.ViewGroup)pairing.getParent()).removeView(pairing);}).show();
+        });
+        design.add(root,setup,16);
+        LinearLayout permission=design.card();design.add(permission,design.label("Acceso al teléfono",16,design.text,true),8);
+        phoneControl = new CheckBox(this); phoneControl.setText("Permitir controlar este teléfono");phoneControl.setTextSize(15);phoneControl.setTextColor(design.text);
+        phoneControl.setButtonTintList(android.content.res.ColorStateList.valueOf(design.accent));permission.addView(phoneControl);
+        phoneControl.setOnCheckedChangeListener((control,checked)->{
+            RemoteService owner=RemoteService.instance;
+            if(owner!=null&&checked!=owner.phoneControlAllowed()){
+                stopService(new Intent(this,RemoteService.class));owner.closeConnection();showStatus("Permiso cambiado. Aprueba una nueva sesión para aplicarlo.");
+            }
+        });
+        design.add(permission,design.label("Navegación, texto y capturas. Solo durante una sesión aprobada.",13,design.muted,false),8);
+        button("Configurar permiso de control…",permission,()->startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+        design.add(root,permission,16);
+        connectButton=design.button("Conectar con huella",true);connectButton.setOnClickListener(v->connect());design.add(root,connectButton,8);
         button("Desconectar y revocar esta sesión", root, () -> {
             stopService(new Intent(this, RemoteService.class)); clearActions(); showStatus("Sesión cerrada");
         });
-        button("Configurar permiso para controlar el teléfono", root, () -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
-        status = new TextView(this); status.setTextIsSelectable(true); root.addView(status);
+        status = design.label("",13,design.muted,false); status.setTextIsSelectable(true);design.add(root,status,20);
+        button("Cambiar computadora…",root,()->{
+            RemoteService owner=RemoteService.instance;if(owner!=null)owner.closeConnection();
+            stopService(new Intent(this,RemoteService.class));clearActions();setup.setVisibility(View.VISIBLE);
+            showStatus("Importa el nuevo registro y aprueba otra sesión con tu huella.");
+        });
         commands = new LinearLayout(this); commands.setOrientation(LinearLayout.VERTICAL); root.addView(commands);
         String stored = getSharedPreferences("connection",MODE_PRIVATE).getString("server", "");
         if (!stored.isEmpty()) pairing.setText(stored);
-        showStatus("Sin conexión. Se requiere biometría fuerte; no se usará un PIN como sustituto.");
+        updateRegistration();showStatus("Versión de prueba · la sesión dura hasta 10 minutos y termina al bloquear el teléfono.");
     }
     @Override protected void onStart() {
         super.onStart(); current = new WeakReference<>(this);
         RemoteService owner=RemoteService.instance;
+        if(owner!=null)phoneControl.setChecked(owner.phoneControlAllowed());
         if(owner!=null && owner.isAuthorized()) authorized(owner);
     }
     @Override protected void onStop() {
@@ -89,7 +130,14 @@ public class MainActivity extends Activity {
             byte[] bytes = collected.toByteArray();
             if (bytes.length > 8192) throw new IOException("Archivo demasiado grande");
             pairing.setText(new String(bytes, StandardCharsets.UTF_8));
+            getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",pairing.getText().toString()).apply();updateRegistration();
         } catch (Exception e) { showStatus("No se pudo importar el archivo"); }
+    }
+    private void updateRegistration(){
+        boolean registered=false;
+        try{registered=new JSONObject(pairing.getText().toString()).optString("pin").matches("[0-9a-f]{64}");}catch(JSONException ignored){}
+        deviceState.setText(registered?"Registro importado · lista para conectar":"Sin vincular");
+        connectButton.setEnabled(registered);setup.setVisibility(registered?View.GONE:View.VISIBLE);
     }
     private void connect() {
         if (getSystemService(BiometricManager.class).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) != BiometricManager.BIOMETRIC_SUCCESS) {
@@ -110,7 +158,7 @@ public class MainActivity extends Activity {
             showStatus("Conectando con la identidad registrada…");
         } catch (Exception e) { showStatus("Importa un archivo pairing.json válido generado en la computadora."); }
     }
-    void clearActions() { generation++; commands.removeAllViews(); }
+    void clearActions() { generation++; commands.removeAllViews();if(deviceState!=null)deviceState.setText("Sin conexión"); }
     void showStatus(String text) { runOnUiThread(() -> status.setText(text)); }
     void approve(Signature signature, byte[] challenge, RemoteService owner, long connection) {
         runOnUiThread(() -> {
@@ -139,6 +187,7 @@ public class MainActivity extends Activity {
                 pairing.setText(config.toString()); getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server", config.toString()).apply();
             } catch (JSONException ignored) { }
             clearActions();
+            deviceState.setText("Sesión aprobada con huella");
             showStatus("Sesión aprobada con huella. Se cerrará al bloquear el teléfono o al cumplirse 10 minutos.");
             owner.request("catalog", new JSONObject(), response -> showCatalog(response, owner));
             owner.request("profiles", new JSONObject(), response -> showProfiles(response, owner));
@@ -148,17 +197,19 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> {
             if (RemoteService.instance != owner || !owner.isAuthorized()) return;
             JSONArray actions = reply.optJSONArray("value"); if (actions == null) return;
-            String group = "";
+            String group = "";GridLayout grid=null;int column=0;
             for (int i=0; i<actions.length(); i++) {
                 JSONObject action = actions.optJSONObject(i); if (action == null) continue;
-                if (!group.equals(action.optString("group"))) {
-                    group=action.optString("group"); TextView label = new TextView(this); label.setText(group); label.setTextSize(20); commands.addView(label);
+                if (grid==null || !group.equals(action.optString("group"))) {
+                    group=action.optString("group");design.add(commands,design.label(group.equals("undershell")?"Tus widgets":group.equals("umbriel")?"Escritorios y ventanas":"Sonido y apariencia",20,design.text,true),12);
+                    grid=new GridLayout(this);grid.setColumnCount(2);design.add(commands,grid,20);column=0;
                 }
                 String id = action.optString("id");
-                Button b = button(action.optString("name"), commands, () -> {
+                Button b = design.tile(action.optString("name"));b.setOnClickListener(v -> {
                     try { owner.request("action", new JSONObject().put("action", id).put("args", new JSONArray()), this::showResult); }
                     catch (JSONException ignored) { }
                 });
+                GridLayout.LayoutParams cell=new GridLayout.LayoutParams(GridLayout.spec(column/2),GridLayout.spec(column%2,1f));cell.width=0;cell.setMargins(0,0,design.dp(6),design.dp(8));grid.addView(b,cell);column++;
                 b.setEnabled(action.optBoolean("available"));
             }
         });
