@@ -43,6 +43,21 @@ private slots:
         done=false;walls.page(0,"Fuera",false,[&](Reply r){reply=r;done=true;});QTRY_VERIFY(done);id=reply.value.toMap()["items"].toList()[0].toMap()["id"].toString();
         done=false;walls.thumbnail(id,[&](Reply r){reply=r;done=true;});QTRY_VERIFY(done);QVERIFY(!reply.ok);
     }
+    void sourceFolderAndTypeFiltersRespectTheProvider(){
+        auto data=QJsonArray{
+            QJsonObject{{"key","static:one"},{"path",root+"/wallpapers/one.png"},{"name","Personal"},{"type","static"}},
+            QJsonObject{{"key","static:two"},{"path",root+"/photos/two.png"},{"name","Foto"},{"type","static"}},
+            QJsonObject{{"key","we:video"},{"path",root+"/workshop/123"},{"name","WE video"},{"type","video"},{"we_id","123"}}};
+        write("list.json",QJsonDocument(QJsonObject{{"wallpapers",data}}).toJson());
+        Wallpapers walls;Reply r;bool done=false;walls.page(0,"",false,[&](Reply v){r=v;done=true;},"local");QTRY_VERIFY(done);QVERIFY(r.ok);QCOMPARE(r.value.toMap()["total"].toInt(),2);
+        const auto page=r.value.toMap();QString folder;
+        for(auto value:page["folders"].toList()){auto f=value.toMap();if(f["name"]=="wallpapers")folder=f["id"].toString();}
+        QCOMPARE(folder.size(),64);QVERIFY(!QJsonDocument::fromVariant(r.value).toJson().contains(root.toUtf8()));
+        done=false;walls.page(0,"",false,[&](Reply v){r=v;done=true;},"local",folder);QTRY_VERIFY(done);QCOMPARE(r.value.toMap()["total"].toInt(),1);QCOMPARE(r.value.toMap()["items"].toList()[0].toMap()["name"].toString(),QString("Personal"));
+        done=false;walls.page(0,"",false,[&](Reply v){r=v;done=true;},"engine",{},"video");QTRY_VERIFY(done);QCOMPARE(r.value.toMap()["total"].toInt(),1);QCOMPARE(r.value.toMap()["items"].toList()[0].toMap()["source"].toString(),QString("engine"));
+        done=false;walls.page(0,"",false,[&](Reply v){r=v;done=true;},"local","../../etc");QVERIFY(done);QVERIFY(!r.ok);
+        write("list.json",QJsonDocument(QJsonObject{{"wallpapers",library}}).toJson());
+    }
     void webpPreviewsDoNotRequireAQtWebpPlugin(){
 #ifdef UMBRIEL_WEBP
         QImage original(640,400,QImage::Format_RGBA8888);original.fill(Qt::blue);uint8_t *encoded=nullptr;

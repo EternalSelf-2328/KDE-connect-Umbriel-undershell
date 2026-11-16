@@ -32,20 +32,30 @@ void Wallpapers::load(Done done){
         m_age.start();done({true,{}, {}});
     });
 }
-void Wallpapers::page(int offset,const QString &filter,bool favourites,Done done){
-    if(offset<0||offset>10000||filter.size()>120){done({false,"Página o búsqueda inválida",{}});return;}
-    load([this,offset,filter,favourites,done](Reply r){
+void Wallpapers::page(int offset,const QString &filter,bool favourites,Done done,const QString &source,const QString &folder,const QString &kind){
+    if(offset<0||offset>10000||filter.size()>120||!QStringList{"","local","engine"}.contains(source)||(!folder.isEmpty()&&!QRegularExpression("^[0-9a-f]{64}$").match(folder).hasMatch())||!QStringList{"","static","video","we"}.contains(kind)){done({false,"Página o filtro inválido",{}});return;}
+    load([this,offset,filter,favourites,source,folder,kind,done](Reply r){
         if(!r.ok){done(r);return;}
-        QJsonArray items;int total=0;
-        for(const auto &id:m_order){const auto item=m_items[id];
+        QJsonArray items,folders;int total=0;QMap<QString,QJsonObject> grouped;
+        for(const auto &id:m_order){const auto item=m_items[id];const auto key=item["key"].toString();
+            const auto origin=(key.startsWith("we:")||!item["we_id"].toString().isEmpty())?QString("engine"):QString("local");
+            if(!source.isEmpty()&&source!=origin)continue;
+            const auto relative=key.section(':',1);const auto parent=!item["path"].toString().isEmpty()?QFileInfo(item["path"].toString()).absolutePath():(relative.contains('/')?relative.left(relative.lastIndexOf('/')):QString());
+            const auto folderId=QString::fromLatin1(QCryptographicHash::hash((origin+':'+parent).toUtf8(),QCryptographicHash::Sha256).toHex());
+            auto label=parent.isEmpty()?QString("Sin carpeta"):QFileInfo(parent).fileName().left(80);
+            if(!grouped.contains(folderId))grouped[folderId]=QJsonObject{{"id",folderId},{"name",label},{"source",origin},{"count",0}};
+            grouped[folderId]["count"]=grouped[folderId]["count"].toInt()+1;
+            if(!folder.isEmpty()&&folder!=folderId)continue;
+            if(!kind.isEmpty()&&kind!=item["type"].toString())continue;
             if(favourites&&item["favourite"].toInt()!=1)continue;
             if(!filter.isEmpty()&&!item["name"].toString().contains(filter,Qt::CaseInsensitive))continue;
             if(total>=offset&&items.size()<12)items.append(QJsonObject{{"id",id},{"name",item["name"].toString().left(200)},
-                {"kind",item["type"]},{"favourite",item["favourite"].toInt()==1},
+                {"kind",item["type"]},{"source",origin},{"folder",folderId},{"folderName",label},{"favourite",item["favourite"].toInt()==1},
                 {"hasPreview",!item["thumb_sm"].toString().isEmpty()||!item["thumb"].toString().isEmpty()}});
             ++total;
         }
-        done({true,{},QJsonObject{{"items",items},{"total",total},{"offset",offset},{"hasMore",offset+items.size()<total}}.toVariantMap()});
+        for(auto value:grouped)folders.append(value);
+        done({true,{},QJsonObject{{"items",items},{"folders",folders},{"total",total},{"offset",offset},{"hasMore",offset+items.size()<total}}.toVariantMap()});
     });
 }
 void Wallpapers::thumbnail(const QString &id,Done done){

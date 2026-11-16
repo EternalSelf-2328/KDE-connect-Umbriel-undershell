@@ -40,6 +40,7 @@ void KdeClient::call(const QString &path, const QString &interface, const QStrin
                      const QVariantList &args, Done done) {
     auto msg = QDBusMessage::createMethodCall(m_service, path, interface, method);
     msg.setArguments(args);
+    if(path==root&&method=="devices")msg.setAutoStartService(false); // Listing native peers must not launch KDE Connect.
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(msg, 2500), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
             [watcher, done = std::move(done)] {

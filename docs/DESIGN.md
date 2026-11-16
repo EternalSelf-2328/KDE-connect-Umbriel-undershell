@@ -89,3 +89,17 @@ Android de esta ampliación. No se publican fondos reales de la biblioteca del u
 ![Sonido y apariencia](screenshots/native-sound.png)
 
 ![Selector de fondos con imágenes sintéticas](screenshots/native-wallpapers.png)
+
+## Filtros y envío propio — 0.3.0
+
+La galería añade origen, carpeta y tipo en una fila separada de búsqueda/favoritos.
+Se conserva «Mis carpetas» como selección inicial y las elecciones posteriores.
+El diálogo de envío desde Yazi elige únicamente una sesión Umbriel autorizada,
+indica que la descarga debe aceptarse en el teléfono y deshabilita el envío si no
+hay un receptor conectado. Se revisaron los renders Qt oscuros y claros; el nuevo
+diálogo usa un servidor local simulado y archivos de ejemplo.
+
+![Envío desde Yazi con datos sintéticos](screenshots/native-share.png)
+
+La nueva pestaña Archivos y los selectores Android compilan; no se atribuye a las
+capturas Qt una inspección visual de Android.

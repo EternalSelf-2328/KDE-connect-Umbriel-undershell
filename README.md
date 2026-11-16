@@ -3,11 +3,12 @@
 Cliente nativo **C++20 / Qt6** para integrar KDE Connect con **Umbriel, Noctalia y
 undershell**. Este fork proviene de [Caelestia Connect](https://github.com/maylton/caelestia-connect).
 
-La ruta nativa usa el daemon oficial `kdeconnectd`, escrito en C++, mediante D-Bus.
-No necesita Plasma ni un segundo daemon de protocolo. La aplicación, el CLI y los
+El canal propio conecta con **Umbriel Remote** por LAN o Tailscale, con biometría
+y transferencia de archivos sin KDE Connect. La compatibilidad con el cliente
+Android oficial utiliza `kdeconnectd` mediante D-Bus; no necesita Plasma. La aplicación, el CLI y los
 controles de escritorio nuevos están en `native/`; no requieren Python.
 
-**Estado: 0.2.0, migración parcial.** No es una traducción completa de las 14.000
+**Estado: 0.3.0, migración parcial.** No es una traducción completa de las 14.000
 líneas del cliente original. Su código y sus extras se conservan en
 `caelestia_connect/`. Cámara, scrcpy y monitor virtual aún requieren trabajo para
 ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/COMPATIBILITY.md).
@@ -35,7 +36,16 @@ ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/
 `Mostrar todos los widgets` hace visibles también los que ocultaste individualmente;
 ambas acciones de visibilidad persisten mediante el IPC de undershell.
 
-## Controles y fondos en 0.2.0
+## Conexión local, mouse y fondos en 0.3.0
+
+- Conexión local automática con el mismo certificado; Tailscale opcional fuera de casa.
+- Archivos en ambos sentidos por el canal propio, aceptación y SHA256; integración Yazi.
+- Mouse sin esperar respuesta por movimiento, agrupado a 16 ms y sensibilidad recordada.
+- Filtros de origen, carpeta y tipo; «Mis carpetas» por defecto.
+
+[Guía de red local, archivos, mouse y Yazi](docs/LOCAL-FILES.md).
+
+## Controles y galería
 
 - Touchpad móvil: movimiento relativo, clic izquierdo/derecho, desplazamiento con
   dos dedos, mantener para arrastrar y sensibilidad. Requiere Xwayland/XTest y
@@ -56,10 +66,12 @@ interfaz móvil todavía requieren prueba física en el Galaxy.
 En Arch/CachyOS:
 
 ```bash
-sudo pacman -S --needed base-devel cmake qt6-base qt6-wayland kdeconnect
+sudo pacman -S --needed base-devel cmake qt6-base qt6-wayland openssl
 ./install.sh
 ~/.local/bin/umbriel-connect
 ```
+
+`kdeconnect` es opcional para las funciones del cliente Android oficial.
 
 El instalador compila, ejecuta las pruebas en un bus privado e instala en `~/.local`.
 No cambia atajos, firewall, servicios, emparejamientos ni ajustes del escritorio.
@@ -83,10 +95,10 @@ DESTDIR="$PWD/staging" cmake --install build
 
 ## Acceso remoto con aprobación biométrica (experimental)
 
-[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.2.0.apk) ·
+[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.3.0.apk) ·
 [Guía de registro, VPN y límites](docs/REMOTE-SECURITY.md).
 
-La descarga **0.2.0 tiene permisos mínimos y solo controla la computadora**. No
+La descarga **0.3.0 tiene permisos mínimos y solo controla la computadora**. No
 incluye accesibilidad ni captura/control del teléfono. El APK 0.1.0 fue
 bloqueado por Play Protect: consulta el [diagnóstico y cambio de alcance](docs/PLAY-PROTECT.md).
 La nueva instalación todavía debe verificarse en el Galaxy; no se pide desactivar
@@ -98,7 +110,7 @@ con biometría fuerte por sesión. El APK está compilado contra API 36 y firmad
 La variante de código
 `phone-control` conserva navegación, gestos, texto y capturas del celular con
 accesibilidad explícita, pendiente de revisión de distribución y prueba física. No
-incluye video continuo ni control general de teclado/mouse de la computadora.
+incluye video continuo ni teclado general de la computadora. El touchpad está disponible.
 
 No requiere habilitar `runcommand` del KDE Connect habitual. Las funciones heredadas
 conservan sus propios permisos; esta ruta no les añade biometría automáticamente.
@@ -154,7 +166,9 @@ noctalia msg plugins disable eternalself-2328/umbriel-connect
 umbriel-connect --help
 umbriel-connect list
 umbriel-connect watch
-umbriel-connect share ID /ruta/al/archivo
+umbriel-connect --send /ruta/al/archivo
+umbriel-connect share remote:ID /ruta/al/archivo
+umbriel-connect share ID_KDE /ruta/al/archivo
 umbriel-connect text ID 'Un texto para el teléfono'
 umbriel-connect actions
 umbriel-connect profiles

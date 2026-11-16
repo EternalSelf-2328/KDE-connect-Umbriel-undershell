@@ -1,4 +1,8 @@
-# Controles remotos, fondos y límites — 0.2.0
+# Controles remotos, fondos y límites
+
+**Actualización 0.3.0:** [red local sin Tailscale, archivos propios, filtros y mouse](LOCAL-FILES.md).
+La descripción de 0.2.0 siguiente se conserva como antecedente; el mouse ya no espera
+respuesta por movimiento y los filtros/archivos se ampliaron en 0.3.0.
 
 ## Qué permite la red y qué implementa la aplicación
 

@@ -167,3 +167,36 @@ APK mínimo final SHA256 `0513119426ab7b7b8b4c0bf18eff8c3188227203e7c6f43413d44e
 Escritorio instalado: 478104 bytes;
 receptor: 470264 bytes, sin símbolos.
 Claves y registro conservados, receptor reiniciado, Tailscale sin reiniciar.
+
+## Red local, archivos y latencia — 0.3.0 / 2026-11-16
+
+Las siete suites aprobaron en **19,21 s**: 18 casos TLS, helper, 6 resultados de
+transferencias, 7 servicios, 5 pointer, 15 nativos y 7 diseño (QtTest incluye
+inicialización/cierre). Los casos nuevos ejercitan listado/CLI propios, eventos de
+conexión, LAN y certificado, archivo de 12 288 000 bytes con SHA256, rechazo,
+desconexión, recepción desde teléfono, nombres/rutas/tamaños/offsets y filtros de
+origen/carpeta/tipo. La prueba de eventos procesa tramas JSON por líneas: varios
+avisos pueden llegar juntos en una lectura TCP. GIO se mantiene local en las pruebas.
+
+Android: 20 checks SessionGuard + 9 del búfer de movimiento. APK mínimo de 57 746
+bytes, versionCode 4 y misma identidad de firma. Firma v3, manifiestos, separación
+DEX y seis permisos verificados en ambas variantes; control del teléfono excluido
+de la descarga. Variante opcional compilada, no publicada. Nueva UI Android y
+MediaStore en Samsung pendientes de prueba física.
+
+Yazi: ejecución real en PTY aislado, emisor falso. Ctrl+K y opener verificados con
+uno/varios archivos, espacios, apóstrofo y metacaracteres. No se enviaron archivos
+personales durante la prueba. Se conservó un respaldo de ambos TOML y se validó
+que los demás atajos/openers conservan su contenido.
+
+Adaptador C++ real: **276 fondos locales en wallpapers, 186 de Wallpaper Engine**;
+miniatura JPEG real de 320×180, 12137 bytes, sin guardar/publicar la imagen ni
+aplicar un fondo. Receptor instalado con un listener LAN y descubrimiento activos;
+TLS loopback/LAN con el mismo certificado. Tailscale siguió Running, sin cambios
+de rutas, DNS o firewall. Registro y claves conservados al instalar.
+
+Usuario confirmó que el mouse 0.2.0 funciona pero se siente lento. El cambio a
+agrupación de 16 ms, envío sin esperar respuesta y TCP_NODELAY se comprueba en código
+y pruebas de búfer; no se afirma una nueva latencia física ni se movió el puntero
+real para medir. Renders Qt de filtros y selector de envío revisados con datos
+sintéticos; APK 0.3.0 aún requiere actualizarse en el Galaxy.

@@ -2,6 +2,10 @@
 #include "remoteserver.h"
 #include "remoteauth.h"
 #include "pointer.h"
+#include "filetransfer.h"
+#include <QFileInfo>
+#include <QCryptographicHash>
+#include <QUuid>
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QFile>
@@ -25,6 +29,12 @@ QByteArray base64(const QJsonValue &value, int limit) {
     return decoded && decoded.decoded.size() <= limit ? decoded.decoded : QByteArray();
 }
 }
+class LanListener : public QTcpServer {
+public:
+    std::function<void(qintptr)> accept;
+    using QTcpServer::QTcpServer;
+    void incomingConnection(qintptr descriptor) override { accept(descriptor); }
+};
 class RemotePeer : public QObject {
 public:
     RemotePeer(RemoteServer *owner, QSslSocket *socket) : QObject(owner), server(owner), pointer(this), wire(socket) {
@@ -33,7 +43,8 @@ public:
         connect(wire, &QSslSocket::readyRead, this, [this] { read(); });
         connect(wire, &QSslSocket::disconnected, this, [this] {
             pointer.stop();
-            server->m_peers.removeAll(this);
+            upload.cancel(); completeFile({false,"El teléfono se desconectó",{}});
+            server->m_peers.removeAll(this);server->notifyClients();
             const auto callbacks = pending;
             pending.clear();
             for (const auto &cb : callbacks) cb({false, "El teléfono se desconectó", {}});
@@ -49,10 +60,29 @@ public:
     QTimer expiry, heartbeat;
     QElapsedTimer challengeTime, rateTime, leaseTime;
     QByteArray buffer, publicKey, proof;
-    QString keyId;
+    QString keyId,deviceName;
+    FileTransfer upload;
+    std::unique_ptr<QFile> outgoing;
+    QCryptographicHash outgoingHash{QCryptographicHash::Sha256};
+    QString outgoingId;
+    qint64 sent=0,acked=0,outgoingSize=0;
+    bool endingFile=false;
+    Done fileDone;
+    QTimer fileDeadline;
+    void completeFile(Reply r){auto done=std::move(fileDone);fileDone={};outgoing.reset();outgoingId.clear();fileDeadline.stop();if(done)done(r);}
+    void pumpFile(){
+        while(outgoing&&!endingFile&&sent<outgoingSize&&sent-acked<4*FileTransfer::Chunk){
+            auto data=outgoing->read(qMin<qint64>(FileTransfer::Chunk,outgoingSize-sent));
+            if(data.isEmpty()){completeFile({false,"No se pudo leer el archivo",{}});return;}
+            outgoingHash.addData(data);send({{"type","file-chunk"},{"id",outgoingId},{"offset",sent},{"data",QString::fromLatin1(data.toBase64())}});sent+=data.size();
+        }
+        if(outgoing&&!endingFile&&sent==outgoingSize&&acked==sent){endingFile=true;send({{"type","file-end"},{"id",outgoingId},{"sha256",QString::fromLatin1(outgoingHash.result().toHex())}});}
+    }
+    bool supportsFiles=false;
     bool ready = false, wantsPhone = false, hello = false, authTried = false, actionPending = false;
     qint64 sequence = 0;
-    int rate = 0;
+    int rate = 0,fileRate=0;
+    mutable QElapsedTimer trustAge;mutable bool cachedTrust=false;
     unsigned pointerGeneration=0;
     QHash<QString, Done> pending;
     void send(QJsonObject message) {
@@ -61,9 +91,10 @@ public:
         wire->write(QJsonDocument(message).toJson(QJsonDocument::Compact) + '\n');
     }
     void fail(const QString &error) { send({{"type", "error"}, {"error", error}}); wire->disconnectFromHost(); }
-    bool stillTrusted() const {
+    bool stillTrusted(bool force=false) const {
+        if(!force&&trustAge.isValid()&&trustAge.elapsed()<250)return cachedTrust;
         const auto saved = RemoteAuth::readJson(server->directory() + "/clients.json", nullptr);
-        return saved.contains(keyId) && base64(saved[keyId].toObject()["key"], 256) == publicKey;
+        cachedTrust=saved.contains(keyId) && base64(saved[keyId].toObject()["key"], 256) == publicKey;trustAge.start();return cachedTrust;
     }
     void read() {
         buffer += wire->readAll();
@@ -74,8 +105,9 @@ public:
             QJsonParseError error;
             const auto doc = QJsonDocument::fromJson(line, &error);
             if (error.error != QJsonParseError::NoError || !doc.isObject()) { fail("JSON inválido"); return; }
-            if (!rateTime.isValid() || rateTime.elapsed() >= 1000) { rateTime.start(); rate = 0; }
-            if (++rate > 90) { fail("Demasiadas solicitudes"); return; }
+            if (!rateTime.isValid() || rateTime.elapsed() >= 1000) { rateTime.start(); rate = fileRate = 0; }
+            const bool fileMessage=ready&&doc.object()["type"].toString().startsWith("file-");
+            if ((fileMessage?++fileRate>4096:++rate>(ready?180:30))) { fail("Demasiadas solicitudes"); return; }
             handle(doc.object());
             if (wire->state() != QAbstractSocket::ConnectedState) return;
         }
@@ -88,7 +120,8 @@ public:
             publicKey = base64(message["key"], 256);
             if (!RemoteAuth::validKey(publicKey)) { fail("Clave inválida: se exige EC P-256"); return; }
             keyId = RemoteAuth::digest(publicKey);
-            wantsPhone = message["phoneControl"].toBool();
+            wantsPhone = message["phoneControl"].toBool();supportsFiles=message["files"].toBool();
+            deviceName=message["name"].toString().left(80);if(!FileTransfer::validName(deviceName))deviceName="Teléfono Umbriel";
             const auto nonce = RemoteAuth::random();
             if (nonce.isEmpty()) { fail("No se pudo crear el desafío"); return; }
             proof = RemoteAuth::challenge(server->pin(), publicKey, wantsPhone, nonce);
@@ -119,11 +152,12 @@ public:
                 known[keyId] = QJsonObject{{"key", QString::fromLatin1(publicKey.toBase64())}, {"created", QDateTime::currentSecsSinceEpoch()}};
                 if (!RemoteAuth::writeJson(server->directory() + "/clients.json", known, &error)) { fail(error); return; }
             } else if (base64(known[keyId].toObject()["key"], 256) != publicKey) { fail("Identidad alterada"); return; }
+            if(known[keyId].toObject()["name"].toString()!=deviceName){auto entry=known[keyId].toObject();entry["name"]=deviceName;known[keyId]=entry;if(!RemoteAuth::writeJson(server->directory()+"/clients.json",known,&error)){fail(error);return;}}
             const auto peers = server->m_peers;
             for (auto *peer : peers) if (peer != this && peer->keyId == keyId && peer->ready) peer->wire->abort();
             ready = true; proof.clear(); leaseTime.start(); expiry.start(10 * 60 * 1000); heartbeat.start();
             send({{"type", "authorized"}, {"keyId", keyId}, {"leaseSeconds", 600}, {"phoneControl", wantsPhone}});
-            emit server->authorized(keyId);
+            emit server->authorized(keyId);server->notifyClients();
             return;
         }
         if (leaseTime.elapsed() >= 10 * 60 * 1000 || !stillTrusted()) { fail("Autorización revocada o vencida"); return; }
@@ -144,7 +178,22 @@ public:
             }
             return;
         }
-        if(type=="features"){respond({true,{},QVariantMap{{"pointer",Pointer::available()},{"wallpapers",Wallpapers::available()},{"version","0.2.0"}}});return;}
+        if(type=="file-begin"){respond(upload.begin(message));return;}
+        if(type=="file-chunk"){respond(upload.chunk(message));return;}
+        if(type=="file-end"){respond(upload.finish(message));return;}
+        if(type=="file-cancel"){auto id=message["id"].toString();if(id.isEmpty()){respond({false,"Falta identificar la transferencia",{}});return;}upload.cancel(id);if(id==outgoingId)completeFile({false,"Transferencia cancelada",{}});respond({true,{},{}});return;}
+        if(type=="file-accept"||type=="file-ack"||type=="file-complete"||type=="file-reject"){
+            if(!outgoing||message["id"]!=outgoingId){respond({false,"No hay una transferencia pendiente",{}});return;}
+            if(type=="file-reject"){completeFile({false,"El teléfono rechazó la descarga",{}});return;}
+            if(type=="file-complete"){if(!endingFile){fail("Confirmación de archivo inesperada");return;}completeFile({true,{},"Archivo recibido y verificado en el teléfono"});return;}
+            if(type=="file-accept"&&sent!=0){fail("Aceptación de archivo repetida");return;}
+            if(type=="file-ack"){
+                auto value=message["offset"];auto next=value.toInteger(-1);
+                if(!value.isDouble()||value.toDouble()!=double(next)||next<=acked||next>sent){fail("Confirmación de bloque inválida");return;}acked=next;
+            }
+            fileDeadline.start(30000);pumpFile();return;
+        }
+        if(type=="features"){respond({true,{},QVariantMap{{"pointer",Pointer::available()},{"pointerStreaming",true},{"files",true},{"wallpapers",Wallpapers::available()},{"version","0.3.0"}}});return;}
         if(type=="pointer"){
             auto op=message["op"].toString();
             if(op=="stop"){++pointerGeneration;pointer.stop();if(server->m_pointerOwner==this)server->m_pointerOwner.clear();respond({true,{}, {}});return;}
@@ -154,7 +203,10 @@ public:
                 pointer.start([guard=QPointer<RemotePeer>(this),respond,generation](Reply r){if(!guard)return;if(generation==guard->pointerGeneration&&!r.ok&&guard->server->m_pointerOwner==guard)guard->server->m_pointerOwner.clear();respond(r);});return;
             }
             if(server->m_pointerOwner!=this){respond({false,"Primero activa el mouse",{}});return;}
-            respond(pointer.input(message));return;
+            auto result=pointer.input(message);
+            if(message["stream"].toBool()&&op=="move"){
+                if(!result.ok){pointer.stop();send({{"type","pointer-error"},{"error",result.error}});}
+            }else respond(result);return;
         }
         if(type=="wallpapers"||type=="wallpaper-thumb"||type=="wallpaper-apply"||type=="audio-state"){
             if(actionPending){respond({false,"Hay una solicitud en curso",{}});return;}
@@ -163,7 +215,7 @@ public:
             if(type=="wallpapers"){
                 auto offset=message["offset"];
                 if(!offset.isDouble()||offset.toDouble()!=offset.toInt()){complete({false,"Página inválida",{}});return;}
-                server->wallpapers.page(offset.toInt(),message["filter"].toString(),message["favourites"].toBool(),complete);
+                server->wallpapers.page(offset.toInt(),message["filter"].toString(),message["favourites"].toBool(),complete,message["source"].toString(),message["folder"].toString(),message["kind"].toString());
             }else if(type=="wallpaper-thumb")server->wallpapers.thumbnail(message["id"].toString(),complete);
             else if(type=="wallpaper-apply")server->wallpapers.apply(message["id"].toString(),complete);
             else server->integration.audioState(complete);
@@ -199,7 +251,8 @@ public:
 RemoteServer::RemoteServer(QString directory, QObject *parent) : QTcpServer(parent), integration(this), wallpapers(this), m_directory(std::move(directory)) {
     connect(&m_files, &QFileSystemWatcher::directoryChanged, this, [this] {
         const auto peers = m_peers;
-        for (auto *peer : peers) if (peer->ready && !peer->stillTrusted()) peer->wire->abort();
+        for (auto *peer : peers) if (peer->ready && !peer->stillTrusted(true)) peer->wire->abort();
+        notifyClients();
     });
 }
 RemoteServer::~RemoteServer() {
@@ -211,11 +264,14 @@ RemoteServer::~RemoteServer() {
     }
     m_peers.clear();
 }
+bool RemoteServer::privateAddress(const QHostAddress &address){
+    return address.protocol()==QAbstractSocket::IPv4Protocol&&(address.isInSubnet(QHostAddress("10.0.0.0"),8)||address.isInSubnet(QHostAddress("172.16.0.0"),12)||address.isInSubnet(QHostAddress("192.168.0.0"),16));
+}
 bool RemoteServer::allowedAddress(const QHostAddress &address) {
     if (address.isLoopback()) return true;
-    if (!address.isInSubnet(QHostAddress("100.64.0.0"), 10)) return false;
+    if (!privateAddress(address)&&!address.isInSubnet(QHostAddress("100.64.0.0"), 10)) return false;
     for (const auto &iface : QNetworkInterface::allInterfaces()) {
-        if (iface.name() != "tailscale0" || !(iface.flags() & QNetworkInterface::IsUp)) continue;
+        if (!(iface.flags() & QNetworkInterface::IsUp)||(!privateAddress(address)&&iface.name()!="tailscale0")) continue;
         for (const auto &entry : iface.addressEntries()) if (entry.ip() == address) return true;
     }
     return false;
@@ -233,6 +289,24 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
     m_tls.setProtocol(QSsl::TlsV1_2OrLater);
     m_tls.setPeerVerifyMode(QSslSocket::VerifyNone); // Peer identity is proven by the biometric-bound EC key.
     if (!listen(address, port)) { *error = errorString(); return false; }
+    if(address.isLoopback()&&qEnvironmentVariable("UMBRIEL_CONNECT_LAN")!="0"){
+        refreshLan();
+        if(m_discovery.bind(QHostAddress::AnyIPv4,quint16(port+1))){
+            connect(&m_discovery,&QUdpSocket::readyRead,this,[this]{
+                while(m_discovery.hasPendingDatagrams()){
+                    char data[512];QHostAddress sender;quint16 port=0;auto n=m_discovery.readDatagram(data,sizeof data,&sender,&port);
+                    if(n<=0||!privateAddress(sender))continue;
+                    if(!m_discoveryWindow.isValid()||m_discoveryWindow.elapsed()>=1000){m_discoveryWindow.start();m_discoveryQueries=0;}
+                    if(++m_discoveryQueries>20)continue;
+                    auto query=QJsonDocument::fromJson(QByteArray(data,n)).object();
+                    if(query["type"]!="umbriel-discover"||query["nonce"].toString().size()!=32)continue;
+                    refreshLan();QJsonArray hosts;for(auto *listener:m_lan)hosts.append(listener->serverAddress().toString());
+                    auto answer=QJsonDocument(QJsonObject{{"type","umbriel-discovery"},{"nonce",query["nonce"]},{"pin",m_pin},{"hosts",hosts},{"port",serverPort()}}).toJson(QJsonDocument::Compact);
+                    m_discovery.writeDatagram(answer,sender,port);
+                }
+            });
+        }
+    }
     const auto runtime = qEnvironmentVariable("XDG_RUNTIME_DIR", "/run/user/" + QString::number(getuid()));
     const auto controlPath = runtime + "/umbriel-connect-remote.sock";
     m_instanceLock = std::make_unique<QLockFile>(controlPath + ".lock");
@@ -255,9 +329,10 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
             if (getsockopt(int(socket->socketDescriptor()), SOL_SOCKET, SO_PEERCRED, &cred, &size) || cred.uid != getuid()) { socket->abort(); socket->deleteLater(); continue; }
             auto buffer = std::make_shared<QByteArray>();
             auto used = std::make_shared<bool>(false);
-            QTimer::singleShot(15000, socket, [socket] { socket->abort(); });
+            auto *deadline=new QTimer(socket);deadline->setSingleShot(true);deadline->start(15000);
+            connect(deadline,&QTimer::timeout,socket,&QLocalSocket::abort);
             connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
-            connect(socket, &QLocalSocket::readyRead, this, [this, socket, buffer, used] {
+            connect(socket, &QLocalSocket::readyRead, this, [this, socket, buffer, used, deadline] {
                 if (*used) return;
                 *buffer += socket->readAll();
                 if (buffer->size() > 8192) { socket->abort(); return; }
@@ -266,6 +341,26 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
                 const auto doc = QJsonDocument::fromJson(buffer->left(buffer->indexOf('\n')));
                 if (!doc.isObject()) { socket->abort(); return; }
                 const auto request = doc.object();
+                const auto action=request["action"].toString();
+                if(action=="watch"){
+                    deadline->stop();m_observers.append(socket);socket->write("{\"changed\":true}\n");return;
+                }
+                if(action=="network"){
+                    refreshLan();QJsonArray hosts;for(auto *listener:m_lan)hosts.append(listener->serverAddress().toString());
+                    socket->write(QJsonDocument(QJsonObject{{"ok",true},{"value",QJsonObject{{"hosts",hosts},{"port",serverPort()},{"discovery",m_discovery.state()==QAbstractSocket::BoundState}}}}).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();return;
+                }
+                if(action=="share"){
+                    deadline->start(600000);
+                    share(request,[guard=QPointer<QLocalSocket>(socket)](Reply r){if(!guard)return;guard->write(QJsonDocument(QJsonObject{{"ok",r.ok},{"error",r.error},{"value",QJsonValue::fromVariant(r.value)}}).toJson(QJsonDocument::Compact)+'\n');guard->disconnectFromServer();});return;
+                }
+                if(action=="devices"){
+                    const auto known=RemoteAuth::readJson(directory()+"/clients.json",nullptr);QJsonArray list;
+                    for(auto it=known.begin();it!=known.end();++it){bool online=false,files=false;QString name=it.value().toObject()["name"].toString("Teléfono Umbriel");
+                        for(auto *peer:m_peers)if(peer->ready&&peer->keyId==it.key()){online=true;files=peer->supportsFiles;name=peer->deviceName;}
+                        list.append(QJsonObject{{"id",it.key()},{"name",name},{"reachable",online},{"files",files}});
+                    }
+                    socket->write(QJsonDocument(QJsonObject{{"ok",true},{"value",list}}).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();return;
+                }
                 if (request["action"].toString() == "clients") {
                     socket->write(QJsonDocument(QJsonObject{{"ok", true}, {"value", clients()}}).toJson(QJsonDocument::Compact) + '\n');
                     socket->disconnectFromServer(); return;
@@ -284,6 +379,7 @@ void RemoteServer::incomingConnection(qintptr descriptor) {
     if (m_peers.size() >= 8) { ::close(int(descriptor)); return; }
     auto *socket = new QSslSocket(this);
     if (!socket->setSocketDescriptor(descriptor)) { socket->deleteLater(); return; }
+    socket->setSocketOption(QAbstractSocket::LowDelayOption,1);
     socket->setSslConfiguration(m_tls);
     auto *peer = new RemotePeer(this, socket);
     m_peers.append(peer);
@@ -291,7 +387,7 @@ void RemoteServer::incomingConnection(qintptr descriptor) {
 }
 QJsonArray RemoteServer::clients() const {
     QJsonArray list;
-    for (const auto *peer : m_peers) if (peer->ready) list.append(QJsonObject{{"id", peer->keyId}, {"phoneControl", peer->wantsPhone}});
+    for (const auto *peer : m_peers) if (peer->ready) list.append(QJsonObject{{"id", peer->keyId}, {"phoneControl", peer->wantsPhone},{"name",peer->deviceName},{"files",peer->supportsFiles}});
     return list;
 }
 void RemoteServer::phoneRequest(const QJsonObject &request, Done done) {
@@ -309,4 +405,32 @@ void RemoteServer::phoneRequest(const QJsonObject &request, Done done) {
     QTimer::singleShot(10000, chosen, [chosen, id] {
         if (chosen->pending.contains(id)) chosen->pending.take(id)({false, "El teléfono no respondió en 10 s", {}});
     });
+}
+
+void RemoteServer::notifyClients(){
+    for(qsizetype i=m_observers.size();i>0;--i){auto socket=m_observers[i-1];if(!socket||socket->state()!=QLocalSocket::ConnectedState){m_observers.removeAt(i-1);continue;}socket->write("{\"changed\":true}\n");}
+}
+void RemoteServer::share(const QJsonObject &request,Done done){
+    RemotePeer *chosen=nullptr;int count=0;auto id=request["peer"].toString();if(id.startsWith("remote:"))id.remove(0,7);
+    for(auto *peer:m_peers)if(peer->ready&&peer->leaseTime.elapsed()<600000&&peer->stillTrusted()&&(id.isEmpty()||id==peer->keyId)){chosen=peer;++count;}
+    if(count!=1){done({false,"Abre Umbriel Remote, conecta con huella y selecciona un único teléfono",{}});return;}
+    if(!chosen->supportsFiles){done({false,"Actualiza Umbriel Remote a 0.3.0 para transferir archivos",{}});return;}
+    if(chosen->outgoing){done({false,"Ya se está enviando un archivo a ese teléfono",{}});return;}
+    const auto path=request["path"].toString();QFileInfo info(path);
+    if(!info.isFile()||!FileTransfer::validName(info.fileName())||info.size()>FileTransfer::Limit){done({false,"Selecciona un archivo regular de hasta 1 GiB",{}});return;}
+    auto file=std::make_unique<QFile>(path);if(!file->open(QIODevice::ReadOnly)){done({false,"No se pudo leer el archivo",{}});return;}
+    chosen->outgoing=std::move(file);chosen->sent=chosen->acked=0;chosen->outgoingSize=info.size();chosen->endingFile=false;
+    chosen->outgoingId=QUuid::createUuid().toString(QUuid::Id128);chosen->outgoingHash.reset();chosen->fileDone=done;
+    chosen->fileDeadline.setSingleShot(true);QObject::disconnect(&chosen->fileDeadline,nullptr,chosen,nullptr);
+    connect(&chosen->fileDeadline,&QTimer::timeout,chosen,[chosen]{chosen->send({{"type","file-abort"},{"id",chosen->outgoingId}});chosen->completeFile({false,"La transferencia no respondió en 30 segundos",{}});});chosen->fileDeadline.start(30000);
+    chosen->send({{"type","file-offer"},{"id",chosen->outgoingId},{"name",info.fileName()},{"size",info.size()}});
+}
+
+void RemoteServer::refreshLan(){
+    if(!serverAddress().isLoopback()||qEnvironmentVariable("UMBRIEL_CONNECT_LAN")=="0")return;
+    QList<QHostAddress> addresses;for(auto ip:QNetworkInterface::allAddresses())if(privateAddress(ip)&&allowedAddress(ip)&&!addresses.contains(ip))addresses.append(ip);
+    for(qsizetype i=m_lan.size();i>0;--i)if(!addresses.contains(m_lan[i-1]->serverAddress())){auto *old=m_lan.takeAt(i-1);old->close();old->deleteLater();}
+    for(auto ip:addresses){bool present=false;for(auto *listener:m_lan)if(listener->serverAddress()==ip)present=true;if(present)continue;
+        auto *listener=new LanListener(this);listener->accept=[this](qintptr fd){incomingConnection(fd);};if(listener->listen(ip,serverPort()))m_lan.append(listener);else listener->deleteLater();
+    }
 }

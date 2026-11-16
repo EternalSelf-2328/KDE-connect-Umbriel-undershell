@@ -1,8 +1,8 @@
 # Canal remoto con aprobación biométrica
 
-**Estado actualizado el 2026-11-16: versión 0.2.0, experimental.** El APK 0.1.0 fue
+**Estado actualizado el 2026-11-16: versión 0.3.0, experimental.** El APK 0.1.0 fue
 bloqueado por Play Protect; la edición mínima 0.1.1 después registró una sesión
-Android autorizada. La 0.2.0 conserva permisos mínimos y añade controles de
+Android autorizada. La 0.3.0 conserva permisos mínimos y añade controles de
 computadora, touchpad y galería; su nueva UI/entrada física siguen pendientes de
 prueba en el Galaxy. El control inverso continúa como variante de código separada,
 pendiente de revisión. [Diagnóstico](PLAY-PROTECT.md) y [alcance actual](REMOTE-CONTROLS.md).
@@ -27,22 +27,23 @@ La clasificación biométrica real se comprueba en ejecución con `BIOMETRIC_STR
   clave desde la computadora. Aviso persistente en Android con botón Desconectar.
 
 Son controles y capturas bajo demanda. **No es todavía un escritorio remoto con
-video continuo, streaming de audio ni touchpad/teclado general de la computadora.**
+video continuo, streaming de audio ni teclado general de la computadora. El touchpad
+está disponible con los permisos de Umbriel.**
 Los plugins habituales de KDE Connect conservan sus permisos propios y no quedan
 protegidos por este canal. Tampoco se bloquean automáticamente ADB, scrcpy, SFTP,
 notificaciones o accesos remotos que ya existan.
 
 ## Instalar la app Android
 
-APK mínimo de prueba: [UmbrielRemote-0.2.0.apk](../downloads/UmbrielRemote-0.2.0.apk).
+APK mínimo de prueba: [UmbrielRemote-0.3.0.apk](../downloads/UmbrielRemote-0.3.0.apk).
 Esta edición no declara accesibilidad y no permite controlar ni capturar el teléfono.
-La 0.2.0 añade mouse de computadora, controles dedicados y fondos; [uso y límites](REMOTE-CONTROLS.md).
+La 0.3.0 añade mouse de computadora, controles dedicados y fondos; [uso y límites](REMOTE-CONTROLS.md).
 Está firmado con una identidad de desarrollo propia que se conserva fuera del
 repositorio; la clave privada de firma y su contraseña no están en Git. La app no
 pide acceso a contactos, SIM, número de teléfono, cámara ni micrófono.
 
 1. Instalar el APK y permitir notificaciones, para mantener visible la sesión.
-2. Conectar ambos equipos a la misma red privada de Tailscale.
+2. Conectar ambos equipos a la misma red local o a Tailscale fuera de casa.
 3. Importar el archivo de registro privado generado por la computadora.
 4. Presionar **Conectar con huella**. La app comprueba biometría fuerte y
    usa `BiometricPrompt.CryptoObject` para producir la firma.
@@ -58,8 +59,9 @@ la identidad anterior en la computadora y volver a registrar explícitamente.
 ## Receptor de escritorio
 
 Se compila si se dispone de headers OpenSSL 3 o posterior; puede desactivarse con
-`-DUMBRIEL_REMOTE=OFF`. Solo se inicia manualmente. No crea servicios o reglas de
-firewall ni se enlaza a `0.0.0.0`.
+`-DUMBRIEL_REMOTE=OFF`. La ventana inicia el receptor si no está activo. No crea
+servicios de arranque ni reglas de firewall. TLS no se enlaza a `0.0.0.0`; el
+descubrimiento UDP solo responde a remitentes privados. [Detalle LAN/archivos](LOCAL-FILES.md).
 
 ```bash
 ~/.local/bin/umbriel-connect-remote init
@@ -69,9 +71,11 @@ firewall ni se enlaza a `0.0.0.0`.
 ```
 
 La dirección ilustrativa no es la de un dispositivo real. El programa exige que
-la dirección exista en la interfaz activa `tailscale0`. También acepta loopback
+la dirección exista en una interfaz activa: IPv4 RFC1918 para LAN o `tailscale0`
+para la VPN de sistema. También acepta loopback
 para pruebas y para un proxy privado de Tailscale en modo de usuario. No acepta
-interfaces públicas ni otras redes. El modo de usuario requiere publicar el TCP
+interfaces públicas. Al escuchar loopback habilita además las IPv4 privadas activas
+para conexión directa; `UMBRIEL_CONNECT_LAN=0` permite desactivar esa ruta. El modo de usuario requiere publicar el TCP
 internamente en la tailnet y anunciar su dirección en el registro, manteniendo TLS
 sin terminación en el proxy.
 

@@ -14,7 +14,9 @@ case "${1:-}" in
   "") PREFIX="$HOME/.local" ;;
   *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
 esac
-command -v kdeconnectd >/dev/null || { echo "Install KDE Connect first (Arch: sudo pacman -S kdeconnect)" >&2; exit 1; }
+if ! command -v kdeconnectd >/dev/null; then
+  echo "KDE Connect is optional: the native LAN/Tailscale channel remains available."
+fi
 cmake -S "$SRC" -B "$SRC/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX"
 cmake --build "$SRC/build" --parallel 2
 ctest --test-dir "$SRC/build" --output-on-failure

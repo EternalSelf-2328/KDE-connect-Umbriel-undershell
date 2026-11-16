@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
     private TextView intro,tagline;
     private Button disconnectButton;
     private RemoteDashboard dashboard;
+    android.net.Uri pendingFile;
 
     private Button button(String label, LinearLayout parent, Runnable onClick) {
         Button b = design.button(label,false); design.add(parent,b,8);
@@ -67,7 +68,7 @@ public class MainActivity extends Activity {
         pairing = new EditText(this); pairing.setHint("Registro privado de la computadora"); pairing.setMinLines(3); pairing.setMaxLines(6);
         pairing.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         setup=design.card();design.add(setup,design.label("Conecta tus dispositivos",18,design.text,true),8);
-        design.add(setup,design.label("1  Activa Tailscale en ambos equipos.\n2  Importa el registro privado de tu computadora.\n3  Aprueba la conexión con tu huella.",14,design.muted,false),12);
+        design.add(setup,design.label("1  Usa la misma red o activa Tailscale fuera de casa.\n2  Importa el registro privado de tu computadora.\n3  Aprueba la conexión con tu huella.",14,design.muted,false),12);
         button("Importar registro…", setup, () -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT); intent.setType("application/json"); intent.addCategory(Intent.CATEGORY_OPENABLE); startActivityForResult(intent, 41);
         });
@@ -103,6 +104,12 @@ public class MainActivity extends Activity {
             design.add(permission,design.label("Esta edición permite controlar tu escritorio con huella. No puede leer la pantalla, capturar ni manejar este teléfono.",14,design.muted,false),0);
         }
         design.add(connectionPanel,permission,16);
+        button("Configurar red local…",connectionPanel,()->{
+            EditText address=new EditText(this);address.setSingleLine(true);address.setHint("IPv4 de la computadora");
+            try{address.setText(new JSONObject(pairing.getText().toString()).optString("lanHost"));}catch(JSONException ignored){}
+            new android.app.AlertDialog.Builder(this).setTitle("Conexión en la misma red").setMessage("La detección es automática. Si tu red la bloquea, escribe la IP que muestra «Ver conexión local» en la computadora. Se conserva la identidad registrada.").setView(address)
+                .setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{try{String host=address.getText().toString().trim();if(!host.isEmpty()&&!LanDiscovery.privateHost(host)){showStatus("Escribe una IPv4 local privada válida");return;}JSONObject settings=new JSONObject(pairing.getText().toString());settings.put("lanHost",host);pairing.setText(settings.toString());getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",settings.toString()).apply();showStatus("Dirección local guardada; se verificará el mismo certificado al conectar.");}catch(JSONException e){showStatus("Importa primero el registro de la computadora");}}).show();
+        });
         connectButton=design.button("Conectar con huella",true);connectButton.setOnClickListener(v->connect());design.add(connectionPanel,connectButton,8);
         disconnectButton=button("Cerrar sesión", root, () -> {
             stopService(new Intent(this, RemoteService.class)); clearActions(); showStatus("Sesión cerrada");
@@ -133,6 +140,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if(request==43){if(result==RESULT_OK&&data!=null){pendingFile=data.getData();showStatus("Archivo seleccionado. Aprueba la conexión con huella para enviarlo.");connect();}return;}
         if (request != 41 || result != RESULT_OK || data == null) return;
         try (InputStream in = getContentResolver().openInputStream(data.getData())) {
             ByteArrayOutputStream collected = new ByteArrayOutputStream();
@@ -148,6 +156,7 @@ public class MainActivity extends Activity {
             getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",pairing.getText().toString()).apply();updateRegistration();
         } catch (Exception e) { showStatus("No se pudo importar el archivo"); }
     }
+    void chooseFile(){Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(intent,43);}
     private void updateRegistration(){
         boolean registered=false;
         try{registered=new JSONObject(pairing.getText().toString()).optString("pin").matches("[0-9a-f]{64}");}catch(JSONException ignored){}
@@ -199,14 +208,14 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> {
             if(RemoteService.instance!=owner||!owner.isAuthorized())return;
             // The enrollment token is single-use and must not remain in preferences.
-            try { JSONObject config = new JSONObject(pairing.getText().toString()); config.remove("token"); config.remove("expires");
+            try { JSONObject config = new JSONObject(owner.configuration()); config.remove("token"); config.remove("expires");
                 pairing.setText(config.toString()); getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server", config.toString()).apply();
             } catch (JSONException ignored) { }
             clearActions();
-            deviceState.setText("Sesión aprobada con huella");
+            deviceState.setText(owner.routeLabel+" · sesión aprobada con huella");
             showStatus("Sesión aprobada con huella. Se cerrará al bloquear el teléfono o al cumplirse 10 minutos.");
             connectionPanel.setVisibility(View.GONE);intro.setVisibility(View.GONE);tagline.setVisibility(View.GONE);disconnectButton.setVisibility(View.VISIBLE);
-            dashboard=new RemoteDashboard(this,design,owner,this::showStatus);commands.addView(dashboard);
+            dashboard=new RemoteDashboard(this,design,owner,this::showStatus);commands.addView(dashboard);if(pendingFile!=null)dashboard.select(4);
         });
     }
 }

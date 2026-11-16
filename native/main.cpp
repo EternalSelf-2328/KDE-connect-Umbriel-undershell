@@ -3,6 +3,8 @@
 #include "integration.h"
 #include "window.h"
 #include "design.h"
+#include "localremote.h"
+#include "sharewindow.h"
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDBusConnectionInterface>
@@ -19,8 +21,9 @@ void printJson(const QJsonObject &value) {
     QTextStream(stdout) << QJsonDocument(value).toJson(QJsonDocument::Compact) << Qt::endl;
 }
 void help() {
-    QTextStream(stdout) << "Umbriel Connect 0.1.0 — C++ / Qt6\n"
+    QTextStream(stdout) << "Umbriel Connect 0.3.0 — C++ / Qt6\n"
         "  umbriel-connect                         Abrir aplicación\n"
+        "  umbriel-connect --send ARCHIVO...       Enviar con Umbriel Remote, sin KDE Connect\n"
         "  umbriel-connect list                    Estado JSON\n"
         "  umbriel-connect watch                   Estado JSON por eventos, sin sondeo\n"
         "  umbriel-connect discover                Buscar dispositivos\n"
@@ -36,7 +39,7 @@ void help() {
 }
 }
 int main(int argc, char **argv) {
-    const bool gui = argc == 1 || (argc > 1 && QString::fromLocal8Bit(argv[1]) == "--preview");
+    const bool gui = argc == 1 || (argc > 1 && QString::fromLocal8Bit(argv[1]) == "--preview") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--send");
     std::unique_ptr<QCoreApplication> app;
     if (gui) app = std::make_unique<QApplication>(argc, argv);
     else app = std::make_unique<QCoreApplication>(argc, argv);
@@ -46,6 +49,7 @@ int main(int argc, char **argv) {
     const auto args = app->arguments().mid(1);
     if (gui) {
         Design::install(static_cast<QApplication*>(app.get()));
+        if(args.value(0)=="--send"){if(args.size()<2){help();return 2;}return shareWindow(args.mid(1));}
         if (!args.isEmpty() && args.size() != 2) { help(); return 2; }
         auto bus = QDBusConnection::sessionBus();
         if (args.isEmpty() && bus.isConnected() && !bus.registerService("org.eternalself.UmbrielConnect")) {
@@ -62,9 +66,10 @@ int main(int argc, char **argv) {
     }
     const auto command = args.value(0);
     if (command == "--help" || command == "-h") { help(); return 0; }
-    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.2.0\n"; return 0; }
+    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.3.0\n"; return 0; }
     KdeClient client;
     Integration integration;
+    LocalRemote remote;
     auto done = [&app](Reply reply) {
         if (reply.ok) {
             if (reply.value.metaType() == QMetaType::fromType<QVariantMap>()) printJson(QJsonObject::fromVariantMap(reply.value.toMap()));
@@ -85,14 +90,17 @@ int main(int argc, char **argv) {
             *refresh = [&, busy, dirty, weak] {
                 if (*busy) { *dirty = true; return; }
                 *busy = true;
-                client.snapshot([&, busy, dirty, weak](QJsonObject state) {
+                client.snapshot([&, busy, dirty, weak](QJsonObject legacy) {
+                    remote.snapshot([&, busy, dirty, weak,legacy](QJsonObject own) {
+                    auto state=legacy;auto devices=own["devices"].toArray();for(auto d:legacy["devices"].toArray())devices.append(d);state["devices"]=devices;state["available"]=own["available"].toBool()||legacy["available"].toBool();
                     *busy = false; printJson(state);
                     if (command == "list") { app->exit(state["available"].toBool() && !state["partial"].toBool() ? 0 : 1); return; }
                     if (*dirty) { *dirty = false; if (auto r = weak.lock()) (*r)(); }
+                    });
                 });
             };
             if (command == "watch") {
-                client.startWatching();
+                client.startWatching();remote.watch();QObject::connect(&remote,&LocalRemote::changed,app.get(),[refresh]{(*refresh)();});
                 QObject::connect(&client, &KdeClient::changed, app.get(), [refresh] { (*refresh)(); });
             }
             (*refresh)();
@@ -103,8 +111,10 @@ int main(int argc, char **argv) {
         } else if (command == "profiles" && args.size() == 1) integration.profiles(done);
         else if (command == "discover" && args.size() == 1) client.refresh(done);
         else if ((QStringList{"pair", "accept", "reject", "unpair", "ring", "browse"}.contains(command) && args.size() == 2)
-              || (QStringList{"ping", "text", "share"}.contains(command) && args.size() == 3))
-            client.operation(args[1], command, args.value(2), done);
+              || (QStringList{"ping", "text", "share"}.contains(command) && args.size() == 3)){
+            if(args[1].startsWith("remote:")&&command=="share")remote.call({{"action","share"},{"peer",args[1]},{"path",QFileInfo(args[2]).absoluteFilePath()}},done);
+            else client.operation(args[1], command, args.value(2), done);
+        }
         else if ((command == "commands" && args.size() == 1)
               || ((command == "publish" || command == "withdraw") && args.size() == 2)) {
             auto publish = [&, done](QJsonArray profiles) {

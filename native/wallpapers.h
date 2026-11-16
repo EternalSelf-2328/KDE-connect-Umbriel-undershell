@@ -7,7 +7,7 @@ class Wallpapers : public QObject {
     Q_OBJECT
 public:
     using QObject::QObject;
-    void page(int offset,const QString &filter,bool favourites,Done done);
+    void page(int offset,const QString &filter,bool favourites,Done done,const QString &source={},const QString &folder={},const QString &kind={});
     void thumbnail(const QString &id,Done done);
     void apply(const QString &id,Done done);
     static bool available();

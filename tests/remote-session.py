@@ -25,7 +25,7 @@ if 'serve' in args:
     env = {**os.environ,"UMBRIEL_TAILSCALE_DIR":str(temp),"UMBRIEL_REMOTE_BIN":str(temp/"remote"),"XDG_RUNTIME_DIR":str(temp),"XDG_STATE_HOME":str(temp/"state"),"UC_TEST_LOG":str(log)}
     def run(action):
         subprocess.run(["bash",str(root/"scripts/remote-session.sh"),action],env=env,check=True,capture_output=True,timeout=5)
-    run("vpn"); run("login"); run("pair"); run("start")
+    run("vpn"); run("login"); run("pair"); run("start"); run("lan")
     calls=[json.loads(v) for v in log.read_text().splitlines()]
     vpn=next(c for c in calls if c["name"]=="tailscaled")
     assert "--tun=userspace-networking" in vpn["args"] and "--no-logs-no-support" in vpn["args"]

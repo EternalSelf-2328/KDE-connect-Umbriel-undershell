@@ -45,7 +45,7 @@ QPushButton *button(const QString &text, QLayout *layout) {
     return b;
 }
 }
-Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(preview) {
+Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(this), m_preview(preview) {
     setWindowTitle("Umbriel Connect");
     const auto available=QGuiApplication::primaryScreen()->availableGeometry().size();
     resize(std::min(1040, int(available.width()*.88)),std::min(760,int(available.height()*.91)));
@@ -142,7 +142,8 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
     secureIcon->setProperty("glyph","shield");secureIcon->setProperty("glyphSize",48);
     auto *secureTitle=plainLabel("El acceso, en tus manos.");secureTitle->setProperty("role","hero");secureLayout->addWidget(secureTitle);
     secureLayout->addWidget(plainLabel("Vincula tus equipos por una red privada y aprueba cada sesión desde tu teléfono."));
-    auto *secureInfo=plainLabel("1 · Vincular la red privada     2 · Registrar el teléfono     3 · Aprobar con huella");secureInfo->setProperty("role","muted");secureLayout->addWidget(secureInfo);moreLayout->addWidget(secureHero);
+    auto *secureInfo=plainLabel("1 · Misma red o Tailscale     2 · Registrar el teléfono     3 · Aprobar con huella");secureInfo->setProperty("role","muted");secureLayout->addWidget(secureInfo);moreLayout->addWidget(secureHero);
+    auto *lanInfo=button("Ver conexión local…",moreLayout);connect(lanInfo,&QPushButton::clicked,this,[this]{m_remote.call({{"action","network"}},[this](Reply r){if(!r.ok){result(r);return;}auto info=r.value.toMap();QStringList addresses;for(auto host:info["hosts"].toList())addresses.append(host.toString()+":"+info["port"].toString());QMessageBox::information(this,"Red local",addresses.isEmpty()?"No hay una interfaz IPv4 privada disponible. Conecta la computadora a tu red y vuelve a iniciar el receptor.":"No necesitas Tailscale en la misma red. El teléfono detecta esta computadora por su identidad registrada.\n\n"+addresses.join("\n")+"\n\nSi tu red bloquea la detección, introduce esta IP en «Configurar red local» del teléfono.");});});
     auto *securePhone = button("Controlar teléfono con aprobación biométrica", moreLayout);
     securePhone->setProperty("kind","primary");securePhone->setIcon(Design::icon("shield",Design::palette().onAccent));
     securePhone->setProperty("glyph","shield");securePhone->setProperty("glyphPrimary",true);
@@ -167,7 +168,7 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
     layout->addWidget(m_status);
     setCentralWidget(central);
     connect(m_devices, &QListWidget::currentRowChanged, this, &Window::selection);
-    connect(discover, &QPushButton::clicked, this, [this] { m_client.refresh([this](Reply r) { result(r); refresh(); }); });
+    connect(discover, &QPushButton::clicked, this, [this] { m_remote.call({{"action","network"}},[this](Reply){refresh();});if(m_state["legacyAvailable"].toBool())m_client.refresh([this](Reply r) { result(r); refresh(); }); });
     connect(m_pair, &QPushButton::clicked, this, [this] { phoneAction("pair"); });
     connect(m_accept, &QPushButton::clicked, this, [this] { phoneAction("accept"); });
     connect(m_unpair, &QPushButton::clicked, this, [this] {
@@ -198,7 +199,8 @@ Window::Window(bool preview) : m_client(this), m_integration(this), m_preview(pr
         for(auto *b:findChildren<QPushButton*>()){b->setEnabled(true);b->blockSignals(true);}
         tabs->setCurrentIndex(qEnvironmentVariableIntValue("UMBRIEL_CONNECT_PREVIEW_TAB"));
     } else {
-        m_client.startWatching();
+        m_client.startWatching();m_remote.watch();connect(&m_remote,&LocalRemote::changed,this,&Window::refresh);
+        if(!QFileInfo::exists(LocalRemote::path())){const auto receiver=Integration::executable("umbriel-connect-remote");if(!receiver.isEmpty())QProcess::startDetached(receiver,{"serve","127.0.0.1","31594"});}
         connect(&m_client, &KdeClient::changed, this, &Window::refresh);
         refresh(); loadProfiles();
     }
@@ -214,9 +216,11 @@ QJsonObject Window::selectedDevice() const {
 void Window::refresh() {
     if (m_loading) { m_again = true; return; }
     m_loading = true;
-    m_client.snapshot([this](QJsonObject state) {
+    m_client.snapshot([this](QJsonObject legacy) {
+        m_remote.snapshot([this,legacy](QJsonObject own){auto state=legacy;auto devices=own["devices"].toArray();for(auto d:legacy["devices"].toArray())devices.append(d);state["devices"]=devices;state["available"]=own["available"].toBool()||legacy["available"].toBool();state["legacyAvailable"]=legacy["available"].toBool();
         applyState(state); m_loading = false;
         if (m_again) { m_again = false; refresh(); }
+        });
     });
 }
 void Window::applyState(const QJsonObject &state) {
@@ -225,7 +229,7 @@ void Window::applyState(const QJsonObject &state) {
     m_devices->blockSignals(true); m_devices->clear();
     for (const auto &v : state["devices"].toArray()) {
         const auto d = v.toObject();
-        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + (d["reachable"].toBool() ? "Conectado" : "Sin conexión"), m_devices);
+        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + (d["reachable"].toBool() ? "Conectado" : "Sin conexión")+(d["transport"]=="umbriel"?" · Umbriel":" · KDE"), m_devices);
         item->setData(Qt::UserRole, d["id"].toString());
         if (d["id"].toString() == id) m_devices->setCurrentItem(item);
     }
@@ -233,12 +237,13 @@ void Window::applyState(const QJsonObject &state) {
     m_devices->blockSignals(false); selection();
     if (!state["available"].toBool()) m_status->setText("KDE Connect no está disponible: " + state["error"].toString());
     else if (state["partial"].toBool()) m_status->setText("Se recibieron datos incompletos. Vuelve a buscar dispositivos.");
-    else m_status->setText(QString::number(m_devices->count()) + " dispositivo(s) · conexión mediante KDE Connect");
+    else m_status->setText(QString::number(m_devices->count()) + " dispositivo(s) · Umbriel Remote y compatibilidad KDE Connect");
 }
 void Window::selection() {
     const auto d = selectedDevice();
     const bool reachable = d["reachable"].toBool(), paired = d["paired"].toBool();
     const bool ready = paired && reachable && !m_preview;
+    const bool native=d["transport"]=="umbriel";
     const auto plugins = d["plugins"].toArray();
     QString summary = d.isEmpty() ? "Selecciona un dispositivo o busca uno en tu red." :
         d["name"].toString() + " · " + (paired ? "Emparejado" : "Sin emparejar") + " · " + (reachable ? "Conectado" : "Sin conexión");
@@ -252,17 +257,22 @@ void Window::selection() {
     m_pair->setEnabled(reachable && !paired && !m_preview);
     m_pair->setVisible(!paired);m_unpair->setVisible(paired);
     m_accept->setVisible(d["pairRequested"].toBool()); m_accept->setEnabled(!m_preview);
-    m_unpair->setEnabled(paired && !m_preview);
+    m_unpair->setEnabled(paired && !m_preview&&!native);
     m_ring->setEnabled(ready && plugins.contains("kdeconnect_findmyphone"));
     m_ping->setEnabled(ready && plugins.contains("kdeconnect_ping"));
     m_files->setEnabled(ready && plugins.contains("kdeconnect_sftp"));
     for (auto *b : {m_sendFile, m_sendUrl, m_sendText}) b->setEnabled(ready && plugins.contains("kdeconnect_share"));
-    m_publish->setEnabled(paired && !m_preview); m_remove->setEnabled(paired && !m_preview);
+    m_sendFile->setEnabled(ready&&(plugins.contains("umbriel_files")||plugins.contains("kdeconnect_share")));
+    m_publish->setEnabled(paired && !m_preview&&!native); m_remove->setEnabled(paired && !m_preview&&!native);
 }
 void Window::result(const Reply &reply) {
     m_status->setText(reply.ok ? (reply.value.toString().isEmpty() ? "Acción completada" : reply.value.toString()) : "Error: " + reply.error);
 }
 void Window::phoneAction(const QString &action, const QString &argument) {
+    if(selectedDevice()["transport"]=="umbriel"&&action=="share"){
+        m_status->setText("Acepta la descarga en Umbriel Remote…");
+        m_remote.call({{"action","share"},{"peer",selectedId()},{"path",QFileInfo(argument).absoluteFilePath()}},[this](Reply r){result(r);});return;
+    }
     m_client.operation(selectedId(), action, argument, [this](Reply r) { result(r); if (r.ok) refresh(); });
 }
 void Window::loadProfiles() {

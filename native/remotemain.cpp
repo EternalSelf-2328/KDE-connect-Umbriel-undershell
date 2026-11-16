@@ -78,7 +78,7 @@ void help() {
         "  init                         Crear identidad TLS local\n"
         "  pair DIRECCIÓN [PUERTO]      Crear archivo privado para registrar Android (5 min)\n"
         "  pair-proxy IP_TAILNET [PUERTO] Registro para un proxy TCP privado de Tailscale\n"
-        "  serve DIRECCIÓN [PUERTO]     Escuchar en loopback o tailscale0; predeterminado 31594\n"
+        "  serve DIRECCIÓN [PUERTO]     Escuchar con TLS y habilitar red local privada; puerto 31594\n"
         "  clients                      Sesiones activas aprobadas con huella\n"
         "  revoke ID                    Retirar confianza y cerrar sesiones del teléfono\n"
         "  phone ID ACCIÓN [ARGS...]    back, home, recents, screen, tap X Y, swipe X1 Y1 X2 Y2, text TEXTO\n"
@@ -177,7 +177,8 @@ int main(int argc, char **argv) {
     }
     QJsonObject request;
     QString output;
-    if (args[0] == "clients" && args.size() == 1) request["action"] = "clients";
+    if(args[0]=="network"&&args.size()==1)request["action"]="network";
+    else if (args[0] == "clients" && args.size() == 1) request["action"] = "clients";
     else if (args[0] == "phone" && args.size() >= 3) {
         request = {{"peer", args[1]}, {"action", args[2]}};
         QJsonArray values;

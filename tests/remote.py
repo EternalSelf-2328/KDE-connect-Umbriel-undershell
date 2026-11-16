@@ -55,7 +55,7 @@ class Peer:
         return json.loads(line) if line else None
 
     def hello(self):
-        self.send({"type": "hello", "key": encode(self.public), "phoneControl": self.control})
+        self.send({"type": "hello", "key": encode(self.public), "phoneControl": self.control,"files":True,"name":"Test phone"})
         return self.receive()
 
     def authenticate(self, token="", challenge=None, signature=None):
@@ -74,7 +74,7 @@ class RemoteTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="uc-remote-")
         self.root = Path(self.temp.name)
-        self.env = {**os.environ, "XDG_CONFIG_HOME": str(self.root / "config"), "XDG_RUNTIME_DIR": str(self.root / "run"), "HOME": str(self.root / "home"), "XDG_CACHE_HOME": str(self.root / "cache"), "DISPLAY": ""}
+        self.env = {**os.environ, "XDG_CONFIG_HOME": str(self.root / "config"), "XDG_RUNTIME_DIR": str(self.root / "run"), "HOME": str(self.root / "home"), "XDG_CACHE_HOME": str(self.root / "cache"), "DISPLAY": "", "UMBRIEL_CONNECT_LAN":"0", "GIO_USE_VFS":"local", "GSETTINGS_BACKEND":"memory"}
         (self.root / "run").mkdir(mode=0o700)
         self.directory = self.root / "config/umbriel-connect/remote"
         self.cli("init")
@@ -228,7 +228,7 @@ class RemoteTests(unittest.TestCase):
         def request(kind,**fields):
             peer.send({"type":kind,"request":"check",**fields},sequenced=True)
             return peer.receive()
-        self.assertEqual(request("features")["value"]["version"],"0.2.0")
+        self.assertEqual(request("features")["value"]["version"],"0.3.0")
         page=request("wallpapers",offset=0)["value"];self.assertEqual(page["total"],1)
         item=page["items"][0];self.assertEqual(len(item["id"]),64);self.assertNotIn("key",item)
         self.assertFalse(request("wallpaper-thumb",id="../../server-key.pem")["ok"])
@@ -237,6 +237,85 @@ class RemoteTests(unittest.TestCase):
         self.assertEqual((self.root/"wall-args").read_text(),"apply\nstatic:sample\n")
         self.assertEqual(request("audio-state")["value"]["volume"],37)
         self.assertFalse(request("pointer",op="move",dx=1,dy=1)["ok"])
+
+    def local(self, message):
+        wire=socket.socket(socket.AF_UNIX);wire.settimeout(4);wire.connect(str(self.root/"run/umbriel-connect-remote.sock"));wire.sendall(json.dumps(message).encode()+b"\n");return wire
+
+    def test_native_file_delivery_does_not_require_phone_control_or_kde(self):
+        peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        data=bytes(range(256))*48000
+        path=self.root/"O'Connor ; $(literal).bin";path.write_bytes(data)
+        native=str(Path(BINARY).with_name("umbriel-connect"))
+        listing=subprocess.run([native,"list"],env=self.env,capture_output=True,text=True,timeout=8)
+        state=json.loads(listing.stdout);own=next(d for d in state["devices"] if d["id"]=="remote:"+peer.id)
+        self.assertTrue(own["paired"] and own["reachable"]);self.assertEqual(own["transport"],"umbriel")
+        cli=subprocess.Popen([native,"share","remote:"+peer.id,str(path)],env=self.env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        try:
+            offer=peer.receive();self.assertEqual(offer["type"],"file-offer");self.assertEqual(offer["size"],len(data))
+            peer.send({"type":"file-accept","id":offer["id"]},sequenced=True);actual=bytearray()
+            while True:
+                packet=peer.receive()
+                if packet["type"]=="file-end":break
+                self.assertEqual(packet["type"],"file-chunk");self.assertEqual(packet["offset"],len(actual))
+                actual.extend(base64.b64decode(packet["data"]))
+                peer.send({"type":"file-ack","id":offer["id"],"offset":len(actual)},sequenced=True)
+            self.assertEqual(bytes(actual),data);self.assertEqual(packet["sha256"],hashlib.sha256(data).hexdigest())
+            peer.send({"type":"file-complete","id":offer["id"]},sequenced=True)
+            out,err=cli.communicate(timeout=5);self.assertEqual(cli.returncode,0,err)
+        finally:
+            if cli.poll() is None:cli.kill();cli.communicate(timeout=3)
+
+    def test_rejected_file_and_disconnection_report_failure(self):
+        peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        path=self.root/"file.txt";path.write_text("sample")
+        with self.local({"action":"share","path":str(path)}) as ipc:
+            offer=peer.receive();peer.send({"type":"file-reject","id":offer["id"]},sequenced=True);self.assertFalse(json.loads(ipc.recv(8192))["ok"])
+        with self.local({"action":"share","path":str(path)}) as ipc:
+            peer.receive();peer.socket.shutdown(socket.SHUT_RDWR);self.assertFalse(json.loads(ipc.recv(8192))["ok"])
+
+    def test_native_watch_announces_authorized_and_disconnected_phone(self):
+        with self.local({"action":"watch"}) as ipc:
+            events=ipc.makefile("rb",buffering=0)
+            self.addCleanup(events.close)
+            self.assertTrue(json.loads(events.readline())["changed"])
+            peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+            self.assertTrue(json.loads(events.readline())["changed"])
+            clients=json.loads(self.cli("clients").stdout);self.assertEqual(clients[0]["name"],"Test phone");self.assertTrue(clients[0]["files"])
+            peer.socket.shutdown(socket.SHUT_RDWR);self.assertTrue(json.loads(events.readline())["changed"])
+            until=time.monotonic()+2
+            while True:
+                with self.local({"action":"devices"}) as snapshot:saved=json.loads(snapshot.recv(8192))["value"]
+                if not saved[0]["reachable"] or time.monotonic()>until:break
+                time.sleep(.02)
+            self.assertEqual(saved[0]["name"],"Test phone");self.assertFalse(saved[0]["reachable"])
+
+    def test_phone_upload_checks_integrity_and_rejects_arbitrary_paths(self):
+        peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        def call(kind,**fields):peer.send({"type":kind,"request":"upload",**fields},sequenced=True);return peer.receive()
+        transfer="a"*32
+        self.assertFalse(call("file-begin",id=transfer,name="../escape",size=3)["ok"])
+        self.assertTrue(call("file-begin",id=transfer,name="from-phone.txt",size=3)["ok"])
+        self.assertTrue(call("file-chunk",id=transfer,offset=0,data=encode(b"abc"))["ok"])
+        done=call("file-end",id=transfer,sha256=hashlib.sha256(b"abc").hexdigest());self.assertTrue(done["ok"])
+        matches=list((self.root/"home").rglob(done["value"]["name"]));self.assertEqual(len(matches),1);self.assertEqual(matches[0].read_bytes(),b"abc")
+        self.assertFalse(call("file-chunk",id=transfer,offset=0,data=encode(b"abc"))["ok"])
+
+    def test_private_lan_discovery_keeps_the_registered_tls_identity(self):
+        self.server.terminate();self.server.communicate(timeout=5)
+        self.env["UMBRIEL_CONNECT_LAN"]="1"
+        self.server=subprocess.Popen([BINARY,"serve","127.0.0.1",str(self.port)],env=self.env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        self.assertTrue(select.select([self.server.stdout],[],[],4)[0]);self.server.stdout.readline()
+        info=json.loads(self.cli("network").stdout)
+        if not info["hosts"]:self.skipTest("No private IPv4 interface is available")
+        self.assertTrue(info["discovery"]);host=info["hosts"][0]
+        nonce="c"*32
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as udp:
+            udp.bind((host,0));udp.settimeout(2);udp.sendto(json.dumps({"type":"umbriel-discover","nonce":nonce}).encode(),(host,self.port+1))
+            answer=json.loads(udp.recv(2048));self.assertEqual(answer["nonce"],nonce);self.assertEqual(answer["pin"],self.pin)
+        ctx=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT);ctx.check_hostname=False;ctx.verify_mode=ssl.CERT_NONE
+        with ctx.wrap_socket(socket.create_connection((host,self.port),timeout=3),server_hostname="local") as direct:
+            self.assertEqual(hashlib.sha256(direct.getpeercert(binary_form=True)).hexdigest(),self.pin)
+        self.assertEqual(json.loads(self.cli("clients").stdout),[])
 
     def test_malformed_and_oversized_frames_fail_closed(self):
         peer = self.peer()

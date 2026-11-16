@@ -1,9 +1,9 @@
 # Compatibilidad y alcance
 
-Actualizado el 2026-11-16 para 0.2.0. Se confirmó una sesión Android autorizada
+Actualizado el 2026-11-16 para 0.3.0. Se confirmó una sesión Android autorizada
 sobre Tailscale y transferencia de registro aceptada por KDE Connect. La matriz
 separa implementación de prueba física; no se afirma compatibilidad del 100%.
-Consulta [controles, fondos y restricciones](REMOTE-CONTROLS.md).
+Consulta [red local y archivos propios](LOCAL-FILES.md) y [controles, fondos y restricciones](REMOTE-CONTROLS.md).
 
 | Función | Ruta nativa | Verificación |
 |---|---|---|
@@ -22,7 +22,9 @@ Consulta [controles, fondos y restricciones](REMOTE-CONTROLS.md).
 | Mascotas / demo / salvapantallas | Socket de undershell | Catálogo y validación; pendiente efecto visual real |
 | Órdenes desde Android | Configuración oficial de `runcommand` | Fusión/respaldo/idempotencia/retirada probados en archivos temporales |
 | Widget Noctalia | Servicio y widget Luau | Lint válido; pendiente activación y prueba gráfica real |
-| Canal biométrico Android ↔ C++ | Implementado por separado; APK API36 firmado | 13 pruebas TLS y 20 checks Java; sesión real autorizada, control inverso fuera del APK mínimo |
+| LAN y archivos propios | TLS fijado, discovery privado y MediaStore | CLI/TLS/LAN y hashes probados con clientes simulados; Galaxy/router pendientes |
+| Filtros de fondos | Origen/carpeta/tipo persistentes | 276 imágenes locales y 186 WE; filtros/rutas probados |
+| Canal biométrico Android ↔ C++ | Implementado por separado; APK API36 firmado | 18 pruebas TLS y 20 checks Java; sesión real autorizada, control inverso fuera del APK mínimo |
 | scrcpy y cámara/webcam | Código Python original conservado | Sin migrar a interfaz C++; no ofrecer como validado para Umbriel |
 | Audio Bluetooth del teléfono | Código original / herramientas del sistema | Sin integrar en la ventana C++; depende del perfil Bluetooth |
 | Monitor virtual | Motor KDE o backend original | No validado; original usa Hyprland; Android no ofrece la función de monitor entre computadoras |

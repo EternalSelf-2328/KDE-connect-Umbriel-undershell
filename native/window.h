@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include "integration.h"
+#include "localremote.h"
 #include <QMainWindow>
 
 class QLabel;
@@ -27,6 +28,7 @@ private:
     QString selectedId() const;
     QJsonObject selectedDevice() const;
     KdeClient m_client;
+    LocalRemote m_remote;
     Integration m_integration;
     QJsonObject m_state;
     QListWidget *m_devices;

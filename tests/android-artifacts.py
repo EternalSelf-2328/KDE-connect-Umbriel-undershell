@@ -23,7 +23,7 @@ for variant in ["desktop","phone-control"]:
     expected={"INTERNET","USE_BIOMETRIC","POST_NOTIFICATIONS","FOREGROUND_SERVICE","FOREGROUND_SERVICE_CONNECTED_DEVICE","CHANGE_NETWORK_STATE"}
     permissions=set(re.findall(r'android\.permission\.([A-Z_]+)',manifest))
     assert permissions==expected|({"BIND_ACCESSIBILITY_SERVICE"} if variant=="phone-control" else set()),permissions
-    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=3']:
+    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=4']:
         assert role in manifest,(variant,role)
     full=variant=="phone-control"
     assert ('.PhoneAccessibility' in manifest)==full
@@ -35,13 +35,15 @@ for variant in ["desktop","phone-control"]:
         assert (b'Lorg/eternalself/umbrielremote/PhoneAccessibility;' in dex)==full
         assert b'Lorg/eternalself/umbrielremote/RemoteDashboard;' in dex
         assert b'Lorg/eternalself/umbrielremote/Touchpad;' in dex
+        for component in [b'FileTransfers',b'LanDiscovery',b'MotionBuffer']:
+            assert b'Lorg/eternalself/umbrielremote/'+component+b';' in dex
     signing=run([tools/"apksigner","verify","--verbose","--print-certs",apk])
     assert 'Verified using v3 scheme (APK Signature Scheme v3): true' in signing
     fingerprint=re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)',signing).group(1)
     results[variant]={"bytes":apk.stat().st_size,"sha256":hashlib.sha256(apk.read_bytes()).hexdigest(),"signing_certificate_sha256":fingerprint,"phone_accessibility":full}
 assert results['desktop']['signing_certificate_sha256']==results['phone-control']['signing_certificate_sha256']
 assert results['desktop']['signing_certificate_sha256']==(root/'downloads/SIGNING-CERTIFICATE-SHA256').read_text().strip()
-published=root/'downloads/UmbrielRemote-0.2.0.apk'
+published=root/'downloads/UmbrielRemote-0.3.0.apk'
 assert hashlib.sha256(published.read_bytes()).hexdigest()==results['desktop']['sha256']
 assert (root/'downloads/SHA256SUMS').read_text().split()==[results['desktop']['sha256'],published.name]
 old=root/'downloads/UmbrielRemote-0.1.0.apk'
