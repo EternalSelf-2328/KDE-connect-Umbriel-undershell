@@ -1,3 +1,4 @@
 [D-BUS Service]
 Name=org.eternalself.UmbrielConnect.Engine
 Exec="@CMAKE_INSTALL_PREFIX@/bin/umbriel-connect-engine"
+SystemdService=umbriel-connect-engine.service

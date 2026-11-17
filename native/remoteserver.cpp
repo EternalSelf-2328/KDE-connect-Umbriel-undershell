@@ -7,6 +7,7 @@
 #include <QCryptographicHash>
 #include <QUuid>
 #include <QDateTime>
+#include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonDocument>
@@ -39,7 +40,7 @@ class RemotePeer : public QObject {
 public:
     RemotePeer(RemoteServer *owner, QSslSocket *socket) : QObject(owner), server(owner), pointer(this), wire(socket) {
         expiry.setSingleShot(true); expiry.setInterval(15000);
-        connect(&expiry, &QTimer::timeout, this, [this] { if(ready)expireControls();else wire->abort(); });
+        connect(&expiry, &QTimer::timeout, this, [this] { if(ready && localAuto) { if(!directLan()||!stillTrusted(true)) { fail("Autorización LAN revocada o ruta perdida");return; } leaseTime.restart();expiry.start(controlMillis); } else if(ready)expireControls();else wire->abort(); });
         connect(wire, &QSslSocket::readyRead, this, [this] { read(); });
         connect(wire, &QSslSocket::disconnected, this, [this] {
             pointer.stop();
@@ -52,7 +53,7 @@ public:
         });
         expiry.start();
         heartbeat.setInterval(10000);
-        connect(&heartbeat, &QTimer::timeout, this, [this] { send({{"type", "ping"}}); });
+        connect(&heartbeat, &QTimer::timeout, this, [this] { if(localAuto && !directLan()) { wire->abort(); return; } send({{"type", "ping"}}); });
     }
     RemoteServer *server;
     Pointer pointer;
@@ -60,7 +61,11 @@ public:
     QTimer expiry, heartbeat;
     QElapsedTimer challengeTime, rateTime, leaseTime;
     QByteArray buffer, publicKey, proof;
-    QString keyId,deviceName;
+    QString keyId,deviceName,groupId,authMode;
+    QByteArray lanKey,remoteKey;
+    bool localAuto=false;
+    QString identity() const { return groupId.isEmpty() ? keyId : groupId; }
+    bool directLan() const { return RemoteServer::directLanPeer(wire->localAddress(), wire->peerAddress()); }
     FileTransfer upload;
     std::unique_ptr<QFile> outgoing;
     QCryptographicHash outgoingHash{QCryptographicHash::Sha256};
@@ -106,7 +111,7 @@ public:
     bool stillTrusted(bool force=false) const {
         if(!force&&trustAge.isValid()&&trustAge.elapsed()<250)return cachedTrust;
         const auto saved = RemoteAuth::readJson(server->directory() + "/clients.json", nullptr);
-        cachedTrust=saved.contains(keyId) && base64(saved[keyId].toObject()["key"], 256) == publicKey;trustAge.start();return cachedTrust;
+        cachedTrust=saved.contains(keyId) && base64(saved[keyId].toObject()["key"], 256) == publicKey && (groupId.isEmpty() || saved.contains(groupId)) && (!localAuto || directLan());trustAge.start();return cachedTrust;
     }
     void read() {
         buffer += wire->readAll();
@@ -136,13 +141,20 @@ public:
             deviceName=message["name"].toString().left(80);if(!FileTransfer::validName(deviceName))deviceName="Teléfono Umbriel";
             const auto nonce = RemoteAuth::random();
             if (nonce.isEmpty()) { fail("No se pudo crear el desafío"); return; }
-            proof = RemoteAuth::challenge(server->pin(), publicKey, wantsPhone, nonce);
+            authMode=message["mode"].toString();
+            if(!authMode.isEmpty()) {
+                lanKey=base64(message["lanKey"],256);remoteKey=base64(message["remoteKey"],256);
+                if(!QStringList{"lan-auto","interactive","upgrade"}.contains(authMode) || !RemoteAuth::validKey(lanKey) || !RemoteAuth::validKey(remoteKey) || lanKey==remoteKey) { fail("Identidades de acceso inválidas"); return; }
+                if(authMode=="lan-auto" && (!directLan() || publicKey!=lanKey)) { fail("El acceso automático solo se admite en una LAN directa"); return; }
+                if(authMode=="interactive" && publicKey!=remoteKey) { fail("Clave remota incorrecta"); return; }
+                proof=RemoteAuth::challengeV2(server->pin(),publicKey,wantsPhone,nonce,authMode,lanKey,remoteKey);
+            } else proof = RemoteAuth::challenge(server->pin(), publicKey, wantsPhone, nonce);
             challengeTime.start(); expiry.start(60000);
             send({{"type", "challenge"}, {"challenge", QString::fromLatin1(proof.toBase64())}});
             return;
         }
         if (!ready) {
-            if (type != "auth" || authTried) { fail("Se requiere aprobar con huella"); return; }
+            if (type != "auth" || authTried) { fail("Se requiere autenticar el dispositivo"); return; }
             authTried = true;
             if (challengeTime.elapsed() > 60000 || !RemoteAuth::verify(publicKey, proof, base64(message["signature"], 80))) {
                 fail("Firma inválida o desafío vencido"); return;
@@ -152,6 +164,11 @@ public:
             if (!lock.tryLock(0)) { fail("Registro ocupado"); return; }
             auto known = RemoteAuth::readJson(server->directory() + "/clients.json", &error);
             if (!error.isEmpty()) { fail(error); return; }
+            const auto previous=known.value(keyId).toObject();
+            const auto parent=previous["parent"].toString(previous["successor"].toString());
+            if(!parent.isEmpty()&&!known.contains(parent)) { fail("Autorización revocada"); return; }
+            if(authMode=="lan-auto" && (!known.contains(keyId) || known.value(keyId).toObject()["scope"]!="lan" || !directLan())) { fail("La clave LAN no está registrada"); return; }
+            if(authMode!="lan-auto" && known.value(keyId).toObject()["scope"]=="lan") { fail("Una clave LAN no autoriza el acceso remoto"); return; }
             if (!known.contains(keyId)) {
                 auto enrollment = RemoteAuth::readJson(server->directory() + "/enrollment.json", nullptr);
                 const auto token = base64(message["enrollment"], 32);
@@ -163,19 +180,35 @@ public:
                 if (!RemoteAuth::writeJson(server->directory() + "/enrollment.json", {}, &error)) { fail(error); return; }
                 known[keyId] = QJsonObject{{"key", QString::fromLatin1(publicKey.toBase64())}, {"created", QDateTime::currentSecsSinceEpoch()}};
                 if (!RemoteAuth::writeJson(server->directory() + "/clients.json", known, &error)) { fail(error); return; }
-            } else if (base64(known[keyId].toObject()["key"], 256) != publicKey) { fail("Identidad alterada"); return; }
-            if(known[keyId].toObject()["name"].toString()!=deviceName){auto entry=known[keyId].toObject();entry["name"]=deviceName;known[keyId]=entry;if(!RemoteAuth::writeJson(server->directory()+"/clients.json",known,&error)){fail(error);return;}}
+            } else if (base64(known.value(keyId).toObject()["key"], 256) != publicKey) { fail("Identidad alterada"); return; }
+            if(known.value(keyId).toObject()["name"].toString()!=deviceName){auto entry=known.value(keyId).toObject();entry["name"]=deviceName;known[keyId]=entry;if(!RemoteAuth::writeJson(server->directory()+"/clients.json",known,&error)){fail(error);return;}}
+            if(!authMode.isEmpty() && authMode!="lan-auto") {
+                groupId=RemoteAuth::digest(remoteKey);
+                const auto lanId=RemoteAuth::digest(lanKey);
+                if((known.contains(groupId) && keyId!=groupId && known.value(keyId).toObject()["successor"]!=groupId)
+                    || (known.contains(lanId) && known.value(lanId).toObject()["parent"]!=groupId)) { fail("Las claves ya pertenecen a otro vínculo"); return; }
+                auto remoteEntry=QJsonObject{{"key",QString::fromLatin1(remoteKey.toBase64())},{"created",QDateTime::currentSecsSinceEpoch()},{"name",deviceName},{"scope","interactive"}};
+                auto lanEntry=QJsonObject{{"key",QString::fromLatin1(lanKey.toBase64())},{"created",QDateTime::currentSecsSinceEpoch()},{"name",deviceName},{"scope","lan"},{"parent",groupId}};
+                if(keyId!=groupId) { auto legacy=known.value(keyId).toObject();legacy["successor"]=groupId;known[keyId]=legacy; }
+                known[groupId]=remoteEntry;known[RemoteAuth::digest(lanKey)]=lanEntry;
+                if(!RemoteAuth::writeJson(server->directory()+"/clients.json",known,&error)) { fail(error); return; }
+            } else groupId=known.value(keyId).toObject()["parent"].toString(known.value(keyId).toObject()["successor"].toString());
+            if(!groupId.isEmpty()&&!known.contains(groupId)) { fail("Autorización revocada"); return; }
+            localAuto=authMode=="lan-auto";
+            if(localAuto && (groupId!=RemoteAuth::digest(remoteKey) || base64(known.value(groupId).toObject()["key"],256)!=remoteKey)) { fail("Vínculo LAN alterado"); return; }
             const auto peers = server->m_peers;
-            for (auto *peer : peers) if (peer != this && peer->keyId == keyId && peer->ready) peer->wire->abort();
+            for (auto *peer : peers) if (peer != this && peer->identity() == identity() && peer->ready) peer->wire->abort();
             ready = true; proof.clear();leaseTime.start();
             bool configured=false;auto duration=qEnvironmentVariableIntValue("UMBRIEL_REMOTE_CONTROL_MS",&configured);controlMillis=configured?qBound(100,duration,600000):600000;
             expiry.start(controlMillis);heartbeat.start();uploadDeadline.setSingleShot(true);
             connect(&uploadDeadline,&QTimer::timeout,this,[this]{fail("La transferencia no tuvo progreso durante 30 segundos");});
-            send({{"type", "authorized"}, {"keyId", keyId}, {"leaseSeconds", 600}, {"phoneControl", wantsPhone}});
+            send({{"type", "authorized"}, {"keyId", keyId}, {"leaseSeconds", 600}, {"phoneControl", wantsPhone},{"localAuto",localAuto},{"accessV2",!authMode.isEmpty()}});
             emit server->authorized(keyId);server->notifyClients();
             return;
         }
         if(!stillTrusted()){fail("Autorización revocada");return;}
+        if(localAuto && !directLan()) { fail("La conexión dejó la red local"); return; }
+        if(localAuto && leaseTime.elapsed()>=controlMillis) { leaseTime.restart(); expiry.start(controlMillis); }
         if(leaseTime.elapsed()>=controlMillis&&!controlsExpired)expireControls();
         if(leaseTime.elapsed()>=TransferMillis){fail("La autorización de transferencia venció");return;}
         if (message["seq"].toInteger(-1) != sequence + 1) { fail("Secuencia inválida"); return; }
@@ -290,6 +323,15 @@ RemoteServer::~RemoteServer() {
 bool RemoteServer::privateAddress(const QHostAddress &address){
     return address.protocol()==QAbstractSocket::IPv4Protocol&&(address.isInSubnet(QHostAddress("10.0.0.0"),8)||address.isInSubnet(QHostAddress("172.16.0.0"),12)||address.isInSubnet(QHostAddress("192.168.0.0"),16));
 }
+bool RemoteServer::directLanPeer(const QHostAddress &local, const QHostAddress &remote) {
+    if(!privateAddress(local)||!privateAddress(remote)||local.isLoopback()||remote.isLoopback()) return false;
+    for(const auto &iface : QNetworkInterface::allInterfaces()) {
+        if(!(iface.flags()&QNetworkInterface::IsUp) || (iface.flags()&QNetworkInterface::IsLoopBack)
+            || !QFileInfo::exists("/sys/class/net/"+iface.name()+"/device")) continue;
+        for(const auto &entry : iface.addressEntries()) if(entry.ip()==local && entry.prefixLength()>0 && remote.isInSubnet(local,entry.prefixLength())) return true;
+    }
+    return false;
+}
 bool RemoteServer::allowedAddress(const QHostAddress &address) {
     if (address.isLoopback()) return true;
     if (!privateAddress(address)&&!address.isInSubnet(QHostAddress("100.64.0.0"), 10)) return false;
@@ -365,6 +407,10 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
                 if (!doc.isObject()) { socket->abort(); return; }
                 const auto request = doc.object();
                 const auto action=request["action"].toString();
+                if(action=="shutdown"){
+                    socket->write("{\"ok\":true}\n");socket->flush();socket->disconnectFromServer();
+                    QTimer::singleShot(0,QCoreApplication::instance(),&QCoreApplication::quit);return;
+                }
                 if(action=="watch"){
                     deadline->stop();m_observers.append(socket);socket->write("{\"changed\":true}\n");return;
                 }
@@ -378,9 +424,9 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
                 }
                 if(action=="devices"){
                     const auto known=RemoteAuth::readJson(directory()+"/clients.json",nullptr);QJsonArray list;
-                    for(auto it=known.begin();it!=known.end();++it){bool online=false,files=false;QString name=it.value().toObject()["name"].toString("Teléfono Umbriel");
-                        for(auto *peer:m_peers)if(peer->ready&&peer->keyId==it.key()){online=true;files=peer->supportsFiles&&!peer->controlsExpired;name=peer->deviceName;}
-                        list.append(QJsonObject{{"id",it.key()},{"name",name},{"reachable",online},{"files",files}});
+                    for(auto it=known.begin();it!=known.end();++it){if(it.value().toObject()["scope"]=="lan"||it.value().toObject().contains("successor"))continue;bool online=false,files=false,automatic=false;QString name=it.value().toObject()["name"].toString("Teléfono Umbriel");
+                        for(auto *peer:m_peers)if(peer->ready&&peer->identity()==it.key()){online=true;automatic=peer->localAuto;files=peer->supportsFiles&&!peer->controlsExpired;name=peer->deviceName;}
+                        list.append(QJsonObject{{"id",it.key()},{"name",name},{"reachable",online},{"files",files},{"localAuto",automatic}});
                     }
                     socket->write(QJsonDocument(QJsonObject{{"ok",true},{"value",list}}).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();return;
                 }
@@ -410,7 +456,7 @@ void RemoteServer::incomingConnection(qintptr descriptor) {
 }
 QJsonArray RemoteServer::clients() const {
     QJsonArray list;
-    for (const auto *peer : m_peers) if (peer->ready) list.append(QJsonObject{{"id", peer->keyId}, {"phoneControl", peer->wantsPhone&&!peer->controlsExpired},{"name",peer->deviceName},{"files",peer->supportsFiles}});
+    for (const auto *peer : m_peers) if (peer->ready) list.append(QJsonObject{{"id", peer->identity()}, {"phoneControl", peer->wantsPhone&&!peer->controlsExpired},{"name",peer->deviceName},{"files",peer->supportsFiles},{"localAuto",peer->localAuto}});
     return list;
 }
 void RemoteServer::phoneRequest(const QJsonObject &request, Done done) {
@@ -418,8 +464,8 @@ void RemoteServer::phoneRequest(const QJsonObject &request, Done done) {
     if (!allowed.contains(request["action"].toString())) { done({false, "Acción de teléfono desconocida", {}}); return; }
     RemotePeer *chosen = nullptr;
     int candidates = 0;
-    for (auto *peer : m_peers) if (peer->ready && !peer->controlsExpired && peer->leaseTime.elapsed()<peer->controlMillis && peer->wantsPhone && (request["peer"].toString().isEmpty() || peer->keyId == request["peer"].toString())) { chosen = peer; ++candidates; }
-    if (candidates != 1 || !chosen->stillTrusted()) { done({false, "Selecciona un único teléfono conectado y autorizado con huella", {}}); return; }
+    for (auto *peer : m_peers) if (peer->ready && !peer->controlsExpired && (peer->localAuto||peer->leaseTime.elapsed()<peer->controlMillis) && peer->wantsPhone && (request["peer"].toString().isEmpty() || peer->identity() == request["peer"].toString())) { chosen = peer; ++candidates; }
+    if (candidates != 1 || !chosen->stillTrusted()) { done({false, "Selecciona un único teléfono conectado y autorizado", {}}); return; }
     if (chosen->pending.size() >= 2) { done({false, "El teléfono está ocupado", {}}); return; }
     const auto id = QString::fromLatin1(RemoteAuth::random(16).toHex());
     chosen->pending[id] = done;
@@ -435,8 +481,8 @@ void RemoteServer::notifyClients(){
 }
 void RemoteServer::share(const QJsonObject &request,Done done){
     RemotePeer *chosen=nullptr;int count=0;auto id=request["peer"].toString();if(id.startsWith("remote:"))id.remove(0,7);
-    for(auto *peer:m_peers)if(peer->ready&&!peer->controlsExpired&&peer->leaseTime.elapsed()<peer->controlMillis&&peer->stillTrusted()&&(id.isEmpty()||id==peer->keyId)){chosen=peer;++count;}
-    if(count!=1){done({false,"Abre Umbriel Remote, conecta con huella y selecciona un único teléfono",{}});return;}
+    for(auto *peer:m_peers)if(peer->ready&&!peer->controlsExpired&&(peer->localAuto||peer->leaseTime.elapsed()<peer->controlMillis)&&peer->stillTrusted()&&(id.isEmpty()||id==peer->identity())){chosen=peer;++count;}
+    if(count!=1){done({false,"Abre Umbriel Connect, conecta y selecciona un único teléfono",{}});return;}
     if(!chosen->supportsFiles){done({false,"Actualiza Umbriel Remote a 0.3.0 para transferir archivos",{}});return;}
     if(chosen->outgoing){done({false,"Ya se está enviando un archivo a ese teléfono",{}});return;}
     const auto path=request["path"].toString();QFileInfo info(path);

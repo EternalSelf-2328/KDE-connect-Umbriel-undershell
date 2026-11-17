@@ -23,6 +23,7 @@ public:
     QJsonArray clients() const;
     QString directory() const { return m_directory; }
     QString pin() const { return m_pin; }
+    static bool directLanPeer(const QHostAddress &local, const QHostAddress &remote);
     static bool privateAddress(const QHostAddress &address);
     void notifyClients();
     void share(const QJsonObject &request, Done done);

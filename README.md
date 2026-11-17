@@ -1,13 +1,13 @@
 # Umbriel Connect
 
 Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **0.4.0 experimental** incorpora un motor privado derivado
+y aplicación Android propia. **0.4.1 experimental** incorpora un motor privado derivado
 de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
 Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
 ![Umbriel Connect: datos de ejemplo](docs/screenshots/0.4.0/native-dark.png)
 
-[Descargar Android completo 0.4.0](downloads/UmbrielConnect-0.4.0.apk) ·
+[Descargar Android completo 0.4.1](downloads/UmbrielConnect-0.4.1.apk) ·
 [Instalación y compilación](docs/BUILDING.md) ·
 [Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
 [Seguridad y permisos](SECURITY.md)
@@ -25,7 +25,7 @@ Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del códig
   rendimiento, mascotas y perfiles de undershell.
 - Galería móvil/escritorio de undershell-wall con miniaturas, favoritos y filtros por
   carpeta/origen: imágenes propias o Wallpaper Engine.
-- Canal TLS propio con certificado fijado, sesión biométrica y archivos grandes en
+- Canal TLS propio con certificado fijado, acceso automático en LAN, autorización remota y archivos grandes en
   ambos sentidos. Integración Yazi `umbriel-connect --send ARCHIVOS...`.
 
 El motor deriva de las fuentes oficiales C++ y Android, mantenidas como submódulos
@@ -49,20 +49,28 @@ git submodule update --init --recursive
 
 Consulta primero las [bibliotecas necesarias](docs/BUILDING.md). El instalador
 respalda los binarios anteriores, compila y prueba los dos proyectos, e instala en
-`~/.local`. No modifica red, firewall, autostart, atajos ni configuraciones de otros
-programas. No elimina el paquete KDE Connect existente; el cliente nuevo usa su
-servicio y sus plugins privados.
+`~/.local`. `./install.sh --autostart` habilita sus servicios de usuario al iniciar
+la siguiente sesión gráfica; la opción predeterminada conserva los procesos actuales.
+No modifica red, firewall, atajos ni configuraciones de otros programas. No elimina
+el paquete KDE Connect existente; utiliza su propio servicio y plugins privados.
 
-Instala el APK completo y abre **Funciones del teléfono**. Autoriza con huella y
-empareja el motor nuevo comparando la clave en ambos extremos. Las claves privadas
-de KDE Connect no se importan. El APK oficial de esta versión conserva el paquete
-y la firma de Umbriel Remote anterior y, por tanto, sus registros propios.
+Instala el APK completo y abre **Funciones del teléfono**. En LAN puedes emparejar
+el motor nuevo comparando la clave en ambos extremos. Las claves privadas de KDE
+Connect no se importan. La actualización conserva paquete, firma y registros propios
+anteriores. No necesitas borrar los datos ni volver a registrar normalmente.
 
-La autorización interactiva dura hasta diez minutos y finaliza al bloquear. Puedes
-habilitar explícitamente **Sincronización al bloquear** para computadoras concretas:
-conserva intercambio de archivos/datos con notificación visible y fija su certificado;
-no habilita entrada remota, órdenes ni nuevos emparejamientos. Cerrar la sesión de
-funciones revoca ambas autorizaciones. Concede solo los permisos Android que uses.
+**En LAN directa, los dispositivos vinculados se conectan automáticamente**, también
+con la app en segundo plano y notificación visible. **Fuera de ella, Android exige
+huella o el PIN, patrón o contraseña del teléfono** por hasta diez minutos. Al bloquear
+termina la autorización remota; el control del teléfono siempre respeta su bloqueo.
+«Pausar conexión» desactiva la reconexión hasta presionar Conectar. Los permisos
+Android y los plugins siguen siendo decisiones independientes.
+
+Un registro antiguo puede pedir **una última huella para migrar las claves**: su
+clave original solo aceptaba biometría. Después permite también el bloqueo del teléfono.
+Si esa huella ya no está disponible, se necesita un registro nuevo; no se omite la
+validación de identidad. Los permisos remotos persistentes de 0.4.0 se retiran.
+[Qué corrige 0.4.1 y cómo actualizar](docs/UPDATE-0.4.1.md).
 
 El APK ampliado incluye capacidades sensibles opcionales. Si Play Protect impide
 instalarlo, no desactives esa protección; conserva la edición mínima

@@ -79,7 +79,8 @@ void help() {
         "  pair DIRECCIÓN [PUERTO]      Crear archivo privado para registrar Android (5 min)\n"
         "  pair-proxy IP_TAILNET [PUERTO] Registro para un proxy TCP privado de Tailscale\n"
         "  serve DIRECCIÓN [PUERTO]     Escuchar con TLS y habilitar red local privada; puerto 31594\n"
-        "  clients                      Sesiones activas aprobadas con huella\n"
+        "  stop                         Cerrar este receptor mediante su socket local privado\n"
+        "  clients                      Sesiones activas con identidad verificada\n"
         "  revoke ID                    Retirar confianza y cerrar sesiones del teléfono\n"
         "  phone ID ACCIÓN [ARGS...]    back, home, recents, screen, tap X Y, swipe X1 Y1 X2 Y2, text TEXTO\n"
         "  --phone                      Panel de control del teléfono autorizado\n";
@@ -105,7 +106,7 @@ int main(int argc, char **argv) {
         auto *refreshPeers = new QPushButton("Buscar teléfonos autorizados"); layout->addWidget(refreshPeers);
         auto *frame=new QFrame;frame->setObjectName("card");auto *frameLayout=new QVBoxLayout(frame);frameLayout->setContentsMargins(16,16,16,16);
         auto *image = new PhoneImage;image->setText("Tu teléfono aparecerá aquí.\nAprueba la conexión desde Android.");image->setProperty("role","muted"); image->setAlignment(Qt::AlignCenter); image->setMinimumSize(120, 180);frameLayout->addWidget(image);layout->addWidget(frame,1);
-        auto *status = new QLabel("Activa la sesión con huella y permite controlar el teléfono en Android."); status->setWordWrap(true); status->setTextFormat(Qt::PlainText);
+        auto *status = new QLabel("Conecta en la LAN o autoriza el acceso remoto con huella o bloqueo. Permite controlar el teléfono en Android."); status->setWordWrap(true); status->setTextFormat(Qt::PlainText);
         status->setProperty("role","muted");
         auto send = [&window, peers, status, image](QJsonObject request) {
             request["peer"] = peers->currentData().toString();
@@ -142,6 +143,11 @@ int main(int argc, char **argv) {
     }
     if (args.isEmpty() || args[0] == "--help") { help(); return 0; }
     QString error;
+    if(args==QStringList{"stop"}) {
+        int code=1;
+        localCall(app.get(),{{"action","shutdown"}},[&](Reply r){code=r.ok?0:1;app->quit();});
+        app->exec();return code;
+    }
     if (args[0] == "init" && args.size() == 1) {
         if (!RemoteAuth::initialize(dir, &error)) { QTextStream(stderr) << error << '\n'; return 1; }
         QTextStream(stdout) << "Identidad creada. SHA256 TLS: " << RemoteAuth::fingerprint(dir) << '\n'; return 0;
@@ -164,7 +170,7 @@ int main(int argc, char **argv) {
         }
         RemoteServer server(dir);
         if (!server.start(address, port, &error)) { QTextStream(stderr) << error << '\n'; return 1; }
-        QTextStream(stdout) << "Canal TLS activo en " << address.toString() << ':' << port << "; requiere huella y registro previo.\n";
+        QTextStream(stdout) << "Canal TLS activo en " << address.toString() << ':' << port << "; identidad registrada: LAN automática, acceso remoto autenticado.\n";
         return app->exec();
     }
     if (args[0] == "revoke" && args.size() == 2) {

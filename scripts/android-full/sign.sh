@@ -8,7 +8,7 @@ KEY="${UMBRIEL_ANDROID_KEYSTORE:-$HOME/.local/share/umbriel-connect/android-rele
 PASS="${UMBRIEL_ANDROID_KEY_PASSWORD_FILE:-$KEY.password}"
 ALIAS="${UMBRIEL_ANDROID_KEY_ALIAS:-umbriel-remote}"
 SOURCE="$ROOT/build/android-full-source/build/outputs/apk/release/umbriel-connect-android-release-unsigned.apk"
-TARGET="${1:-$ROOT/downloads/UmbrielConnect-0.4.0.apk}"
+TARGET="${1:-$ROOT/downloads/UmbrielConnect-0.4.1.apk}"
 [[ -f "$KEY" && -f "$PASS" && -f "$SOURCE" ]] || { echo "Missing private keystore/password file or unsigned APK" >&2; exit 1; }
 SDK="$CACHE/full-sdk/build-tools/37.0.0"
 CASE="$(mktemp -d)"

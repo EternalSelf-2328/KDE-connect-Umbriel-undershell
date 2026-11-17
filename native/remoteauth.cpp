@@ -47,6 +47,11 @@ bool verify(const QByteArray &spki, const QByteArray &message, const QByteArray 
         && EVP_DigestVerify(ctx.get(), reinterpret_cast<const unsigned char *>(signature.constData()), size_t(signature.size()),
                             reinterpret_cast<const unsigned char *>(message.constData()), size_t(message.size())) == 1;
 }
+QByteArray challengeV2(const QString &pin, const QByteArray &key, bool control, const QByteArray &nonce, const QString &mode, const QByteArray &lan, const QByteArray &remote) {
+    return QByteArray("umbriel-connect-auth-v2\n") + pin.toLatin1() + '\n' + digest(key).toLatin1() + '\n'
+        + (control ? "phone-control\n" : "desktop-control\n") + mode.toLatin1() + '\n'
+        + digest(lan).toLatin1() + '\n' + digest(remote).toLatin1() + '\n' + nonce.toBase64() + '\n';
+}
 QString root() { return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + "/umbriel-connect/remote"; }
 static bool writePrivate(const QString &path, const QByteArray &bytes, QString *error) {
     QSaveFile file(path);

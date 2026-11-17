@@ -18,7 +18,7 @@ public final class EngineUnlockActivity extends Activity {
     private CancellationSignal cancel;
     private boolean visible;
     private TextView status;
-    private final Map<String, CheckBox> background = new LinkedHashMap<>();
+
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -39,33 +39,14 @@ public final class EngineUnlockActivity extends Activity {
         LinearLayout card = d.card();
         d.add(root, card, 20);
         d.add(card, d.label("Autoriza una sesión", 20, d.text, true), 12);
-        d.add(card,
-            d.label("La huella habilita durante 10 minutos los dispositivos que hayas emparejado en esta "
-                    + "aplicación. Al bloquear el teléfono o vencer el plazo se detiene el intercambio de "
-                    + "funciones activas. Solo continúa la sincronización que autorices abajo. Los permisos de Android se solicitan por separado.",
-                15, d.muted, false),
-            16);
-        d.add(card, d.label("Sincronización al bloquear", 18, d.text, true), 12);
-        d.add(card, d.label("Opcional: mantener archivos, mensajes, notificaciones y multimedia con las "
-            + "computadoras marcadas, incluso con la pantalla apagada. Cada función requiere sus permisos. "
-            + "Enviar mensajes, responder avisos o abrir contenido requiere sesión activa. No habilita entrada, órdenes ni nuevos emparejamientos. Se conserva hasta revocarla y muestra una notificación permanente.",
-            14, d.muted, false), 12);
-        for (Device device : EngineGate.paired().values()) {
-            CheckBox choice = new CheckBox(this);
-            choice.setText(device.getName());
-            choice.setTextColor(d.text);
-            choice.setChecked(EngineGate.selected(device));
-            background.put(device.getDeviceId(), choice);
-            d.add(card, choice, 8);
-        }
-        if (background.isEmpty()) d.add(card, d.label("Primero empareja una computadora y vuelve aquí para autorizarla.", 14, d.muted, false), 12);
-        Button open = d.button("Continuar con huella", true);
+        d.add(card,d.label("En una LAN directa, los dispositivos ya emparejados se conectan automáticamente sin huella. Fuera de ella se requiere huella, PIN, patrón o contraseña del teléfono durante una sesión de hasta 10 minutos. Los permisos de Android siguen siendo independientes.",15,d.muted,false),16);
+        Button open = d.button(EngineGate.localAvailable()?"Abrir funciones en la red local":"Autorizar con huella o bloqueo", true);
         d.add(card, open, 8);
         open.setOnClickListener(v -> unlock());
         Button end = d.button("Cerrar sesión de funciones", false);
         d.add(card, end, 0);
         end.setOnClickListener(v -> {
-            EngineGate.revoke();
+            getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("autoPaused",true).apply();EngineGate.revoke();
             status.setText("Sesión cerrada. No se intercambian datos del teléfono.");
         });
         status =
@@ -80,23 +61,16 @@ public final class EngineUnlockActivity extends Activity {
     @Override
     protected void onStop() {
         visible = false;
-        if (cancel != null)
-            cancel.cancel();
+
         super.onStop();
     }
     private void unlock() {
-        Set<String> chosen = new HashSet<>();
-        for (Map.Entry<String, CheckBox> e : background.entrySet()) if (e.getValue().isChecked()) chosen.add(e.getKey());
-        if (!chosen.isEmpty() && !EngineGate.notificationsVisible()) {
-            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
-                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 24);
-            status.setText("Permite las notificaciones de Umbriel y su canal persistente antes de autorizar sincronización al bloquear.");
-            return;
-        }
+        getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("autoPaused",false).apply();
+        if(EngineGate.localAvailable()){EngineGate.startNetwork();openFeatures();return;}
         try {
             KeyStore store = KeyStore.getInstance("AndroidKeyStore");
             store.load(null);
-            String alias = "umbriel-full-biometric-v1";
+            String alias = "umbriel-full-auth-v2";
             if (!store.containsAlias(alias)) {
                 KeyPairGenerator gen =
                     KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
@@ -105,8 +79,8 @@ public final class EngineUnlockActivity extends Activity {
                         .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
                         .setDigests(KeyProperties.DIGEST_SHA256)
                         .setUserAuthenticationRequired(true)
-                        .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
-                        .setInvalidatedByBiometricEnrollment(true)
+                        .setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG | KeyProperties.AUTH_DEVICE_CREDENTIAL)
+                        .setInvalidatedByBiometricEnrollment(false)
                         .build());
                 gen.generateKeyPair();
             }
@@ -118,14 +92,13 @@ public final class EngineUnlockActivity extends Activity {
             new BiometricPrompt.Builder(this)
                 .setTitle("Autorizar funciones de Umbriel")
                 .setSubtitle("Dispositivos emparejados · 10 minutos")
-                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                .setNegativeButton("Cancelar", getMainExecutor(), (dialog, which) -> {})
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
                 .build()
                 .authenticate(new BiometricPrompt.CryptoObject(signature), cancel, getMainExecutor(),
                     new BiometricPrompt.AuthenticationCallback() {
                         @Override
                         public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
-                            if (!visible || cancel.isCanceled())
+                            if (isFinishing() || cancel.isCanceled())
                                 return;
                             try {
                                 Signature signed = result.getCryptoObject().getSignature();
@@ -137,7 +110,7 @@ public final class EngineUnlockActivity extends Activity {
                                 if (!verifier.verify(proof))
                                     throw new GeneralSecurityException("Firma inválida");
                                 EngineGate.grant();
-                                EngineGate.saveBackground(chosen);
+
                                 openFeatures();
                             } catch (Exception e) {
                                 status.setText("No se pudo comprobar la autorización biométrica.");
@@ -153,7 +126,7 @@ public final class EngineUnlockActivity extends Activity {
             try {
                 KeyStore store = KeyStore.getInstance("AndroidKeyStore");
                 store.load(null);
-                store.deleteEntry("umbriel-full-biometric-v1");
+                store.deleteEntry("umbriel-full-auth-v2");
             } catch (Exception ignored) {
             }
             status.setText(
@@ -163,6 +136,7 @@ public final class EngineUnlockActivity extends Activity {
                 "No se pudo iniciar la huella. Configura biometría segura en Android y vuelve a intentarlo.");
         }
     }
+    @Override protected void onDestroy(){if(cancel!=null)cancel.cancel();super.onDestroy();}
     private void openFeatures() {
         try {
             startActivity(

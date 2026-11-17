@@ -22,7 +22,7 @@ for p in OUT.rglob('*'):
  except UnicodeError:continue
  s=s.replace('org.kde.kdeconnect_tp','org.eternalself.umbrielremote').replace('org.kde.kdeconnect','org.eternalself.umbrielremote.engine').replace('org/kde/kdeconnect','org/eternalself/umbrielremote/engine')
  p.write_text(s)
-p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 6').replace('versionName = "1.37.3"','versionName = "0.4.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
+p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 7').replace('versionName = "1.37.3"','versionName = "0.4.1-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
 # Robolectric SDK36 uses a JDK21 internal FileDescriptor accessor; export only in test JVMs.
 with (OUT/'build.gradle.kts').open('a') as stream:
  stream.write('\ntasks.withType<Test>().configureEach { jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }\n')
@@ -52,7 +52,7 @@ removed={'android.permission.READ_LOGS','android.permission.ACCESS_BACKGROUND_LO
 for n in list(r):
  if n.tag=='uses-permission' and n.get(A+'name') in removed:r.remove(n)
 for name in removed:E.SubElement(r,'uses-permission',{A+'name':name,'{http://schemas.android.com/tools}node':'remove'})
-for name in ['android.permission.USE_BIOMETRIC','android.permission.USE_FINGERPRINT']:
+for name in ['android.permission.USE_BIOMETRIC','android.permission.USE_FINGERPRINT','android.permission.ACCESS_NETWORK_STATE','android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE','android.permission.CHANGE_NETWORK_STATE']:
  if not any(n.get(A+'name')==name for n in r.findall('uses-permission')):E.SubElement(r,'uses-permission',{A+'name':name})
 for n in list(app):
  name=n.get(A+'name','')
@@ -65,7 +65,10 @@ for n in list(app):
 main=E.SubElement(app,'activity',{A+'name':'org.eternalself.umbrielremote.MainActivity',A+'exported':'true',A+'theme':'@android:style/Theme.Material.NoActionBar'})
 f=E.SubElement(main,'intent-filter');E.SubElement(f,'action',{A+'name':'android.intent.action.MAIN'});E.SubElement(f,'category',{A+'name':'android.intent.category.LAUNCHER'})
 E.SubElement(app,'activity',{A+'name':'org.eternalself.umbrielremote.EngineUnlockActivity',A+'exported':'false',A+'theme':'@android:style/Theme.Material.NoActionBar'})
-E.SubElement(app,'service',{A+'name':'org.eternalself.umbrielremote.RemoteService',A+'exported':'false'})
+E.SubElement(app,'service',{A+'name':'org.eternalself.umbrielremote.RemoteService',A+'exported':'false',A+'foregroundServiceType':'connectedDevice'})
+receiver=E.SubElement(app,'receiver',{A+'name':'org.eternalself.umbrielremote.AutoConnectReceiver',A+'exported':'false'})
+f=E.SubElement(receiver,'intent-filter')
+for action in ['android.intent.action.BOOT_COMPLETED','android.intent.action.MY_PACKAGE_REPLACED']:E.SubElement(f,'action',{A+'name':action})
 tree.write(p,encoding='utf-8',xml_declaration=True)
 for p in (OUT/'src/main/res').glob('values*/strings.xml'):
  tree=E.parse(p)
@@ -73,22 +76,25 @@ for p in (OUT/'src/main/res').glob('values*/strings.xml'):
   if n.get('name')=='kde_connect':n.text='Umbriel Connect'
  tree.write(p,encoding='utf-8',xml_declaration=True)
 shutil.copy2(ROOT/'android/res/drawable/ic_umbriel.xml',OUT/'src/main/res/drawable/ic_umbriel.xml')
-# Gate incoming/outgoing feature traffic with a local cryptographic biometric session.
+# Gate feature traffic by paired direct-LAN route or a live device-credential session.
 # The existing service handles both engine input and the signed companion controls.
 for config in (OUT/'src/main/res/xml').glob('*.xml'):
     tree=E.parse(config)
     if tree.getroot().tag=='accessibility-service':
         tree.getroot().set(A+'canTakeScreenshot','true');tree.write(config,encoding='utf-8',xml_declaration=True)
-p=OUT/'src/main/java/org/eternalself/umbrielremote/MainActivity.java';p.write_text(p.read_text().replace('"Umbriel Remote"','"Umbriel Connect"').replace('clearActions(); showStatus("Sesión cerrada");','clearActions(); EngineGate.revoke(); showStatus("Sesión cerrada");'))
+p=OUT/'src/main/java/org/eternalself/umbrielremote/MainActivity.java';p.write_text(p.read_text().replace('"Umbriel Remote"','"Umbriel Connect"'))
 p=OUT/'src/main/java/org/kde/kdeconnect/Device.kt';s=p.read_text();s=s.replace('override fun onPacketReceived(np: NetworkPacket) {','override fun onPacketReceived(np: NetworkPacket) {\n        if (!org.eternalself.umbrielremote.EngineGate.incomingAllowed(deviceId, np.type, np.has("requestReplyId") || np.has("message") || np.has("action"), np.has("url") || np.getBoolean("open", false))) { np.payload?.close(); return }\n        np.payload?.let { org.eternalself.umbrielremote.EnginePayloads.authorize(it, deviceId, np.type) }')
 s=s.replace('        notifyPluginPacketReceived(np)','        if (!isPaired) { np.payload?.close(); return }\n        notifyPluginPacketReceived(np)')
 s=s.replace('    ): Boolean {\n        if (!supportsPacketType(np.type))','    ): Boolean {\n        if (!org.eternalself.umbrielremote.EngineGate.packetAllowed(deviceId, np.type)) { np.payload?.close(); return false }\n        np.payload?.let { org.eternalself.umbrielremote.EnginePayloads.authorize(it, deviceId, np.type) }\n        if (!supportsPacketType(np.type))');p.write_text(s)
 p=OUT/'src/main/java/org/kde/kdeconnect/Device.kt';s=p.read_text().replace('fun sendPacket(np: NetworkPacket, callback: SendPacketStatusCallback) {','fun sendPacket(np: NetworkPacket, callback: SendPacketStatusCallback) {\n        if (!org.eternalself.umbrielremote.EngineGate.packetAllowed(deviceId, np.type)) { np.payload?.close(); callback.onFailure(Exception("Session is not authorized")); return }\n        np.payload?.let { org.eternalself.umbrielremote.EnginePayloads.authorize(it, deviceId, np.type) }');p.write_text(s)
-p=OUT/'src/main/java/org/kde/kdeconnect/KdeConnect.kt';s=p.read_text().replace('        _instance = this','        _instance = this\n        org.eternalself.umbrielremote.EngineGate.init(this)');p.write_text(s)
-p=OUT/'src/main/java/org/kde/kdeconnect/ui/MainActivity.kt';s=p.read_text().replace('        DeviceHelper.initializeDeviceId(this)','        if (!org.eternalself.umbrielremote.EngineGate.allowed()) {\n            startActivity(android.content.Intent(this, org.eternalself.umbrielremote.EngineUnlockActivity::class.java)); finish(); return\n        }\n        DeviceHelper.initializeDeviceId(this)',1);p.write_text(s)
+p=OUT/'src/main/java/org/kde/kdeconnect/KdeConnect.kt';s=p.read_text().replace('        _instance = this','        _instance = this\n        org.eternalself.umbrielremote.CrashReports.install(this)\n        org.eternalself.umbrielremote.EngineGate.init(this)');p.write_text(s)
+p=OUT/'src/main/java/org/kde/kdeconnect/ui/MainActivity.kt';s=p.read_text().replace('        DeviceHelper.initializeDeviceId(this)','        if (!org.eternalself.umbrielremote.EngineGate.uiAllowed()) {\n            startActivity(android.content.Intent(this, org.eternalself.umbrielremote.EngineUnlockActivity::class.java)); finish(); return\n        }\n        DeviceHelper.initializeDeviceId(this)',1);p.write_text(s)
+# Route decisions use the actual TLS socket endpoints and Android physical network capabilities.
+p=OUT/'src/main/java/org/kde/kdeconnect/backends/lan/LanLink.kt';s=p.read_text().replace('    override val name = "LanLink"','    fun isDirectLocal(): Boolean = !socket.isClosed && org.eternalself.umbrielremote.LocalNetworks.direct(context, socket.localAddress, socket.inetAddress)\n\n    override val name = "LanLink"');p.write_text(s)
+p=OUT/'src/main/java/org/kde/kdeconnect/Device.kt';s=p.read_text().replace('    fun disconnect() {','    fun hasDirectLocalLink(): Boolean = links.any { it is org.eternalself.umbrielremote.engine.backends.lan.LanLink && it.isDirectLocal() }\n\n    fun disconnect() {');p.write_text(s)
 # Stream URIs must carry OS-checked ClipData grants, not our app's broader permissions.
 p=OUT/'src/main/java/org/kde/kdeconnect/plugins/share/ShareActivity.kt';s=p.read_text().replace('        super.onCreate(savedInstanceState)','        super.onCreate(savedInstanceState)\n        if (!org.eternalself.umbrielremote.IncomingShare.allowed(this, intent)) { finish(); return }',1);p.write_text(s)
-# Do not restart networking in the background without a biometric grant.
+# Reconnect paired direct-LAN peers; other routes need an interactive identity grant.
 p=OUT/'src/main/java/org/kde/kdeconnect/BackgroundService.kt';s=p.read_text().replace('        super.onCreate()','        super.onCreate()\n        if (!org.eternalself.umbrielremote.EngineGate.networkAllowed()) { stopSelf(); return }',1)
 s=s.replace('override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {','override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        if (!org.eternalself.umbrielremote.EngineGate.networkAllowed()) { stopSelf(); return START_NOT_STICKY }');p.write_text(s)
 p=OUT/'src/main/java/org/kde/kdeconnect/plugins/share/ShareJob.kt';s=p.read_text().replace('        fun cancel(jobId: Long) {','        @JvmStatic fun cancelAll() { runningJobs.values.toList().forEach { it.cancel() } }\n\n        fun cancel(jobId: Long) {');p.write_text(s)
@@ -108,7 +114,7 @@ s=s[:a]+'''                val key = uri.pathSegments[1]
                     .setTitle("Ejecutar orden remota")
                     .setMessage(command.name + "\\n\\n" + command.command.take(4096))
                     .setPositiveButton("Ejecutar") { _, _ ->
-                        if (org.eternalself.umbrielremote.EngineGate.allowed() && device.isPaired && device.isReachable) plugin.runCommand(key)
+                        if (org.eternalself.umbrielremote.EngineGate.packetAllowed(device.deviceId, "kdeconnect.runcommand.request") && device.isPaired && device.isReachable) plugin.runCommand(key)
                         finish()
                     }
                     .setNegativeButton("Cancelar") { _, _ -> finish() }

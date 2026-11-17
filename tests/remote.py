@@ -25,7 +25,7 @@ def encode(value):
     return base64.b64encode(value).decode("ascii")
 
 class Peer:
-    def __init__(self, port, pin, key=None, control=False):
+    def __init__(self, port, pin, key=None, control=False, host="127.0.0.1"):
         self.key = key or ec.generate_private_key(ec.SECP256R1())
         self.public = self.key.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
         self.id = hashlib.sha256(self.public).hexdigest()
@@ -33,7 +33,7 @@ class Peer:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE  # Exact registered certificate pin is checked below.
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        self.socket = ctx.wrap_socket(socket.create_connection(("127.0.0.1", port), timeout=3), server_hostname="localhost")
+        self.socket = ctx.wrap_socket(socket.create_connection((host, port), timeout=3), server_hostname="localhost")
         self.socket.settimeout(3)
         actual = hashlib.sha256(self.socket.getpeercert(binary_form=True)).hexdigest()
         if actual != pin:
@@ -105,6 +105,79 @@ class RemoteTests(unittest.TestCase):
         peer = Peer(self.port, self.pin, **kwargs)
         self.peers.append(peer)
         return peer
+
+    def v2(self, peer, mode="interactive", lan=None, remote=None, token=""):
+        lan=lan or ec.generate_private_key(ec.SECP256R1())
+        remote=remote or peer.key
+        pub=lambda k:k.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)
+        peer.send({"type":"hello","key":encode(peer.public),"phoneControl":peer.control,"files":True,"largeFiles":True,"mode":mode,"lanKey":encode(pub(lan)),"remoteKey":encode(pub(remote))})
+        answer=peer.receive()
+        if answer["type"]!="challenge":return answer,lan,remote
+        challenge=base64.b64decode(answer["challenge"])
+        fields=challenge.decode().split("\n")
+        self.assertEqual(fields[:5],["umbriel-connect-auth-v2",self.pin,peer.id,"phone-control" if peer.control else "desktop-control",mode])
+        self.assertEqual(fields[5],hashlib.sha256(pub(lan)).hexdigest())
+        self.assertEqual(fields[6],hashlib.sha256(pub(remote)).hexdigest())
+        return peer.authenticate(token,challenge),lan,remote
+
+    def test_v2_registration_delegates_lan_without_remote_bypass(self):
+        owner=self.peer();answer,lan,remote=self.v2(owner,token=self.token)
+        self.assertEqual(answer["type"],"authorized");self.assertFalse(answer["localAuto"])
+        local=self.peer(key=lan);rejected,_,_=self.v2(local,"lan-auto",lan,remote)
+        self.assertEqual(rejected["type"],"error")
+        downgraded=self.peer(key=lan);self.assertEqual(downgraded.authenticate()["type"],"error")
+
+    def test_legacy_identity_can_upgrade_once_and_stays_one_visible_phone(self):
+        old=self.peer();self.assertEqual(old.authenticate(self.token)["type"],"authorized")
+        successor=ec.generate_private_key(ec.SECP256R1());upgrade=self.peer(key=old.key)
+        answer,lan,remote=self.v2(upgrade,"upgrade",remote=successor)
+        self.assertEqual(answer["type"],"authorized")
+        records=json.loads((self.directory/"clients.json").read_text())
+        self.assertEqual(sum(r.get("scope")=="lan" for r in records.values()),1)
+        self.assertEqual(len([r for r in records.values() if r.get("scope")!="lan" and "successor" not in r]),1)
+        newer=self.peer(key=successor);self.assertEqual(self.v2(newer,lan=lan,remote=remote)[0]["type"],"authorized")
+
+    def test_revoking_primary_also_blocks_legacy_upgrade(self):
+        old=self.peer();self.assertEqual(old.authenticate(self.token)["type"],"authorized")
+        newer=ec.generate_private_key(ec.SECP256R1());upgrade=self.peer(key=old.key)
+        answer,lan,remote=self.v2(upgrade,"upgrade",remote=newer);self.assertEqual(answer["type"],"authorized")
+        records=json.loads((self.directory/"clients.json").read_text())
+        new_id=hashlib.sha256(newer.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)).hexdigest()
+        records.pop(new_id);(self.directory/"clients.json").write_text(json.dumps(records))
+        replay=self.peer(key=old.key);self.assertEqual(self.v2(replay,"upgrade",lan,remote)[0]["type"],"error")
+
+    def test_auto_lan_uses_physical_listener_and_survives_control_timeout(self):
+        candidates=[]
+        try:
+            import ipaddress
+            for interface in json.loads(subprocess.check_output(["ip","-j","-4","addr"],text=True)):
+                if not Path("/sys/class/net",interface["ifname"],"device").exists():continue
+                for item in interface.get("addr_info",[]):
+                    host=item.get("local","")
+                    if host and ipaddress.ip_address(host).is_private and not ipaddress.ip_address(host).is_loopback:candidates.append(host)
+        except (OSError,ValueError):pass
+        if not candidates:self.skipTest("No physical private LAN interface available for isolated self-connection")
+        owner=self.peer();answer,lan,remote=self.v2(owner,token=self.token)
+        self.assertEqual(answer["type"],"authorized")
+        for peer in self.peers:peer.close()
+        self.peers=[];self.server.terminate();self.server.communicate(timeout=5)
+        self.env["UMBRIEL_REMOTE_CONTROL_MS"]="300"
+        host=candidates[0]
+        self.server=subprocess.Popen([BINARY,"serve",host,str(self.port)],env=self.env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        self.assertTrue(select.select([self.server.stdout],[],[],4)[0]);self.assertIn("Canal TLS activo",self.server.stdout.readline())
+        local=self.peer(key=lan,host=host);answer,_,_=self.v2(local,"lan-auto",lan,remote)
+        self.assertEqual(answer["type"],"authorized");self.assertTrue(answer["localAuto"])
+        time.sleep(.7);local.send({"type":"catalog","request":"still-local"},True)
+        self.assertEqual(local.receive()["type"],"result")
+        known=json.loads((self.directory/"clients.json").read_text());known.pop(hashlib.sha256(remote.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)).hexdigest())
+        (self.directory/"clients.json").write_text(json.dumps(known));time.sleep(.3)
+        self.assertEqual(local.receive()["type"],"error")
+
+    def test_shutdown_is_only_available_on_the_private_local_socket(self):
+        peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        peer.send({"type":"shutdown"},True);self.assertFalse(peer.receive()["ok"])
+        self.assertIsNone(self.server.poll())
+        self.cli("stop");self.assertEqual(self.server.wait(timeout=4),0)
 
     def test_identity_permissions_and_idempotence(self):
         self.assertEqual((self.directory / "server-key.pem").stat().st_mode & 0o777, 0o600)

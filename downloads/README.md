@@ -1,27 +1,25 @@
 # Aplicaciones Android
 
-- **[Umbriel Connect0.4.0 completo](UmbrielConnect-0.4.0.apk)**: motor de funciones,
-  mensajes/notificaciones/contactos/archivos/multimedia y control inverso opcional,
-  además del dashboard y canal firmado de Umbriel Remote. versionCode6, API37/min30; experimental, prueba Galaxy pendiente.
-- **[Umbriel Remote0.3.1 mínimo](UmbrielRemote-0.3.1.apk)**: controles de computadora,
-  galería y archivos propios; sin SMS, lector de notificaciones ni accesibilidad.
+- **[Umbriel Connect 0.4.1 completo](UmbrielConnect-0.4.1.apk)**: conexión LAN automática,
+  autorización remota con huella o PIN/patrón/contraseña y corrección del servicio que
+  podía cerrar la app. versionCode7, API37/min30; prueba física del Galaxy pendiente.
+- **[Umbriel Remote 0.3.1 mínimo](UmbrielRemote-0.3.1.apk)**: edición histórica sin SMS,
+  lector de notificaciones ni accesibilidad. No incorpora las correcciones 0.4.1.
 
-Son alternativas con el mismo paquete `org.eternalself.umbrielremote` y firmante.
-0.4.0 actualiza la anterior conservando sus datos; una bajada de versión no se instala
-normalmente sobre una versión superior. No borres los datos para probar sin respaldar
-antes tus registros/decisiones de confianza por un medio privado.
+Comparten paquete `org.eternalself.umbrielremote` y firmante.0.4.1 actualiza 0.4.0 sin
+borrar sus datos. Una bajada de versión normalmente no se instala sobre una superior.
+No borres los datos ni desinstales para actualizar. La descarga 0.4.0 con el fallo de
+servicio se retira de esta carpeta; permanece en el historial del repositorio.
 
-[SHA256](SHA256SUMS) · [Certificado de firma](SIGNING-CERTIFICATE-SHA256) ·
+[Pasos de actualización](../docs/UPDATE-0.4.1.md) · [SHA256](SHA256SUMS) ·
+[Certificado de firma](SIGNING-CERTIFICATE-SHA256) ·
 [Permisos y seguridad](../SECURITY.md) · [Play Protect](../docs/PLAY-PROTECT.md).
 
-0.4.0 incluye capacidades sensibles que requieren permisos Android por función y
-biometría local. La sincronización al bloquear es opcional, ligada al certificado de
-la computadora y con notificación visible. El canal propio mantiene firmas por sesión;
-el motor compatible usa TLS emparejado y autorización local, sin atestación remota.
-La firma valida identidad e integridad; no acredita seguridad ni aprobación de Google.
-No desactives Play Protect si impide instalarla. No hay instalación física confirmada.
+Los permisos Android siguen siendo opcionales por función. En LAN los dispositivos
+vinculados se autentican sin pedir huella y mantienen una notificación visible;
+fuera de ella requieren identidad por hasta10 min. Un registro antiguo puede pedir
+una última huella para migrar sus claves. No hay atestación remota de Keystore.
 
-La clave de publicación queda fuera del repositorio. Para reconstruir y firmar tu
-propio fork, consulta [BUILDING](../docs/BUILDING.md). Las fuentes completas están
-fijadas en submódulos y las adaptaciones son reproducibles; no se distribuye una clave
-privada ni un registro de dispositivo.
+La firma valida identidad e integridad; no acredita seguridad ni aprobación de Google.
+No desactives Play Protect si impide instalarla. La clave de publicación está fuera
+del repositorio. [Reconstruir y firmar tu fork](../docs/BUILDING.md).

@@ -42,7 +42,7 @@ ShareWindow::ShareWindow(QStringList files,bool preview,QWidget *parent):QDialog
     auto *heading=new QHBoxLayout;heading->addWidget(label("Enviar a","section"));heading->addStretch();m_connection=label("Buscando sesión","chip");m_connection->setObjectName("shareConnection");m_connection->setWordWrap(false);heading->addWidget(m_connection);destinationLayout->addLayout(heading);
     m_peers=new QComboBox;m_peers->setObjectName("sharePeers");m_peers->setProperty("glyph","phone");m_peers->setAccessibleName("Teléfono de destino");m_peers->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);m_peers->setMinimumContentsLength(12);destinationLayout->addWidget(m_peers);
     m_statusTitle=label("Buscando teléfonos autorizados…","section");m_statusTitle->setObjectName("shareStatusTitle");m_statusTitle->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);destinationLayout->addWidget(m_statusTitle);
-    m_statusText=label("La lista se actualiza al conectar con huella en Umbriel Remote.","muted");m_statusText->setObjectName("shareStatusText");m_statusText->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);destinationLayout->addWidget(m_statusText);
+    m_statusText=label("La lista se actualiza automáticamente en LAN; fuera de ella autoriza la conexión en Android.","muted");m_statusText->setObjectName("shareStatusText");m_statusText->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);destinationLayout->addWidget(m_statusText);
     m_fileStep=label("","muted");m_fileStep->hide();content->addWidget(m_fileStep);
     m_progress=new QProgressBar;m_progress->setObjectName("shareProgress");m_progress->setRange(0,qMax(1,int(m_files.size())));m_progress->setValue(0);m_progress->setTextVisible(false);m_progress->setFixedHeight(6);m_progress->hide();content->addWidget(m_progress);content->addStretch();
     root->addWidget(label("Conexión cifrada · revisa el destino antes de compartir.","muted"));
@@ -65,9 +65,10 @@ void ShareWindow::selection(){
     if(m_busy)return;
     m_target=m_peers->currentData().toString();m_engineTransfer=m_peers->currentData(Qt::UserRole+1).toBool();const bool ready=!m_target.isEmpty();m_peers->setEnabled(ready);m_send->setEnabled(ready&&!m_files.isEmpty());
     m_connection->setText(ready?(m_engineTransfer?"Emparejado":"Sesión activa"):"Sin sesión");
-    if(ready)message("Tu teléfono está listo",m_engineTransfer?"Autoriza las funciones con huella en el teléfono. El motor mostrará el progreso de las transferencias en sus notificaciones.":"Presiona Enviar y acepta la descarga en Umbriel Remote.");
-    else if(!m_receiverAvailable)message("Abre Umbriel Connect","Abre la ventana principal en esta computadora y después conecta con huella desde tu teléfono.");
-    else message("Conecta tu teléfono con huella","Abre Umbriel Remote y presiona «Conectar con huella». Usa la misma red o Tailscale; tu teléfono aparecerá aquí al aprobar la sesión.");
+    bool local=false;for(auto value:m_devices){auto d=value.toObject();if(d["id"]==m_target)local=d["localAuto"].toBool();}
+    if(ready)message("Tu teléfono está listo",m_engineTransfer?"El motor mostrará el progreso en sus notificaciones. Fuera de LAN, autoriza la conexión en el teléfono.":(local?"Se recibirá automáticamente en Descargas/Umbriel Connect, sin abrir el contenido.":"Presiona Enviar y acepta la descarga en Umbriel Connect."));
+    else if(!m_receiverAvailable)message("Abre Umbriel Connect","Abre la ventana principal en esta computadora y conecta desde el teléfono; en LAN no necesitas huella tras vincular.");
+    else message("Conecta tu teléfono","Abre Umbriel Connect. En LAN se conecta automáticamente tras vincular; fuera de ella autoriza con huella, PIN, patrón o contraseña del teléfono.");
 }
 void ShareWindow::message(const QString &title,const QString &text,bool error){m_statusTitle->setText(title);m_statusTitle->setProperty("role",error?"error":"section");m_statusTitle->style()->unpolish(m_statusTitle);m_statusTitle->style()->polish(m_statusTitle);m_statusText->setText(text);}
 void ShareWindow::sendNext(){

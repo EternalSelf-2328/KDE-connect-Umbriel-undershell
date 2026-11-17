@@ -20,10 +20,10 @@ results={}
 for variant in ["desktop","phone-control"]:
     apk=root/"build/android"/variant/"UmbrielRemote.apk"
     manifest=run([tools/"aapt2","dump","xmltree",apk,"--file","AndroidManifest.xml"])
-    expected={"INTERNET","USE_BIOMETRIC","POST_NOTIFICATIONS","FOREGROUND_SERVICE","FOREGROUND_SERVICE_CONNECTED_DEVICE","CHANGE_NETWORK_STATE"}
+    expected={"INTERNET","ACCESS_NETWORK_STATE","RECEIVE_BOOT_COMPLETED","USE_BIOMETRIC","POST_NOTIFICATIONS","FOREGROUND_SERVICE","FOREGROUND_SERVICE_CONNECTED_DEVICE","CHANGE_NETWORK_STATE"}
     permissions=set(re.findall(r'android\.permission\.([A-Z_]+)',manifest))
     assert permissions==expected|({"BIND_ACCESSIBILITY_SERVICE"} if variant=="phone-control" else set()),permissions
-    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=5']:
+    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=7']:
         assert role in manifest,(variant,role)
     full=variant=="phone-control"
     assert ('.PhoneAccessibility' in manifest)==full
@@ -44,8 +44,8 @@ for variant in ["desktop","phone-control"]:
 assert results['desktop']['signing_certificate_sha256']==results['phone-control']['signing_certificate_sha256']
 assert results['desktop']['signing_certificate_sha256']==(root/'downloads/SIGNING-CERTIFICATE-SHA256').read_text().strip()
 published=root/'downloads/UmbrielRemote-0.3.1.apk'
-assert hashlib.sha256(published.read_bytes()).hexdigest()==results['desktop']['sha256']
-assert (root/'downloads/SHA256SUMS').read_text().split()==[results['desktop']['sha256'],published.name]
+published_checksums={name:digest for digest,name in (line.split() for line in (root/'downloads/SHA256SUMS').read_text().splitlines() if line.strip())}
+assert hashlib.sha256(published.read_bytes()).hexdigest()==published_checksums[published.name]  # Historical minimum download, not the current build.
 old=root/'downloads/UmbrielRemote-0.1.0.apk'
 if old.exists():
     original=run([tools/'apksigner','verify','--print-certs',old])

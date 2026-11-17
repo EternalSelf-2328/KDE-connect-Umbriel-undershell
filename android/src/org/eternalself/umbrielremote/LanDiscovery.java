@@ -14,9 +14,10 @@ final class LanDiscovery {
         if(privateHost(host))return true;
         try{if(!host.matches("[0-9.]+"))return false;byte[] ip=InetAddress.getByName(host).getAddress();return ip.length==4&&((ip[0]&255)==127||((ip[0]&255)==100&&(ip[1]&255)>=64&&(ip[1]&255)<=127));}catch(Exception e){return false;}
     }
-    static String find(String pin,int port){
+    static String find(android.content.Context context,String pin,int port){
         String nonce=UUID.randomUUID().toString().replace("-","");
         try(DatagramSocket socket=new DatagramSocket()){
+            android.net.Network network=LocalNetworks.discoveryNetwork(context);if(network!=null)network.bindSocket(socket);
             socket.setBroadcast(true);socket.setSoTimeout(450);
             byte[] query=new JSONObject().put("type","umbriel-discover").put("nonce",nonce).toString().getBytes(StandardCharsets.UTF_8);
             Set<InetAddress> targets=new HashSet<>();targets.add(InetAddress.getByName("255.255.255.255"));

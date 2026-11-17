@@ -161,7 +161,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     secureIcon->setProperty("glyph","shield");secureIcon->setProperty("glyphSize",48);
     auto *secureTitle=plainLabel("El acceso, en tus manos.");secureTitle->setProperty("role","hero");secureLayout->addWidget(secureTitle);
     secureLayout->addWidget(plainLabel("Vincula tus equipos por una red privada y aprueba cada sesión desde tu teléfono."));
-    auto *secureInfo=plainLabel("1 · Misma red o Tailscale     2 · Registrar el teléfono     3 · Aprobar con huella");secureInfo->setProperty("role","muted");secureLayout->addWidget(secureInfo);moreLayout->addWidget(secureHero);
+    auto *secureInfo=plainLabel("1 · Vincular una vez     2 · LAN automática     3 · Fuera de LAN: huella o bloqueo del teléfono");secureInfo->setProperty("role","muted");secureLayout->addWidget(secureInfo);moreLayout->addWidget(secureHero);
     auto *lanInfo=button("Ver conexión local…",moreLayout);connect(lanInfo,&QPushButton::clicked,this,[this]{m_remote.call({{"action","network"}},[this](Reply r){if(!r.ok){result(r);return;}auto info=r.value.toMap();QStringList addresses;for(auto host:info["hosts"].toList())addresses.append(host.toString()+":"+info["port"].toString());QMessageBox::information(this,"Red local",addresses.isEmpty()?"No hay una interfaz IPv4 privada disponible. Conecta la computadora a tu red y vuelve a iniciar el receptor.":"No necesitas Tailscale en la misma red. El teléfono detecta esta computadora por su identidad registrada.\n\n"+addresses.join("\n")+"\n\nSi tu red bloquea la detección, introduce esta IP en «Configurar red local» del teléfono.");});});
     auto *securePhone = button("Controlar teléfono con aprobación biométrica", moreLayout);
     securePhone->setProperty("kind","primary");securePhone->setIcon(Design::icon("shield",Design::palette().onAccent));
@@ -264,7 +264,7 @@ void Window::applyState(const QJsonObject &state) {
     m_devices->blockSignals(true); m_devices->clear();
     for (const auto &v : state["devices"].toArray()) {
         const auto d = v.toObject();
-        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + (d["reachable"].toBool() ? "Conectado" : "Sin conexión")+(d["transport"]=="umbriel"?" · Huella":" · Funciones"), m_devices);
+        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + (d["reachable"].toBool() ? "Conectado" : "Sin conexión")+(d["transport"]=="umbriel"?(d["localAuto"].toBool()?" · LAN":" · Umbriel"):" · Funciones"), m_devices);
         item->setData(Qt::UserRole, d["id"].toString());
         if (d["id"].toString() == id) m_devices->setCurrentItem(item);
     }
@@ -295,7 +295,7 @@ void Window::selection() {
     m_unpair->setEnabled(paired && !m_preview&&!native);
     m_legacyShare->setVisible(!native);m_legacyCommandsHint->setVisible(!native);
     for(auto *b:{m_ring,m_ping,m_files,m_publish,m_remove})b->setVisible(!native);
-    m_connectionHint->setText(native?(reachable?"Sesión de Umbriel Remote aprobada con huella. Acepta cada descarga en el teléfono.":"Abre Umbriel Remote en el teléfono y conecta con huella para activar el envío de archivos."):(d.isEmpty()?"Busca un teléfono o conecta desde Umbriel Remote.":"Motor integrado de Umbriel Connect. Revisa los permisos de cada función en el teléfono."));
+    m_connectionHint->setText(native?(reachable?(d["localAuto"].toBool()?"Conexión local automática con identidad verificada. Los archivos se reciben en Descargas/Umbriel Connect.":"Acceso remoto autorizado con huella o bloqueo del teléfono. Acepta cada descarga en Android."):"Abre Umbriel Connect en el teléfono: en LAN se reconecta automáticamente tras vincular; fuera de ella usa huella o bloqueo."):(d.isEmpty()?"Busca un teléfono o conecta desde Umbriel Remote.":"Motor integrado de Umbriel Connect. Revisa los permisos de cada función en el teléfono."));
     m_ring->setEnabled(ready && plugins.contains("kdeconnect_findmyphone"));
     m_ping->setEnabled(ready && plugins.contains("kdeconnect_ping"));
     m_files->setEnabled(ready && plugins.contains("kdeconnect_sftp"));

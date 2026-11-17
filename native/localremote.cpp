@@ -36,7 +36,7 @@ void LocalRemote::call(QJsonObject request,Done done){
 }
 void LocalRemote::snapshot(std::function<void(QJsonObject)> done){
     call({{"action","devices"}},[done](Reply r){QJsonArray devices;
-        if(r.ok)for(auto v:r.value.toList()){auto p=v.toMap();devices.append(QJsonObject{{"id","remote:"+p["id"].toString()},{"name",p["name"].toString()},{"paired",true},{"reachable",p["reachable"].toBool()},{"transport","umbriel"},{"battery",-1},{"plugins",p["files"].toBool()?QJsonArray{"umbriel_files"}:QJsonArray{}}});}
+        if(r.ok)for(auto v:r.value.toList()){auto p=v.toMap();devices.append(QJsonObject{{"id","remote:"+p["id"].toString()},{"name",p["name"].toString()},{"paired",true},{"reachable",p["reachable"].toBool()},{"transport","umbriel"},{"localAuto",p["localAuto"].toBool()},{"battery",-1},{"plugins",p["files"].toBool()?QJsonArray{"umbriel_files"}:QJsonArray{}}});}
         done({{"available",r.ok},{"devices",devices}});
     });
 }

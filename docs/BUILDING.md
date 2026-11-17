@@ -1,4 +1,4 @@
-# Compilar Umbriel Connect 0.4.0
+# Compilar Umbriel Connect 0.4.1
 
 El cliente, receptor y motor de escritorio están en C++20/Qt6. El motor se compila desde
 una revisión de KDE Connect vendorizada como submódulo; **no utiliza el programa
@@ -27,7 +27,9 @@ sudo pacman -S --needed base-devel cmake extra-cmake-modules gettext python \
 
 `install.sh` verifica los dos grupos de pruebas C++, respalda los binarios anteriores y
 actualiza el prefijo `~/.local`. No importa certificados de KDE, no elimina paquetes,
-no instala autostart, no modifica firewall/rutas/DNS ni reinicia ventanas o servicios.
+no modifica firewall/rutas/DNS ni reinicia ventanas o servicios.
+`./install.sh --autostart` habilita los servicios de usuario para la siguiente sesión
+gráfica; sin esa opción se conserva el inicio por GUI/D-Bus.
 El motor propio se activa al abrir la aplicación o por su servicio D-Bus privado.
 Si tienes una instancia anterior abierta, ciérrala y vuelve a abrirla.
 
@@ -61,7 +63,7 @@ python3 scripts/setup-android-tools.py
 python3 scripts/android-full/sdk.py
 scripts/android-full/build.sh
 # Pruebas Android con recursos (Robolectric):
-scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.IncomingShareTest
+scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.IncomingShareTest --tests org.eternalself.umbrielremote.ConnectionRegressionTest
 bash tests/android-guard.sh
 ```
 
@@ -97,3 +99,28 @@ instalado mientras terminas el emparejamiento nuevo. Para retirarlo de tu inicio
 usa una anulación de usuario de su entrada XDG autostart con `Hidden=true`; respáldala
 antes. No borres sus bibliotecas de Qt/KDE: Umbriel las usa independientemente del
 daemon oficial. El instalador no altera esa decisión automáticamente.
+
+## Servicios de usuario
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable umbriel-connect-engine.service umbriel-connect-remote.service
+# Para iniciarlos ahora, primero cerrar las instancias independientes anteriores:
+systemctl --user start umbriel-connect-engine.service umbriel-connect-remote.service
+systemctl --user is-active umbriel-connect-engine.service umbriel-connect-remote.service
+```
+
+Se instalan bajo `PREFIX/share/systemd/user/`; el inicio requiere que el prefijo esté
+en las rutas de búsqueda del systemd de usuario (por defecto `~/.local/share`);
+`install.sh --autostart` enlaza las unidades desde el prefijo elegido. No
+se inicia Tailscale. El receptor solo ofrece cierre mediante su socket Unix privado
+con verificación de UID; no admite cierre administrativo desde la conexión TLS.
+Si existe una sesión/transferencia activa, esperar a que termine antes de sustituir
+procesos. Reabrir la GUI antigua para cargar sus nuevos textos y estados.
+
+Al retroceder a un receptor anterior a0.4.1, restaurar también el `clients.json`
+anterior a v2 desde el respaldo privado del instalador. El receptor antiguo no conoce
+los alcances de las claves LAN. Nunca copiar ese archivo a Git o documentación pública.
+
+Después de firmar el APK completo, `python3 tests/android-full-artifacts.py` inspecciona
+el manifiesto fusionado y DEX, firma, versión y checksum del artefacto publicado.

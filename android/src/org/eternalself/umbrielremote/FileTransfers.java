@@ -29,12 +29,13 @@ final class FileTransfers {
     void shutdown(){cancel();uploadWorker.shutdownNow();}
     void progress(String verb,long done,long size){long now=android.os.SystemClock.elapsedRealtime();if(now-lastProgress<250&&done!=size)return;lastProgress=now;
         status(verb+" · "+android.text.format.Formatter.formatFileSize(owner,done)+" / "+android.text.format.Formatter.formatFileSize(owner,size)+" · "+(size==0?100:(int)(done*100.0/size))+" %");}
-    void status(String value){if(RemoteService.instance!=owner)return;MainActivity a=MainActivity.current.get();if(a!=null)a.showStatus(value);}
+    void status(String value){if(RemoteService.instance!=owner)return;owner.notificationStatus(value);MainActivity a=MainActivity.current.get();if(a!=null)a.showStatus(value);}
     void receive(JSONObject packet)throws Exception{
         String type=packet.getString("type");
         if(type.equals("file-offer")){
             MainActivity a=MainActivity.current.get();String offered=packet.optString("id"),name=packet.optString("name");long size=packet.optLong("size",-1);
-            synchronized(this){if(id!=null||a==null||!offered.matches("[0-9a-f]{32}")||!validName(name)||size<0||size>LIMIT){owner.send(object("type","file-reject","id",offered));return;}id=offered;total=size;received=0;cancelled=false;}
+            synchronized(this){if(id!=null||(!owner.automaticLocal()&&(a==null||!a.visible))||!offered.matches("[0-9a-f]{32}")||!validName(name)||size<0||size>LIMIT){owner.send(object("type","file-reject","id",offered));return;}id=offered;total=size;received=0;cancelled=false;}
+            if(owner.automaticLocal()){accept(offered,name);return;}
             a.runOnUiThread(()->{if(!owner.isAuthorized()||MainActivity.current.get()!=a){cancel();return;}
                 new AlertDialog.Builder(a).setTitle("Recibir archivo").setMessage(name+"\n"+android.text.format.Formatter.formatFileSize(a,size)+" · se guardará en Descargas/Umbriel Connect.")
                 .setNegativeButton("Rechazar",(d,w)->reject(offered)).setOnCancelListener(d->reject(offered))

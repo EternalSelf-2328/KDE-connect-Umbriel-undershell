@@ -1,37 +1,52 @@
-# Seguridad de Umbriel Connect 0.4.0 experimental
+# Seguridad de Umbriel Connect 0.4.1 experimental
 
 No hay garantía de ausencia de vulnerabilidades ni auditoría externa. Esta versión
 incorpora una revisión dirigida del código y pruebas de regresión; no certifica el
 proyecto completo ni los dispositivos. No se encontró evidencia de una puerta trasera
 en las rutas examinadas; eso no demuestra su ausencia en todo el código/dependencias.
 
-## Dos fronteras de autorización
+## Red local y acceso remoto
 
-1. **Canal propio:** TLS con certificado fijado, registro temporal de un uso, desafío,
-   firma EC Android Keystore autorizada con BIOMETRIC_STRONG y secuencias. Sesión de
-   control hasta10min; bloqueo, cierre y revocación cancelan. Un archivo ya aprobado
-   puede terminar hasta24h con timeout de inactividad; no abre nuevas acciones.
-   [Diseño previo y límites](docs/REMOTE-SECURITY.md).
+**La LAN omite la confirmación humana, pero mantiene la autenticación del dispositivo.**
+Solo funcionan identidades previamente vinculadas y TLS verificado. No se concede
+confianza por nombre de Wi-Fi, nombre del teléfono ni anuncios de descubrimiento.
+
+1. **Canal propio:** certificado TLS fijado, registro temporal de un uso y firma EC
+   Android Keystore. Hay claves separadas para LAN automática y acceso remoto. La
+   firma v2 liga modo, capacidades, ambas claves, certificado y nonce al mismo socket.
+   La clave LAN no puede autorizar sesiones remotas ni el protocolo v1. La PC exige
+   una ruta directa RFC1918 por una interfaz física activa y el mismo prefijo; Android
+   exige Wi-Fi/Ethernet real sin transporte VPN y enlaza el socket a esa red.
 2. **Motor compatible incluido:** emparejamiento manual y TLS con certificados
-   persistentes. La app exige **biometría local** para una sesión interactiva de10min.
-   No es una prueba biométrica remota por paquete, ni Android Key Attestation. Una
-   computadora emparejada es una identidad de confianza: activa solo sus plugins.
+   persistentes. Android comprueba el enlace TLS de cada par: en LAN directa un par
+   emparejado usa los plugins habilitados; por otra ruta necesita una sesión local
+   de identidad de hasta10 min. Ese permiso es una barrera local, no una prueba remota
+   por paquete ni Android Key Attestation.
 
-La sincronización permanente del motor es **opcional y desactivada inicialmente**.
-Se autoriza con huella, por computadora emparejada y SHA256 de su certificado. Con
-pantalla bloqueada admite una lista cerrada de tipos de datos: archivos/SFTP,
-notificaciones, mensajes/contactos, batería/conectividad, multimedia/volumen,
-portapapeles, avisos de llamada, ping y encontrar teléfono. **Estos datos son sensibles**;
-solo concede permisos y sincronización a computadoras que controlas. No admite nuevos
-emparejamientos, entrada, órdenes, presentación, tableta ni monitor virtual. Exige
-notificaciones habilitadas y servicio foreground; Android puede limitar su ejecución.
-Enviar SMS, responder/accionar notificaciones y abrir contenido recibido exige una sesión interactiva activa. El permiso persiste hasta revocarlo, incluso tras reiniciar la app. No autoriza una
-identidad nueva con el mismo nombre/ID y distinto certificado.
+Fuera de LAN, las claves nuevas requieren por uso **BIOMETRIC_STRONG o DEVICE_CREDENTIAL**:
+la huella fuerte o el PIN, patrón o contraseña del teléfono. No hay contraseña guardada
+por Umbriel, biometría débil ni token remoto permanente. Bloquear el teléfono revoca
+el control remoto. Solo los archivos remotos ya aprobados pueden finalizar dentro
+del alcance y plazo limitado de transferencia. [Protocolo](docs/REMOTE-SECURITY.md).
 
-Al terminar la sesión interactiva se cierran payloads no autorizados, se desconectan
-pares sin permiso de sincronización y se cierran las pantallas de funciones. Cerrar
-sesión borra la autorización persistente, cancela transferencias y desconecta todos
-los pares. Las sesiones propias del canal firmado conservan su autorización separada.
+En LAN, la conexión y los archivos pueden continuar al bloquear o salir de la app,
+con servicio foreground y notificación visible. Los archivos de la computadora
+vinculada se guardan en Descargas, sin abrirse automáticamente. El control/captura
+por accesibilidad sigue exigiendo teléfono desbloqueado y permiso explícito. Los
+plugins habilitados pueden intercambiar datos sensibles: concede solo los que uses.
+«Pausar conexión» cancela y suspende la reconexión, también después de reiniciar.
+
+Los permisos remotos persistentes de 0.4.0 se borran al iniciar. Una clave antigua
+limitada a huella necesita una última firma para autorizar las claves nuevas; un
+registro nuevo es la alternativa cuando esa huella ya no se puede usar. Revocar la
+identidad principal invalida sus claves delegadas y evita que una clave de migración
+restaure una identidad revocada. No restaures el receptor 0.4.0 con un almacén de
+confianza v2: restaura también la copia privada anterior a esa migración.
+
+Las comprobaciones de ruta son conservadoras, no una demostración criptográfica de
+ubicación física. Un router comprometido, NAT que presente tráfico remoto como local
+o un dispositivo emparejado comprometido pueden romper esa suposición. No publiques
+el receptor mediante proxies públicos ni redirijas sus puertos en el router.
 
 ## Endurecimientos aplicados
 
@@ -48,6 +63,8 @@ los pares. Las sesiones propias del canal firmado conservan su autorización sep
   y confirmación. Los extras de notificación no aceptan un emparejamiento por sí solos.
 - Compartir desde otras apps requiere URI content con ClipData y permiso de lectura
   explícito; rechaza file:// y la autoridad privada de la propia app.
+- Servicio Android de conexión con tipo `connectedDevice` y sus permisos declarados;
+  errores de arranque controlados y reporte privado acotado sin mensajes de excepción.
 - Receptores internos Android no exportados; sin backup de la app ni tráfico HTTP
   claro del motor. Se retiran READ_LOGS y ubicación de fondo. El inventario de apps
   permanece para los filtros por aplicación; instalar APK requiere decisión explícita

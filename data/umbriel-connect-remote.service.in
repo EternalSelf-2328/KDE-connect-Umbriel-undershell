@@ -1,0 +1,16 @@
+[Unit]
+Description=Umbriel Connect encrypted local and remote channel
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart="@CMAKE_INSTALL_FULL_BINDIR@/umbriel-connect-remote" serve 127.0.0.1 31594
+ExecStop="@CMAKE_INSTALL_FULL_BINDIR@/umbriel-connect-remote" stop
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=8
+UMask=0077
+
+[Install]
+WantedBy=graphical-session.target

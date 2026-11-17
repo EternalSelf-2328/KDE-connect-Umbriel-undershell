@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
     private int generation = 0;
     private UiDesign design;
     private Button connectButton;
+    volatile boolean visible;
     private TextView deviceState;
     private LinearLayout setup,connectionPanel;
     private TextView intro,tagline;
@@ -43,7 +44,7 @@ public class MainActivity extends Activity {
         b.setOnClickListener(v -> onClick.run()); return b;
     }
     @Override public void onCreate(Bundle saved) {
-        super.onCreate(saved);
+        super.onCreate(saved);CrashReports.install(this);
         design=new UiDesign(this);
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(design.background);scroll.setFillViewport(true);
@@ -56,7 +57,7 @@ public class MainActivity extends Activity {
         scroll.addView(root); setContentView(scroll);
         design.add(root,design.label("Umbriel Connect",14,design.accent,true),16);
         intro=design.label("Tu escritorio,\na un toque.",32,design.text,true);design.add(root,intro,12);
-        tagline=design.label("Conecta de forma privada y autoriza el acceso con tu huella.",15,design.muted,false);design.add(root,tagline,24);
+        tagline=design.label("En tu red local se conecta automáticamente. Fuera de ella, usa tu huella o el bloqueo del teléfono.",15,design.muted,false);design.add(root,tagline,24);
         LinearLayout hero=design.card();
         LinearLayout heroRow=new LinearLayout(this);heroRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         android.view.View computer=design.glyph("desktop");heroRow.addView(computer,new LinearLayout.LayoutParams(design.dp(48),design.dp(48)));
@@ -68,7 +69,7 @@ public class MainActivity extends Activity {
         pairing = new EditText(this); pairing.setHint("Registro privado de la computadora"); pairing.setMinLines(3); pairing.setMaxLines(6);
         pairing.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         setup=design.card();design.add(setup,design.label("Conecta tus dispositivos",18,design.text,true),8);
-        design.add(setup,design.label("1  Usa la misma red o activa Tailscale fuera de casa.\n2  Importa el registro privado de tu computadora.\n3  Aprueba la conexión con tu huella.",14,design.muted,false),12);
+        design.add(setup,design.label("1  Usa la misma red o activa Tailscale fuera de casa.\n2  Importa el registro privado de tu computadora.\n3  Autoriza el vínculo una vez. Después la conexión local será automática y los archivos de esa computadora se guardarán en Descargas sin abrirse.",14,design.muted,false),12);
         button("Importar registro…", setup, () -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT); intent.setType("application/json"); intent.addCategory(Intent.CATEGORY_OPENABLE); startActivityForResult(intent, 41);
         });
@@ -76,7 +77,7 @@ public class MainActivity extends Activity {
             if(pairing.getParent()!=null)((android.view.ViewGroup)pairing.getParent()).removeView(pairing);
             new android.app.AlertDialog.Builder(this).setTitle("Vincular computadora").setView(pairing)
             .setPositiveButton("Guardar",(dialog,which)->{
-                getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",pairing.getText().toString()).apply();
+                getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",pairing.getText().toString()).putBoolean("autoPaused",false).apply();
                 updateRegistration();
             }).setNegativeButton("Cancelar",null)
             .setOnDismissListener(dialog->{if(pairing.getParent()!=null)((android.view.ViewGroup)pairing.getParent()).removeView(pairing);}).show();
@@ -96,7 +97,7 @@ public class MainActivity extends Activity {
             design.add(permission,design.label("Navegación, texto y capturas. Solo durante una sesión aprobada.",13,design.muted,false),8);
             button("Configurar permiso de control…",permission,()->new android.app.AlertDialog.Builder(this)
                 .setTitle("Permitir controlar este teléfono")
-                .setMessage("El servicio de accesibilidad permite a tu computadora solicitar capturas, leer el campo enfocado, escribir y realizar gestos. Podría mostrar datos personales de las aplicaciones abiertas. Solo funciona durante una sesión aprobada con huella, por hasta 10 minutos. Puedes desconectar o retirar el permiso en cualquier momento.")
+                .setMessage("El servicio de accesibilidad permite a tu computadora solicitar capturas, leer el campo enfocado, escribir y realizar gestos. Podría mostrar datos personales de las aplicaciones abiertas. En la LAN directa funciona automáticamente con la computadora vinculada y el teléfono desbloqueado. Fuera de ella exige huella, PIN, patrón o contraseña por hasta 10 minutos. Puedes desconectar o retirar el permiso en cualquier momento.")
                 .setNegativeButton("Cancelar",null)
                 .setPositiveButton("Abrir ajustes",(dialog,which)->startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))).show());
         }else{
@@ -110,25 +111,28 @@ public class MainActivity extends Activity {
             new android.app.AlertDialog.Builder(this).setTitle("Conexión en la misma red").setMessage("La detección es automática. Si tu red la bloquea, escribe la IP que muestra «Ver conexión local» en la computadora. Se conserva la identidad registrada.").setView(address)
                 .setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{try{String host=address.getText().toString().trim();if(!host.isEmpty()&&!LanDiscovery.privateHost(host)){showStatus("Escribe una IPv4 local privada válida");return;}JSONObject settings=new JSONObject(pairing.getText().toString());settings.put("lanHost",host);pairing.setText(settings.toString());getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",settings.toString()).apply();showStatus("Dirección local guardada; se verificará el mismo certificado al conectar.");}catch(JSONException e){showStatus("Importa primero el registro de la computadora");}}).show();
         });
-        connectButton=design.button("Conectar con huella",true);connectButton.setOnClickListener(v->connect());design.add(connectionPanel,connectButton,8);
-        disconnectButton=button("Cerrar sesión", root, () -> {
-            stopService(new Intent(this, RemoteService.class)); clearActions(); showStatus("Sesión cerrada");
+        connectButton=design.button("Conectar · huella o bloqueo",true);connectButton.setOnClickListener(v->connect());design.add(connectionPanel,connectButton,8);
+        disconnectButton=button("Pausar conexión", root, () -> {
+            getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("autoPaused",true).apply();EngineBridge.pause();stopService(new Intent(this, RemoteService.class)); clearActions(); showStatus("Conexión automática pausada. Presiona Conectar para reanudar.");
         });
         disconnectButton.setVisibility(View.GONE);
         status = design.label("",13,design.muted,false); status.setTextIsSelectable(true);design.add(root,status,20);
         button("Cambiar computadora…",connectionPanel,()->{
             RemoteService owner=RemoteService.instance;if(owner!=null)owner.closeConnection();
             stopService(new Intent(this,RemoteService.class));clearActions();setup.setVisibility(View.VISIBLE);
-            showStatus("Importa el nuevo registro y aprueba otra sesión con tu huella.");
+            showStatus("Importa el nuevo registro y confirma la identidad de la computadora.");
         });
         try { final Class<?> features=Class.forName("org.eternalself.umbrielremote.EngineUnlockActivity"); button("Funciones del teléfono…",root,()->startActivity(new Intent(this,features))); } catch(ClassNotFoundException ignored) {}
+        if(!CrashReports.read(this).isEmpty())button("Copiar informe del último error",root,()->{
+            getSystemService(android.content.ClipboardManager.class).setPrimaryClip(android.content.ClipData.newPlainText("Informe de Umbriel Connect",CrashReports.read(this)));showStatus("Informe técnico copiado: no incluye registros, claves ni mensajes personales.");
+        });
         commands = new LinearLayout(this); commands.setOrientation(LinearLayout.VERTICAL); root.addView(commands);
         String stored = getSharedPreferences("connection",MODE_PRIVATE).getString("server", "");
         if (!stored.isEmpty()) pairing.setText(stored);
-        updateRegistration();showStatus("Control por hasta 10 minutos. Los archivos aprobados pueden terminar; mantén la app abierta y el teléfono desbloqueado.");
+        updateRegistration();showStatus("LAN: conexión automática tras vincular. Fuera de la LAN: huella, PIN, patrón o contraseña del teléfono.");
     }
     @Override protected void onStart() {
-        super.onStart(); current = new WeakReference<>(this);
+        super.onStart(); visible=true;current = new WeakReference<>(this);ConnectionStartup.start(this);EngineBridge.startup(this);
         RemoteService owner=RemoteService.instance;transferRunning(owner!=null&&owner.transferScope.active(android.os.SystemClock.elapsedRealtime()));
         if(owner!=null)phoneControl.setChecked(owner.phoneControlAllowed());
         if(owner!=null && owner.isAuthorized()) authorized(owner);
@@ -137,14 +141,12 @@ public class MainActivity extends Activity {
     void transferRunning(boolean active){runOnUiThread(()->{if(active)getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);});}
     @Override protected void onStop() {
         transferRunning(false);
-        if (current.get() == this) current.clear();
-        if (biometric != null) biometric.cancel();
-        if (RemoteService.instance != null && !RemoteService.instance.phoneControlAllowed()) stopService(new Intent(this, RemoteService.class));
+        visible=false;
         super.onStop();
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if(request==43){if(result==RESULT_OK&&data!=null){pendingFile=data.getData();showStatus("Archivo seleccionado. Aprueba la conexión con huella para enviarlo.");connect();}return;}
+        if(request==43){if(result==RESULT_OK&&data!=null){pendingFile=data.getData();showStatus("Archivo seleccionado.");RemoteService active=RemoteService.instance;if(active!=null&&active.isAuthorized())authorized(active);else connect();}return;}
         if (request != 41 || result != RESULT_OK || data == null) return;
         try (InputStream in = getContentResolver().openInputStream(data.getData())) {
             ByteArrayOutputStream collected = new ByteArrayOutputStream();
@@ -157,7 +159,7 @@ public class MainActivity extends Activity {
             byte[] bytes = collected.toByteArray();
             if (bytes.length > 8192) throw new IOException("Archivo demasiado grande");
             pairing.setText(new String(bytes, StandardCharsets.UTF_8));
-            getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",pairing.getText().toString()).apply();updateRegistration();
+            getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",pairing.getText().toString()).putBoolean("autoPaused",false).apply();updateRegistration();
         } catch (Exception e) { showStatus("No se pudo importar el archivo"); }
     }
     void chooseFile(){Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(intent,43);}
@@ -168,10 +170,6 @@ public class MainActivity extends Activity {
         connectButton.setEnabled(registered);setup.setVisibility(registered?View.GONE:View.VISIBLE);
     }
     private void connect() {
-        if (getSystemService(BiometricManager.class).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) != BiometricManager.BIOMETRIC_SUCCESS) {
-            showStatus("Configura una huella compatible con biometría fuerte en los ajustes del teléfono."); return;
-        }
-        if (!getSystemService(KeyguardManager.class).isDeviceSecure()) { showStatus("Configura un bloqueo seguro del teléfono."); return; }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 42);
             showStatus("Permite las notificaciones para mantener visible la sesión; después vuelve a conectar."); return;
@@ -180,7 +178,8 @@ public class MainActivity extends Activity {
             JSONObject config = new JSONObject(pairing.getText().toString());
             if (config.getString("pin").length() != 64) throw new JSONException("Huella TLS inválida");
             getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server", config.toString()).apply();
-            clearActions();
+            getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("autoPaused",false).putBoolean("phoneControl",BuildFeatures.PHONE_CONTROL&&phoneControl.isChecked()).apply();
+            EngineBridge.startup(this);clearActions();
             Intent intent = new Intent(this, RemoteService.class).putExtra("config", config.toString()).putExtra("phoneControl", BuildFeatures.PHONE_CONTROL && phoneControl.isChecked());
             startForegroundService(intent);
             showStatus("Conectando con la identidad registrada…");
@@ -188,31 +187,33 @@ public class MainActivity extends Activity {
     }
     void clearActions() { generation++;if(dashboard!=null){dashboard.dispose();dashboard=null;}commands.removeAllViews();if(deviceState!=null)deviceState.setText("Sin conexión");connectionPanel.setVisibility(View.VISIBLE);intro.setVisibility(View.VISIBLE);tagline.setVisibility(View.VISIBLE);disconnectButton.setVisibility(View.GONE); }
     void showStatus(String text) { runOnUiThread(() -> status.setText(text)); }
-    void approve(Signature signature, byte[] challenge, RemoteService owner, long connection) {
+    void approve(Signature signature, byte[] challenge, RemoteService owner, long connection, boolean legacy) {
         runOnUiThread(() -> {
-            if (isFinishing() || current.get() != this) { owner.closeConnection(); return; }
+            if (isFinishing() || current.get() != this) { owner.finishSession(); return; }
             biometric = new CancellationSignal();
-            new BiometricPrompt.Builder(this)
+            try { BiometricPrompt.Builder prompt=new BiometricPrompt.Builder(this)
                 .setTitle("Autorizar acceso a tu computadora")
                 .setSubtitle(owner.phoneControlAllowed() ? "También permitirá controlar este teléfono por hasta 10 minutos" : "Controles de escritorio por hasta 10 minutos")
-                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                .setNegativeButton("Cancelar", getMainExecutor(), (dialog, which) -> owner.closeConnection())
-                .build().authenticate(new BiometricPrompt.CryptoObject(signature), biometric, getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
+                .setAllowedAuthenticators(legacy?BiometricManager.Authenticators.BIOMETRIC_STRONG:BiometricManager.Authenticators.BIOMETRIC_STRONG|BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+            if(legacy)prompt.setNegativeButton("Cancelar",getMainExecutor(),(dialog,which)->owner.finishSession());
+            prompt.build().authenticate(new BiometricPrompt.CryptoObject(signature), biometric, getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
                     @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
                         try {
                             Signature unlocked = result.getCryptoObject().getSignature(); unlocked.update(challenge);
                             owner.completeAuthentication(unlocked.sign(), connection);
-                        } catch (Exception e) { owner.closeConnection(); showStatus("No se pudo firmar la autorización con la huella."); }
+                        } catch (Exception e) { owner.finishSession(); showStatus("No se pudo firmar la autorización del teléfono."); }
                     }
-                    @Override public void onAuthenticationError(int code, CharSequence message) { owner.closeConnection(); showStatus(message.toString()); }
+                    @Override public void onAuthenticationError(int code, CharSequence message) { owner.finishSession(); showStatus(message.toString()); }
                 });
+            } catch(RuntimeException error){owner.finishSession();showStatus("No se pudo abrir la autenticación de Android. Comprueba el bloqueo del teléfono.");}
         });
     }
+    @Override protected void onDestroy(){if(biometric!=null)biometric.cancel();if(current.get()==this)current.clear();super.onDestroy();}
     void transferOnly(RemoteService owner){runOnUiThread(()->{
         if(RemoteService.instance!=owner)return;clearActions();connectionPanel.setVisibility(View.GONE);intro.setVisibility(View.GONE);tagline.setVisibility(View.GONE);disconnectButton.setVisibility(View.VISIBLE);
         deviceState.setText("Solo transferencia · control vencido");
         design.add(commands,design.label("Terminando tu archivo",22,design.text,true),12);
-        design.add(commands,design.label("La transferencia ya aprobada puede terminar. El mouse y los controles están desactivados; no se aceptan archivos nuevos. Mantén la app abierta. Al terminar necesitarás otra huella para volver a controlar.",15,design.muted,false),12);
+        design.add(commands,design.label("La transferencia ya aprobada puede terminar. El mouse y los controles están desactivados; no se aceptan archivos nuevos. Mantén la app abierta. Al terminar necesitarás autenticarte de nuevo para el acceso remoto.",15,design.muted,false),12);
         showStatus("Permiso de control vencido; continúa únicamente el archivo aprobado.");
     });}
     void authorized(RemoteService owner) {
@@ -223,8 +224,8 @@ public class MainActivity extends Activity {
                 pairing.setText(config.toString()); getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server", config.toString()).apply();
             } catch (JSONException ignored) { }
             clearActions();
-            deviceState.setText(owner.routeLabel+" · sesión aprobada con huella");
-            showStatus("Control aprobado con huella por hasta 10 minutos; una transferencia ya aprobada puede terminar después.");
+            deviceState.setText(owner.routeLabel+(owner.automaticLocal()?" · conexión automática":" · sesión autenticada"));
+            showStatus(owner.automaticLocal()?"Conexión local automática y cifrada. Se reconecta al volver a esta red.":"Acceso remoto autorizado por hasta 10 minutos con la autenticación del teléfono.");
             connectionPanel.setVisibility(View.GONE);intro.setVisibility(View.GONE);tagline.setVisibility(View.GONE);disconnectButton.setVisibility(View.VISIBLE);
             dashboard=new RemoteDashboard(this,design,owner,this::showStatus);commands.addView(dashboard);if(pendingFile!=null)dashboard.select(4);
         });

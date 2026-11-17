@@ -1,50 +1,35 @@
-# Red local, archivos propios y respuesta del mouse — 0.3.1
+# Red local, archivos propios y respuesta del mouse — 0.4.1
 
-> El canal descrito aquí sigue disponible. Para la aplicación completa0.4.0 y su motor privado, consulta [seguridad](../SECURITY.md) y [matriz actual](COMPATIBILITY.md). Las referencias a aplicaciones KDE son históricas; la ruta nueva no las ejecuta.
+Desde 0.4.1 la LAN directa usa conexión automática con autenticación criptográfica del
+dispositivo, sin pedir huella. Fuera de LAN se exige huella fuerte o PIN/patrón/
+contraseña del teléfono por hasta diez minutos. Un registro antiguo puede necesitar
+una última huella para migrar sus claves. [Actualización](UPDATE-0.4.1.md) y
+[protocolo/seguridad](REMOTE-SECURITY.md).
 
-En la misma red **no hace falta Tailscale**. El receptor ofrece TLS en las IPv4
-privadas reales de las interfaces activas (RFC1918), además del loopback usado
-por el proxy privado de Tailscale. No se modifican rutas, DNS, firewall ni servicios
-de inicio automático. Al abrir la ventana se inicia el receptor si no está activo;
-la identidad debe haberse creado durante el registro inicial.
+En la misma red **no hace falta Tailscale**. TLS31594 escucha en las direcciones
+privadas reales y loopback; UDP31595 descubre la identidad ya registrada sin conceder
+confianza nueva. Android verifica el certificado y enlaza la conexión a Wi-Fi/Ethernet
+sin VPN; la PC comprueba la ruta física y el mismo prefijo. No basta una IP privada
+obtenida por VPN. No se abren puertos del router, rutas, DNS ni firewall.
 
-## Conexión y seguridad
+Los servicios opcionales de usuario arrancan con el escritorio. Android mantiene
+notificación visible y reintentos locales acotados a2–30 s en segundo plano; «Pausar
+conexión» los suspende. Las restricciones del sistema/Samsung aún necesitan prueba
+física. El control del teléfono sigue exigiendo desbloqueo y permiso explícito.
 
-Android intenta descubrir la computadora registrada por UDP en el puerto TLS+1
-(31595 por defecto), verifica nonce/huella y después establece TLS con el certificado
-fijado. La respuesta de descubrimiento **no concede confianza**. Se prueban la IP
-local recordada y finalmente el destino del registro (por ejemplo Tailscale).
-El descubrimiento refresca las interfaces privadas antes de responder; no sondea
-la red en reposo. Al volver a autenticar se actualiza el nombre del teléfono registrado.
+Si la detección falla por firewall o aislamiento Wi-Fi:
 
-El transporte TLS se enlaza a direcciones concretas, nunca a todas las interfaces.
-El socket UDP de descubrimiento escucha IPv4 y solo responde a remitentes RFC1918;
-publica identidad pública y direcciones privadas, nunca claves ni registro, y
-limita las consultas a veinte por segundo. La
-configuración sigue admitiendo loopback para pruebas/proxy y tailscale0 de sistema.
-
-Se conservan certificado fijado, desafío firmado P-256, biometría fuerte, secuencia,
-revocación, control de hasta diez minutos y cierre al bloquear o salir de la app.
-Solo un archivo ya aprobado puede terminar después del vencimiento del control;
-[alcance y límites de archivos grandes](LARGE-FILES.md).
-La conexión local no reduce la autenticación. Las redes de invitados, aislamiento
-entre clientes o un firewall pueden bloquear la detección o TCP. En ese caso:
-
-1. En escritorio: **Acceso protegido → Ver conexión local**.
-2. En Android: **Configurar red local** e introducir esa IP. Conserva el certificado.
-3. Si el router impide comunicar los equipos, usar una red que lo permita o Tailscale.
-
-Para iniciar únicamente la conexión local, sin una VPN:
+1. Escritorio: **Acceso protegido → Ver conexión local**.
+2. Android: **Configurar red local**, introducir esa IP; se conserva el certificado.
+3. Si el router bloquea la comunicación, usar una red que la permita o Tailscale.
 
 ```bash
-~/.local/bin/umbriel-remote-session lan
 ~/.local/bin/umbriel-connect-remote network
+~/.local/bin/umbriel-remote-session lan
 ```
 
-El registro ya importado y su clave biométrica sirven también en LAN; actualizar
-el APK y el receptor no requiere borrar datos ni volver a registrar el teléfono.
-Un registro nuevo puede generarse con `pair IP_LOCAL`, usando una IP privada real
-del equipo; el archivo sigue siendo privado, de un uso y válido cinco minutos.
+El registro inicial es privado, válido cinco minutos y de un uso. No se necesita
+registrar de nuevo para actualizar normalmente; no borrar datos de Android.
 
 ## Mouse
 
@@ -80,17 +65,16 @@ fondos a la biblioteca. Transferir una imagen a Descargas no la importa como fon
 
 ## Archivos sin KDE Connect
 
-El escritorio combina las sesiones de **Umbriel Remote** con la compatibilidad
-KDE. Los dispositivos registrados de Umbriel permanecen visibles desconectados;
-al aprobar con huella se actualizan por eventos. Su envío **no utiliza kdeconnectd,
-kdeconnect-handler ni la app KDE del teléfono**. No se elimina KDE Connect ni se
-alteran sus emparejamientos: sus otras funciones continúan disponibles por separado. Consultar la lista no inicia
-automáticamente kdeconnectd; para usar la compatibilidad, iniciar su cliente/daemon.
+El escritorio combina el canal propio y el motor privado de Umbriel Connect. No
+necesita `kdeconnectd`, `kdeconnect-handler` ni la app oficial del teléfono.
+Los dispositivos registrados permanecen visibles desconectados y actualizan su
+estado al conectar.
 
-- PC → teléfono: **Dispositivos → teléfono Umbriel → Enviar archivo**, o el selector
-  independiente `umbriel-connect --send ARCHIVO...`. Aceptar cada descarga en Android.
-- Teléfono → PC: pestaña **Archivos → Elegir archivo**. El selector de Android cierra
-  la sesión de control; al volver pide huella. Después, **Enviar archivo seleccionado**.
+- PC → teléfono: **Dispositivos → teléfono → Enviar archivo**, o
+  `umbriel-connect --send ARCHIVO...`. En LAN se guarda sin abrirse; fuera de ella
+  Android pide aceptar cada descarga.
+- Teléfono → PC: **Archivos → Elegir archivo → Enviar archivo seleccionado**.
+  Volver del selector reutiliza una sesión que aún esté autorizada.
 - Las descargas se guardan en `Descargas/Umbriel Connect` del dispositivo receptor,
   con un prefijo aleatorio para preservar los archivos existentes.
 - Transferencia por bloques de hasta 32 KiB, ventana de ocho bloques en ambos sentidos, tamaños/offsets validados y verificación SHA256 al terminar. Sin el antiguo tope de 1 GiB;
@@ -105,10 +89,10 @@ automáticamente kdeconnectd; para usar la compatibilidad, iniciar su cliente/da
   pendientes durante un cierre normal. Un proceso terminado abruptamente puede
   dejar temporales; no se anuncia un archivo incompleto como recibido.
 
-Mantener Umbriel Remote abierto y aprobar la sesión sigue siendo necesario. No se
-habilitó recepción permanente en segundo plano ni encendido remoto de la computadora.
-Enlaces, texto y exploración SFTP de la ruta antigua siguen siendo funciones KDE;
-esta ampliación sustituye el envío de **archivos**.
+La conexión LAN puede recibir en segundo plano y con pantalla bloqueada. Fuera de
+ella hace falta una autorización remota vigente; los archivos ya aprobados tienen el
+alcance separado descrito arriba. Enlaces, texto y SFTP también están disponibles en
+el motor privado completo, con sus permisos y restricciones de transporte.
 
 ## Yazi
 
