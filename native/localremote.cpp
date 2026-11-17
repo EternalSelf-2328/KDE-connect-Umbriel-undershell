@@ -15,6 +15,10 @@ LocalRemote::LocalRemote(QObject *parent):QObject(parent){
     connect(&m_watch,&QLocalSocket::errorOccurred,this,[this]{m_watch.abort();m_retry.start();});
 }
 void LocalRemote::watch(){if(m_watch.state()==QLocalSocket::UnconnectedState)m_watch.connectToServer(path());}
+LocalRemote::~LocalRemote(){
+    m_retry.stop();QObject::disconnect(&m_watch,nullptr,this,nullptr);m_watch.abort();
+    for(auto *socket:findChildren<QLocalSocket*>()){QObject::disconnect(socket,nullptr,this,nullptr);socket->abort();}
+}
 void LocalRemote::call(QJsonObject request,Done done){
     auto *socket=new QLocalSocket(this);auto buffer=std::make_shared<QByteArray>();auto ended=std::make_shared<bool>(false);
     auto finish=[socket,ended,done](Reply r){if(*ended)return;*ended=true;socket->abort();socket->deleteLater();done(r);};

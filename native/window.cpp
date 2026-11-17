@@ -76,10 +76,10 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     auto *detail = new QWidget;
     auto *details = new QVBoxLayout(detail);
     details->setContentsMargins(0,0,0,0);details->setSpacing(12);
-    auto *hero=new QFrame;hero->setObjectName("card");auto *heroLayout=new QHBoxLayout(hero);heroLayout->setContentsMargins(24,22,24,22);heroLayout->setSpacing(20);
-    auto *deviceIcon=plainLabel("");deviceIcon->setProperty("role","logo");deviceIcon->setPixmap(Design::icon("phone").pixmap(44,44));deviceIcon->setAlignment(Qt::AlignCenter);deviceIcon->setFixedSize(80,80);heroLayout->addWidget(deviceIcon);
+    auto *hero=new QFrame;hero->setObjectName("card");auto *heroLayout=new QHBoxLayout(hero);heroLayout->setContentsMargins(20,16,20,16);heroLayout->setSpacing(20);
+    auto *deviceIcon=plainLabel("");deviceIcon->setProperty("role","logo");deviceIcon->setPixmap(Design::icon("phone").pixmap(44,44));deviceIcon->setAlignment(Qt::AlignCenter);deviceIcon->setFixedSize(64,64);heroLayout->addWidget(deviceIcon);
     deviceIcon->setProperty("glyph","phone");deviceIcon->setProperty("glyphSize",44);
-    auto *heroText=new QVBoxLayout;heroText->setSpacing(10);
+    auto *heroText=new QVBoxLayout;heroText->setSpacing(8);
     m_summary = plainLabel("Selecciona un dispositivo o busca uno en tu red.");
     m_summary->setProperty("role","hero");heroText->addWidget(m_summary);
     auto *chips=new QHBoxLayout;chips->setSpacing(8);
@@ -87,6 +87,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     m_deviceBattery=plainLabel("");m_deviceBattery->setProperty("role","chip");chips->addWidget(m_deviceBattery);chips->addStretch();
     m_deviceState->setWordWrap(false);m_deviceBattery->setWordWrap(false);
     heroText->addLayout(chips);heroLayout->addLayout(heroText,1);details->addWidget(hero);
+    m_connectionHint=plainLabel("");m_connectionHint->setProperty("role","muted");m_connectionHint->setObjectName("connectionHint");details->addWidget(m_connectionHint);
     m_key = plainLabel("");
     m_key->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_key->setProperty("role","muted");
@@ -104,19 +105,20 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     m_ring->setProperty("glyph","ring");m_ping->setProperty("glyph","send");m_files->setProperty("glyph","folder");
     auto *sharing = new QGroupBox("Compartir con el teléfono");
     auto *shareLayout = new QVBoxLayout(sharing);
-    m_sendFile = button("Enviar un archivo…", shareLayout);m_sendFile->setProperty("kind","primary");m_sendFile->setIcon(Design::icon("send",Design::palette().onAccent));
+    m_sendFile = button("Enviar un archivo…", shareLayout);m_sendFile->setObjectName("sendFile");m_sendFile->setProperty("kind","primary");m_sendFile->setIcon(Design::icon("send",Design::palette().onAccent));
     m_sendFile->setProperty("glyph","send");m_sendFile->setProperty("glyphPrimary",true);
+    m_legacyShare=new QWidget;m_legacyShare->setObjectName("legacySharing");auto *legacyShareLayout=new QVBoxLayout(m_legacyShare);legacyShareLayout->setContentsMargins(0,0,0,0);
     auto *urlRow = new QHBoxLayout;
     m_url = new QLineEdit;m_url->setObjectName("shareUrl"); m_url->setPlaceholderText("https://…"); urlRow->addWidget(m_url);
-    m_sendUrl = button("Enviar enlace", urlRow); shareLayout->addLayout(urlRow);
+    m_sendUrl = button("Enviar enlace", urlRow); legacyShareLayout->addLayout(urlRow);
     m_text = new QTextEdit; m_text->setPlaceholderText("Comparte una nota o un mensaje…"); m_text->setMaximumHeight(76);
-    shareLayout->addWidget(m_text); m_sendText = button("Enviar texto", shareLayout);
+    legacyShareLayout->addWidget(m_text); m_sendText = button("Enviar texto", legacyShareLayout);shareLayout->addWidget(m_legacyShare);
     details->addWidget(sharing);
     auto *commandRow = new QHBoxLayout;
     m_publish = button("Configurar controles…", commandRow);
     m_remove = button("Retirar controles", commandRow); details->addLayout(commandRow);
     m_remove->setProperty("kind","ghost");
-    auto *hint=plainLabel("Disponibles en «Ejecutar órdenes» de KDE Connect.");hint->setProperty("role","muted");details->addWidget(hint);
+    m_legacyCommandsHint=plainLabel("Disponibles en «Ejecutar órdenes» de KDE Connect.");m_legacyCommandsHint->setProperty("role","muted");details->addWidget(m_legacyCommandsHint);
     details->addStretch();
     auto *detailScroll=new QScrollArea;detailScroll->setWidgetResizable(true);detailScroll->setWidget(detail);phoneLayout->addWidget(detailScroll,3);
     tabs->addTab(phone, "Dispositivos");
@@ -178,7 +180,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     connect(m_ping, &QPushButton::clicked, this, [this] { phoneAction("ping", "Hola desde Umbriel"); });
     connect(m_files, &QPushButton::clicked, this, [this] { phoneAction("browse"); });
     connect(m_sendFile, &QPushButton::clicked, this, [this] {
-        const auto path = QFileDialog::getOpenFileName(this, "Compartir archivo");
+        const auto path = QFileDialog::getOpenFileName(this,"Compartir archivo",{}, {},nullptr,QFileDialog::DontUseNativeDialog);
         if (!path.isEmpty()) phoneAction("share", path);
     });
     connect(m_sendUrl, &QPushButton::clicked, this, [this] { phoneAction("share", m_url->text()); });
@@ -195,6 +197,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
         applyState({{"available", true}, {"devices", QJsonArray{QJsonObject{
             {"id", "demo"}, {"name", "Galaxy A24"}, {"paired", true}, {"reachable", true}, {"battery", 76},
             {"plugins", QJsonArray{"kdeconnect_share", "kdeconnect_ping", "kdeconnect_findmyphone", "kdeconnect_sftp"}}}}}});
+        if(qEnvironmentVariable("UMBRIEL_CONNECT_PREVIEW_TRANSPORT")=="umbriel")applyState({{"available",true},{"devices",QJsonArray{QJsonObject{{"id","remote:demo"},{"name","Galaxy de ejemplo"},{"paired",true},{"reachable",true},{"transport","umbriel"},{"battery",-1},{"plugins",QJsonArray{"umbriel_files"}}}}}});
         m_status->setText("Vista previa · datos de ejemplo");
         for(auto *b:findChildren<QPushButton*>()){b->setEnabled(true);b->blockSignals(true);}
         tabs->setCurrentIndex(qEnvironmentVariableIntValue("UMBRIEL_CONNECT_PREVIEW_TAB"));
@@ -237,7 +240,7 @@ void Window::applyState(const QJsonObject &state) {
     m_devices->blockSignals(false); selection();
     if (!state["available"].toBool()) m_status->setText("KDE Connect no está disponible: " + state["error"].toString());
     else if (state["partial"].toBool()) m_status->setText("Se recibieron datos incompletos. Vuelve a buscar dispositivos.");
-    else m_status->setText(QString::number(m_devices->count()) + " dispositivo(s) · Umbriel Remote y compatibilidad KDE Connect");
+    else m_status->setText(QString::number(m_devices->count()) + " conexiones · Umbriel Remote y KDE Connect");
 }
 void Window::selection() {
     const auto d = selectedDevice();
@@ -255,9 +258,12 @@ void Window::selection() {
     m_key->setVisible(!paired&&!d["verificationKey"].toString().isEmpty());
     m_key->setText(d["verificationKey"].toString().isEmpty() ? "" : "Comprueba esta clave en ambos dispositivos:\n" + d["verificationKey"].toString());
     m_pair->setEnabled(reachable && !paired && !m_preview);
-    m_pair->setVisible(!paired);m_unpair->setVisible(paired);
+    m_pair->setVisible(!paired&&!native);m_unpair->setVisible(paired&&!native);
     m_accept->setVisible(d["pairRequested"].toBool()); m_accept->setEnabled(!m_preview);
     m_unpair->setEnabled(paired && !m_preview&&!native);
+    m_legacyShare->setVisible(!native);m_legacyCommandsHint->setVisible(!native);
+    for(auto *b:{m_ring,m_ping,m_files,m_publish,m_remove})b->setVisible(!native);
+    m_connectionHint->setText(native?(reachable?"Sesión de Umbriel Remote aprobada con huella. Acepta cada descarga en el teléfono.":"Abre Umbriel Remote en el teléfono y conecta con huella para activar el envío de archivos."):(d.isEmpty()?"Busca un teléfono o conecta desde Umbriel Remote.":"Conexión de KDE Connect. Sus permisos y funciones se administran por separado de Umbriel Remote."));
     m_ring->setEnabled(ready && plugins.contains("kdeconnect_findmyphone"));
     m_ping->setEnabled(ready && plugins.contains("kdeconnect_ping"));
     m_files->setEnabled(ready && plugins.contains("kdeconnect_sftp"));

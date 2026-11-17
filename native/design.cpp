@@ -72,7 +72,7 @@ Palette palette() {
         }
     }
     p.text=legible(p.text,p.surface);p.muted=legible(p.muted,p.surface);p.onAccent=legible(p.onAccent,p.accent);
-    p.outline=legible(p.outline,p.background,3.0);
+    p.outline=legible(p.outline,p.background,3.0);p.danger=legible(p.danger,p.surface);
     return p;
 }
 void install(QApplication *app) {
@@ -92,6 +92,8 @@ QMainWindow, QDialog { background:@background; }
 QLabel { background:transparent; }
 QLabel[role="title"] { font-size:25px; font-weight:600; }
 QLabel[role="hero"] { font-size:26px; font-weight:600; }
+QLabel[role="section"] { font-size:16px; font-weight:600; }
+QLabel[role="error"] { color:@danger; font-size:16px; font-weight:600; }
 QLabel[role="muted"] { color:@muted; font-size:12px; }
 QLabel[role="eyebrow"] { color:@accent; font-size:12px; font-weight:600; }
 QLabel[role="chip"] { background:@raised; color:@muted; border-radius:12px; padding:5px 12px; font-size:12px; }
@@ -108,6 +110,7 @@ QPushButton[kind="primary"]:pressed { background:@accentPressed; }
 QPushButton[kind="primary"]:disabled { background:@raised; color:@muted; }
 QPushButton[kind="ghost"] { background:transparent; color:@muted; }
 QPushButton[kind="danger"] { color:@danger; background:transparent; }
+QPushButton[kind="danger"]:disabled { color:@muted; }
 QPushButton[kind="pad"] { min-height:48px; text-align:center; font-size:24px; }
 QPushButton[kind="tile"] { min-height:48px; border-radius:18px; text-align:left; padding:12px 16px; }
 QLineEdit, QTextEdit, QComboBox { background:@background; border:1px solid @outline; border-radius:12px; padding:10px 12px; selection-background-color:@accent; }
@@ -136,6 +139,8 @@ QSlider::groove:horizontal { height:6px; border-radius:3px; background:@raised; 
 QSlider::sub-page:horizontal { background:@accent; border-radius:3px; }
 QSlider::handle:horizontal { width:18px; margin:-6px 0; border-radius:9px; background:@accent; }
 QSlider::handle:horizontal:focus { border:2px solid @text; }
+QProgressBar { border:0; border-radius:3px; background:@raised; }
+QProgressBar::chunk { background:@accent; border-radius:3px; }
 QToolTip { color:@text; background:@raised; border:1px solid @outline; padding:8px; border-radius:8px; }
 )CSS";
         const QHash<QString,QColor> colors{{"accentPressed",mix(p.accent,p.onAccent,.16)},{"accentHover",mix(p.accent,p.onAccent,.08)},
@@ -149,6 +154,7 @@ QToolTip { color:@text; background:@raised; border:1px solid @outline; padding:8
             const auto ink=widget->property("glyphPrimary").toBool()?p.onAccent:p.accent;
             if(auto *button=qobject_cast<QAbstractButton*>(widget))button->setIcon(icon(glyph,ink));
             else if(auto *label=qobject_cast<QLabel*>(widget)){const auto size=widget->property("glyphSize").toInt();label->setPixmap(icon(glyph,ink).pixmap(size,size));}
+            else if(auto *combo=qobject_cast<QComboBox*>(widget)){for(int row=0;row<combo->count();++row)if(!combo->itemIcon(row).isNull())combo->setItemIcon(row,icon(glyph,ink));}
             else if(auto *list=qobject_cast<QListWidget*>(widget))for(int row=0;row<list->count();++row)list->item(row)->setIcon(icon(glyph,ink));
         }
     };

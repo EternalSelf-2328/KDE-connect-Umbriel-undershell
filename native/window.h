@@ -32,6 +32,8 @@ private:
     Integration m_integration;
     QJsonObject m_state;
     QListWidget *m_devices;
+    QLabel *m_connectionHint,*m_legacyCommandsHint;
+    QWidget *m_legacyShare;
     QLabel *m_summary, *m_deviceState, *m_deviceBattery, *m_key, *m_status;
     QPushButton *m_pair, *m_accept, *m_unpair, *m_ring, *m_ping, *m_files, *m_publish, *m_remove;
     QLineEdit *m_url;

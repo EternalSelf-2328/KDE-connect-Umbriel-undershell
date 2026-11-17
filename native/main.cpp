@@ -21,7 +21,7 @@ void printJson(const QJsonObject &value) {
     QTextStream(stdout) << QJsonDocument(value).toJson(QJsonDocument::Compact) << Qt::endl;
 }
 void help() {
-    QTextStream(stdout) << "Umbriel Connect 0.3.1 — C++ / Qt6\n"
+    QTextStream(stdout) << "Umbriel Connect 0.3.2 — C++ / Qt6\n"
         "  umbriel-connect                         Abrir aplicación\n"
         "  umbriel-connect --send ARCHIVO...       Enviar con Umbriel Remote, sin KDE Connect\n"
         "  umbriel-connect list                    Estado JSON\n"
@@ -39,7 +39,7 @@ void help() {
 }
 }
 int main(int argc, char **argv) {
-    const bool gui = argc == 1 || (argc > 1 && QString::fromLocal8Bit(argv[1]) == "--preview") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--send");
+    const bool gui = argc == 1 || (argc > 1 && QString::fromLocal8Bit(argv[1]) == "--preview") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--send") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--preview-share");
     std::unique_ptr<QCoreApplication> app;
     if (gui) app = std::make_unique<QApplication>(argc, argv);
     else app = std::make_unique<QCoreApplication>(argc, argv);
@@ -49,6 +49,13 @@ int main(int argc, char **argv) {
     const auto args = app->arguments().mid(1);
     if (gui) {
         Design::install(static_cast<QApplication*>(app.get()));
+        if(args.value(0)=="--preview-share"){
+            if(args.size()!=2){help();return 2;}
+            ShareWindow window({"/ejemplo/Notas del proyecto.pdf","/ejemplo/Fotografía de ejemplo.png"},true);
+            QJsonArray devices;if(qEnvironmentVariable("UMBRIEL_CONNECT_PREVIEW_SHARE_STATE")!="empty")devices.append(QJsonObject{{"id","remote:demo"},{"name","Galaxy de ejemplo"},{"reachable",true},{"transport","umbriel"},{"plugins",QJsonArray{"umbriel_files"}}});
+            window.applyDevices({{"available",true},{"devices",devices}});window.show();
+            QTimer::singleShot(150,&window,[&]{app->exit(window.grab().save(args[1])?0:1);});return app->exec();
+        }
         if(args.value(0)=="--send"){if(args.size()<2){help();return 2;}return shareWindow(args.mid(1));}
         if (!args.isEmpty() && args.size() != 2) { help(); return 2; }
         auto bus = QDBusConnection::sessionBus();
@@ -66,7 +73,7 @@ int main(int argc, char **argv) {
     }
     const auto command = args.value(0);
     if (command == "--help" || command == "-h") { help(); return 0; }
-    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.3.1\n"; return 0; }
+    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.3.2\n"; return 0; }
     KdeClient client;
     Integration integration;
     LocalRemote remote;

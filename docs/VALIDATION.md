@@ -233,3 +233,27 @@ Sin verificar físicamente: archivos grandes y espacio/MediaStore del Samsung,
 progreso/evitar apagado automático y vista «Solo transferencia». Cerrar la app o
 bloquear manualmente sigue cancelando la transferencia. No se añade WAKE_LOCK ni
 recepción permanente en segundo plano. No se aplicaron fondos ni movió el puntero.
+
+
+## Diseño de selector — 0.3.2 / 2026-11-16
+
+Compilación C++ completada sin advertencias nuevas y CTest **7/7 en 22,72 s**.
+Diseño: **11 resultados QtTest** incluyendo inicialización/cierre. Se verifican
+selección y conservación del destino, exclusión de conexiones KDE/no autorizadas,
+campos con metacaracteres sin shell, estados sin receptor/sesión, ventanas compactas
+y recepción/error/reintento de varios archivos contra un QLocalServer falso. El
+reintento envía A,B,B, sin repetir A. Se evita reactivar Enviar tras completar.
+
+Se corrigió un desbordamiento horizontal con nombres largos detectado en 400×440.
+Renders offscreen de claro, oscuro y paleta Noctalia real revisados visualmente con
+archivos y teléfono sintéticos. La ventana principal oculta controles de otro
+transporte al seleccionar Umbriel Remote. Cierre de sockets locales protegido
+durante destrucción del cliente. No hubo cambios en protocolo, permisos ni APK. Tras ampliar el ajuste de textos
+largos a estados de envío/error, diseño se repitió: 1/1 en 1,75 s.
+
+Instalado escritorio 0.3.2 con respaldo previo. No se reiniciaron VPN, compositor
+ni receptor activo. Se abrió el selector propio para revisar el APK existente,
+sin pulsar Enviar. La ventana blanca observada era `kdeconnect-handler`; la
+instancia Yazi activa se inició antes del cambio de su configuración. Esta ya
+apunta al ejecutable propio y requiere reabrir Yazi. No se enviaron archivos
+personales ni capturó el escritorio durante las comprobaciones.

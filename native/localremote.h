@@ -6,6 +6,7 @@ class LocalRemote : public QObject {
     Q_OBJECT
 public:
     explicit LocalRemote(QObject *parent=nullptr);
+    ~LocalRemote() override;
     static QString path();
     void call(QJsonObject request, Done done);
     void watch();

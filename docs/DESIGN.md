@@ -39,7 +39,7 @@ los controles del teléfono usan sus dimensiones actuales, sin resolución fija.
 
 ## Android
 
-La descarga 0.1.1 muestra una tarjeta «Control de computadora» y no ofrece control
+La descarga 0.3.1 muestra una tarjeta «Control de computadora» y no ofrece control
 del celular. El selector de accesibilidad descrito abajo corresponde únicamente a
 la variante opcional `phone-control`, pendiente de revisión.
 
@@ -105,3 +105,45 @@ La nueva pestaña Archivos y los selectores Android compilan; no se atribuye a l
 capturas Qt una inspección visual de Android.
 
 0.3.1 añade progreso de transferencia y la vista «Solo transferencia · control vencido». Ambas compilan; inspección física Android pendiente. Se conserva el diseño Qt anterior.
+
+
+## Selector y conexión propia — 0.3.2
+
+El selector `umbriel-connect --send ARCHIVO...` usa las mismas tarjetas, iconos,
+tipografía, foco y paleta dinámica que la ventana principal. Presenta nombres de
+archivo, tamaño total conocido, destino y estado de la sesión; los nombres largos
+se adaptan a ventanas pequeñas. La ruta completa queda en el tooltip, sin saturar
+el encabezado. Solo aparecen sesiones propias autorizadas para archivos.
+
+Sin sesión, explica cómo conectar con huella. Durante el envío indica el archivo
+actual; después muestra recepción verificada o un error con reintento desde el
+archivo fallido. La barra representa archivos terminados, no bytes transferidos.
+No añade animaciones continuas ni dependencias.
+
+| Oscuro | Claro |
+|---|---|
+| ![Selector oscuro](screenshots/native-share.png) | ![Selector claro](screenshots/native-share-light.png) |
+
+![Selector con paleta Noctalia](screenshots/native-share-noctalia.png)
+
+![Sin una sesión autorizada](screenshots/native-share-empty.png)
+
+La vista principal distingue conexiones de Umbriel Remote y KDE Connect. Oculta
+acciones que el canal propio todavía no ofrece, explica la aprobación biométrica
+y conserva el envío de archivos como acción principal.
+
+![Conexión propia con datos sintéticos](screenshots/native-own-device.png)
+
+Comprobado: diseño en 400×440, 620×660 y 760×720, sin desplazamiento horizontal;
+contraste claro/oscuro, cambio de paleta y reintento con receptor simulado. Las
+imágenes son renders offscreen con datos de ejemplo, sin contenido del escritorio.
+
+```bash
+QT_QPA_PLATFORM=offscreen build/umbriel-connect --preview-share build/share.png
+UMBRIEL_CONNECT_PREVIEW_SHARE_STATE=empty QT_QPA_PLATFORM=offscreen build/umbriel-connect --preview-share build/share-empty.png
+```
+
+La ventana blanca de `kdeconnect-handler` pertenece al programa oficial. Este
+cambio sustituye ese flujo mediante la integración de Yazi con `umbriel-connect
+--send`; las instancias antiguas de Yazi necesitan reabrirse. No modifica el tema
+global de KDE. El APK permanece en 0.3.1.

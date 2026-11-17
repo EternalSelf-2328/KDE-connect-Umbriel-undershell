@@ -8,7 +8,7 @@ y transferencia de archivos sin KDE Connect. La compatibilidad con el cliente
 Android oficial utiliza `kdeconnectd` mediante D-Bus; no necesita Plasma. La aplicación, el CLI y los
 controles de escritorio nuevos están en `native/`; no requieren Python.
 
-**Estado: 0.3.1, migración parcial.** No es una traducción completa de las 14.000
+**Estado: escritorio 0.3.2 y Android 0.3.1, migración parcial.** No es una traducción completa de las 14.000
 líneas del cliente original. Su código y sus extras se conservan en
 `caelestia_connect/`. Cámara, scrcpy y monitor virtual aún requieren trabajo para
 ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/COMPATIBILITY.md).
@@ -16,6 +16,11 @@ ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/
 ![Interfaz nativa con datos de ejemplo](docs/screenshots/native-dark.png)
 
 [Diseño, variantes y comprobaciones visuales](docs/DESIGN.md).
+
+El selector de envío de escritorio comparte tarjetas, tipografía y paleta dinámica
+con la aplicación. Explica la autorización con huella y muestra los estados de envío,
+error y finalización. Si Yazi aún abre el selector de KDE, vuelve a abrir Yazi para
+cargar la integración `umbriel-connect --send`.
 
 ## Funciones nativas
 
