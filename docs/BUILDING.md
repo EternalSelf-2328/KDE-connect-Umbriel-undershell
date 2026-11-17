@@ -68,7 +68,7 @@ python3 scripts/android-full/sdk.py
 scripts/android-full/build.sh
 # Pruebas Android con recursos (Robolectric):
 scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.IncomingShareTest --tests org.eternalself.umbrielremote.ConnectionRegressionTest
-bash scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.HomeNavigationTest --tests org.eternalself.umbrielremote.HomeRenderTest --tests org.eternalself.umbrielremote.RegistrationUiTest --tests org.eternalself.umbrielremote.AuthenticatedUiTest --tests org.eternalself.umbrielremote.LanPairingTest
+bash scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.HomeNavigationTest --tests org.eternalself.umbrielremote.HomeRenderTest --tests org.eternalself.umbrielremote.RegistrationUiTest --tests org.eternalself.umbrielremote.AuthenticatedUiTest --tests org.eternalself.umbrielremote.LanPairingTest --tests org.eternalself.umbrielremote.NotificationChannelsTest --tests org.eternalself.umbrielremote.ControlSpacingTest
 bash tests/android-guard.sh
 ```
 

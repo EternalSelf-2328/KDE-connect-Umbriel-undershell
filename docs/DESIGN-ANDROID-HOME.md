@@ -61,3 +61,14 @@ parada de entrada al salir, conservación de la conexión, autorización remota 
 tras búsqueda local y separación de la primera confianza. Enlaces externos de registro
 requieren confirmación y cancelar no modifica una confianza previa. No se transfieren
 permisos de controlar el teléfono a una computadora con otro certificado.
+
+
+## Ajustes0.6.1 tras capturas del Galaxy
+
+Pestañas con8dp entre sí y16dp respecto al primer panel;12dp de separación del
+touchpad y entre botones, sin margen sobrante al final de una fila. Tarjetas20dp
+interiores. No se añaden blur, animaciones permanentes ni otra paleta. Las regresiones
+miden que no se junten los controles ni invadan los márgenes a320/393/412/840dp y
+fuente130%. El aviso del mouse deja de acompañar a las otras secciones.
+[Renders sintéticos](screenshots/0.6.1/) incluyen densidad1.5 y fondos de ejemplo
+generados solo en pruebas, sin material privado. No equivalen a un dispositivo Samsung.

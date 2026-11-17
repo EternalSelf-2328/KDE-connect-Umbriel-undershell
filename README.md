@@ -1,13 +1,13 @@
 # Umbriel Connect
 
 Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **0.6.0 experimental** incorpora un motor privado derivado
+y aplicación Android propia. **Escritorio 0.6.0 / Android 0.6.1 experimental** incorpora un motor privado derivado
 de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
 Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
 ![Umbriel Connect: datos de ejemplo](docs/screenshots/0.6.0/home-dark.png)
 
-[Descargar Android completo 0.6.0](downloads/UmbrielConnect-0.6.0.apk) ·
+[Descargar Android completo 0.6.1](downloads/UmbrielConnect-0.6.1.apk) ·
 [Instalación y compilación](docs/BUILDING.md) ·
 [Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
 [Seguridad y permisos](SECURITY.md)
@@ -16,7 +16,7 @@ Android abre **Inicio**, con Mouse, Navegación, Sonido, Apariencia, Fondos y Wi
 a un toque, reproducción y volumen. La barra **Inicio / Control / Archivos / Ajustes**
 permanece visible; el registro y los permisos tienen su propia sección. La conexión
 LAN ya vinculada es automática; fuera de ella se ofrece autorización explícita.
-[Novedades y actualización](docs/UPDATE-0.6.0.md).
+[Corrección del cierre y espaciado Android](docs/UPDATE-0.6.1.md).
 
 <img src="docs/screenshots/0.5.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
 <img src="docs/screenshots/0.5.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">

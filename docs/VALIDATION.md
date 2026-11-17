@@ -310,3 +310,24 @@ y checksum verificados. Mapas conservados privadamente; no se incluye ningún re
 real ni clave de usuario. Escritorio instalado, servicios activos/habilitados,
 TLS1.3/pin almacenado y respuesta UDP nueva comprobados; cero sesiones al reiniciar.
 No se modificó red/VPN/DNS/firewall/compositor. Samsung físico pendiente.
+
+
+## Android0.6.1 / 2026-11-17
+
+Informe Galaxy0.6.0/API36: SecurityException al borrar canal en initializeChannels.
+APK previo desensamblado confirma deleteNotificationChannel; regresión con notificación
+session activa y gestor que prohíbe borrar falló antes del parche. Overlay elimina
+limpieza global; prueba ahora pasa dos inicializaciones sin borrado ni pérdida de
+sesión/notificación u otros canales. No se añade catch genérico para ocultar el fallo.
+
+37pruebas Android aprobadas,101checks Java y variantes mínimas verificadas. Tres
+regresiones geométricas comprueban separación y respeto de márgenes a320/393/412/840dp,
+texto130% y limpieza de feedback del mouse al navegar. Renders Views nativos estándar
+API36, también densidad1.5, con galería sintética; no se capturó ni publicó el Galaxy.
+Contraste disabled/raised7.22:1oscuro y5.56:1claro. Escritorio0.6.0 sin cambios.
+
+APK versionCode11/min30/target37, 11548303bytes, SHA256
+`5b6cd97c0e115d1dd3da26ae2bb653851ea224006866da7fc87286c7717b2cf3`; mismo firmante, v3 y no debuggable. Verificado método release
+NotificationHelper.initializeChannels con creación y sin llamadas de borrado; se
+conserva prueba R8 de getAddress/getPrefixLength públicos. Mapas privados guardados.
+Confirmación física del nuevo APK pendiente. No hubo cambios en servicios o red.

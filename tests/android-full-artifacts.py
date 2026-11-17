@@ -14,11 +14,11 @@ cache = Path(os.environ.get('UMBRIEL_ANDROID_TOOLS', Path.home()/'.cache/umbriel
 jdk = Path(os.environ.get('UMBRIEL_JDK', cache/'jdk-21.0.13+9'))
 tools = cache/'full-sdk/build-tools/37.0.0'
 env = dict(os.environ, JAVA_HOME=str(jdk), PATH=str(jdk/'bin')+os.pathsep+os.environ['PATH'])
-apk = root/'downloads/UmbrielConnect-0.6.0.apk'
+apk = root/'downloads/UmbrielConnect-0.6.1.apk'
 def run(*args):
     return subprocess.check_output([str(a) for a in args], env=env, text=True, stderr=subprocess.STDOUT)
 manifest = run(tools/'aapt2', 'dump', 'xmltree', apk, '--file', 'AndroidManifest.xml')
-for value in ['versionCode(0x0101021b)=10', '"0.6.0-experimental"',
+for value in ['versionCode(0x0101021b)=11', '"0.6.1-experimental"',
               'minSdkVersion(0x0101020c)=30', 'targetSdkVersion(0x01010270)=37',
               '"org.eternalself.umbrielremote"', 'android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE',
               'android.permission.CHANGE_NETWORK_STATE', 'android.permission.ACCESS_NETWORK_STATE',
@@ -53,6 +53,12 @@ network_code = run(cache/'full-sdk/cmdline-tools/latest/bin/apkanalyzer', 'dex',
 assert 'Landroid/net/LinkAddress;->getAddress()Ljava/net/InetAddress;' in network_code
 assert 'Landroid/net/LinkAddress;->getPrefixLength()I' in network_code
 assert not re.search(r'(?m)^\s*[is]get[^\n]*Landroid/net/(?:LinkAddress|LinkProperties);->', network_code), network_code
+notification_code = run(cache/'full-sdk/cmdline-tools/latest/bin/apkanalyzer', 'dex', 'code',
+                        '--class', 'org.eternalself.umbrielremote.engine.helpers.NotificationHelper',
+                        '--method', 'initializeChannels(Landroid/content/Context;)V', apk)
+assert 'createNotificationChannel' in notification_code
+assert 'deleteNotificationChannel' not in notification_code
+assert 'deleteUnlistedNotificationChannels' not in notification_code
 signature = run(tools/'apksigner', 'verify', '--verbose', '--print-certs', apk)
 assert 'Verified using v3 scheme (APK Signature Scheme v3): true' in signature
 certificates = set(re.findall(r'(?m)^(?:Signer #\d+|V\d+(?:\.\d+)* Signer):? certificate SHA-256 digest: ([0-9a-f]{64})$', signature))
@@ -62,9 +68,9 @@ assert certificate == (root/'downloads/SIGNING-CERTIFICATE-SHA256').read_text().
 digest = hashlib.sha256(apk.read_bytes()).hexdigest()
 checksums = {name:sha for sha,name in (line.split() for line in (root/'downloads/SHA256SUMS').read_text().splitlines() if line.strip())}
 assert checksums[apk.name] == digest
-result = dict(version='0.6.0-experimental', versionCode=10, package='org.eternalself.umbrielremote', bytes=apk.stat().st_size,
+result = dict(version='0.6.1-experimental', versionCode=11, package='org.eternalself.umbrielremote', bytes=apk.stat().st_size,
               sha256=digest, signing_certificate_sha256=certificate, foreground_service_type='connectedDevice',
-              debuggable=False, private_boot_receiver=True, optimized_network_public_api=True, phone_validation='pending')
+              debuggable=False, private_boot_receiver=True, optimized_network_public_api=True, notification_channels_preserved=True, phone_validation='pending')
 (root/'build/android-full-artifacts.json').write_text(json.dumps(result, indent=2)+'\n')
 print(json.dumps(result, indent=2))
-print('Signed full APK: optimized public network API, merged manifest, v2 keys, signature and checksum verified')
+print('Signed full APK: preserved notification channels, optimized public network API, merged manifest, v2 keys, signature and checksum verified')

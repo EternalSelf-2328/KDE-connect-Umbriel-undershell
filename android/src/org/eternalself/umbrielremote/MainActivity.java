@@ -67,8 +67,9 @@ public class MainActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle state){state.putInt("destination",destination);state.putInt("controlPage",controlPage);state.putString("settingsPage",settingsPage);super.onSaveInstanceState(state);}
     @Override public void onBackPressed(){back();}
     private void back(){if(destination==3&&!settingsPage.isEmpty()){settingsPage="";render();}else if(destination!=0)navigate(0);else moveTaskToBack(true);}
-    void navigate(int page){if(dashboard!=null)dashboard.stopPointer();destination=page;settingsPage="";render();scroll.scrollTo(0,0);}
-    void openControl(int page){destination=1;controlPage=page;render();if(dashboard!=null&&page==1)dashboard.activateMouse();scroll.scrollTo(0,0);}
+    private void clearStatus(){lastStatus="";if(status!=null){status.setText("");status.setVisibility(View.GONE);}}
+    void navigate(int page){clearStatus();if(dashboard!=null)dashboard.stopPointer();destination=page;settingsPage="";render();scroll.scrollTo(0,0);}
+    void openControl(int page){clearStatus();destination=1;controlPage=page;render();if(dashboard!=null&&page==1)dashboard.activateMouse();scroll.scrollTo(0,0);}
     private void bottom(){navigation.removeAllViews();String[] labels={"Inicio","Control","Archivos","Ajustes"},icons={"home","mouse","file","settings"};for(int i=0;i<labels.length;i++){final int page=i;Button b=design.nav(labels[i],icons[i],destination==i);b.setTag("nav-"+i);b.setOnClickListener(v->navigate(page));navigation.addView(b,new LinearLayout.LayoutParams(0,design.dp(68),1));}}
     private void render(){
         if(content==null)return;
@@ -121,7 +122,7 @@ public class MainActivity extends Activity {
         setting(connection,"Dispositivos y funciones","Archivos, multimedia y sincronización","link",()->{settingsPage="devices";render();});
         LinearLayout privacy=section("Privacidad y permisos","");setting(privacy,"Permisos del teléfono","Tú decides qué compartir","shield",()->{settingsPage="permissions";render();});
         setting(privacy,paused()?"Reanudar conexión":"Pausar conexión automática",paused()?"Volver a buscar la computadora":"Se mantiene pausada hasta que la reanudes","pause",()->{if(paused()){preferences().edit().putBoolean("autoPaused",false).apply();ConnectionStartup.start(this);EngineBridge.startup(this);}else{preferences().edit().putBoolean("autoPaused",true).apply();EngineBridge.pause();stopService(new Intent(this,RemoteService.class));clearActions();}render();});
-        LinearLayout about=section("Acerca de","");design.add(about,design.label("Umbriel Connect · 0.6.0\nUmbriel, Noctalia y undershell",14,design.muted,false),12);
+        LinearLayout about=section("Acerca de","");design.add(about,design.label("Umbriel Connect · 0.6.1\nUmbriel, Noctalia y undershell",14,design.muted,false),12);
         if(!CrashReports.read(this).isEmpty())setting(about,"Copiar informe del último error","Solo información técnica del cierre","file",()->{getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("Informe de Umbriel Connect",CrashReports.read(this)));showStatus("Informe técnico copiado");});
 
     }

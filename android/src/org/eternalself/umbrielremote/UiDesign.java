@@ -12,6 +12,7 @@ import android.widget.*;
 
 /** Shared Material surfaces, typography and interaction states; no blur or idle animation. */
 final class UiDesign {
+    static final int COMPACT_GAP=8,GAP=12,SECTION_GAP=16,CARD_PADDING=20;
     final Activity activity;
     final int background,surface,raised,text,muted,accent,onAccent,outline,danger;
     UiDesign(Activity activity){
@@ -36,7 +37,7 @@ final class UiDesign {
         label.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));label.setLineSpacing(dp(3),1.0f);return label;
     }
     GradientDrawable shape(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;}
-    LinearLayout card(){LinearLayout box=column();box.setPadding(dp(20),dp(20),dp(20),dp(20));box.setBackground(shape(surface,26));return box;}
+    LinearLayout card(){LinearLayout box=column();box.setPadding(dp(CARD_PADDING),dp(CARD_PADDING),dp(CARD_PADDING),dp(CARD_PADDING));box.setBackground(shape(surface,26));return box;}
     void add(LinearLayout parent,View child,int bottom){
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);lp.bottomMargin=dp(bottom);parent.addView(child,lp);
     }
@@ -47,7 +48,7 @@ final class UiDesign {
         android.content.res.ColorStateList foreground=new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{muted,fg});b.setTextColor(foreground);
         StateListDrawable states=new StateListDrawable();
         GradientDrawable focused=shape(bg,26);focused.setStroke(dp(2),primary?onAccent:accent);
-        states.addState(new int[]{android.R.attr.state_focused},focused);states.addState(new int[]{-android.R.attr.state_enabled},shape(surface,26));states.addState(new int[]{},shape(bg,26));
+        states.addState(new int[]{android.R.attr.state_focused},focused);states.addState(new int[]{-android.R.attr.state_enabled},shape(raised,26));states.addState(new int[]{},shape(bg,26));
         b.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf((fg&0x00ffffff)|0x26000000),states,shape(Color.WHITE,26)));
         return b;
     }

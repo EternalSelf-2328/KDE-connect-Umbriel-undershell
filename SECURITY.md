@@ -129,3 +129,11 @@ la clave protegida por identidad Android. [Protocolo y uso](docs/UPDATE-0.6.0.md
 
 Olvidar revoca el grupo exacto y sus sesiones; no usa nombres/IP para decidir qué
 confianza eliminar. Los anuncios ocultos se pueden restaurar desde Ajustes.
+
+## Canales Android0.6.1
+
+La inicialización del motor conserva los canales de notificación ajenos a su módulo,
+incluido el de la sesión propia. Se elimina el borrado global que provocaba un
+SecurityException cuando el canal estaba asociado a un servicio foreground activo.
+Las notificaciones/permisos no se ocultan ni se evitan; el usuario conserva sus
+ajustes existentes. La regresión se verifica también en el bytecode release.

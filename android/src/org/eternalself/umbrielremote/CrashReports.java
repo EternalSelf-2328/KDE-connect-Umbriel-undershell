@@ -21,7 +21,7 @@ public final class CrashReports {
         });
     }
     static String format(Throwable error,int sdk) {
-        StringBuilder text=new StringBuilder("Umbriel Connect 0.6.0 · Android API "+sdk+"\n");
+        StringBuilder text=new StringBuilder("Umbriel Connect 0.6.1 · Android API "+sdk+"\n");
         for(int cause=0;error!=null&&cause<5;cause++,error=error.getCause()){
             text.append(error.getClass().getName()).append('\n');
             StackTraceElement[] frames=error.getStackTrace();

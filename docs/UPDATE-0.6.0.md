@@ -4,7 +4,7 @@
 
 ## Conectar después de borrar los datos
 
-1. Actualiza la computadora y el [APK completo](../downloads/UmbrielConnect-0.6.0.apk).
+1. Actualiza la computadora y el [APK actualizado](UPDATE-0.6.1.md).
 2. Abre **Inicio** en Android, con ambos equipos en la misma red. Busca la computadora
    y pulsa **Vincular** en su tarjeta.
 3. Compara el código del teléfono con la solicitud que aparece en **Inicio** de la PC.

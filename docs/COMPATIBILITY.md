@@ -92,3 +92,11 @@ requiere confirmación una vez en la PC y prueba de posesión de claves. Despué
 la LAN automática y autorización remota. Olvidar revoca el grupo exacto, no otros
 dispositivos. Anuncios sin vínculo pueden ocultarse y restaurarse. Nuevo menú lateral
 y configurador de funciones propio Qt. [Uso y límites](UPDATE-0.6.0.md).
+
+
+## Corrección Android0.6.1
+
+Escritorio0.6.0 compatible; canales compartidos conservados al arrancar, espaciado
+entre pestañas/touchpad/botones y márgenes verificados en37pruebas Android. Render
+API36 con datos sintéticos y densidad1.5; Samsung físico pendiente.
+[Diagnóstico y actualización](UPDATE-0.6.1.md).

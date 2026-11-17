@@ -22,7 +22,7 @@ for p in OUT.rglob('*'):
  except UnicodeError:continue
  s=s.replace('org.kde.kdeconnect_tp','org.eternalself.umbrielremote').replace('org.kde.kdeconnect','org.eternalself.umbrielremote.engine').replace('org/kde/kdeconnect','org/eternalself/umbrielremote/engine')
  p.write_text(s)
-p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 10').replace('versionName = "1.37.3"','versionName = "0.6.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
+p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 11').replace('versionName = "1.37.3"','versionName = "0.6.1-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
 # Robolectric SDK36 uses a JDK21 internal FileDescriptor accessor; export only in test JVMs.
 with (OUT/'build.gradle.kts').open('a') as stream:
  stream.write('\ntasks.withType<Test>().configureEach { jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }\n')
@@ -93,6 +93,15 @@ p=OUT/'src/main/java/org/kde/kdeconnect/Device.kt';s=p.read_text();s=s.replace('
 s=s.replace('        notifyPluginPacketReceived(np)','        if (!isPaired) { np.payload?.close(); return }\n        notifyPluginPacketReceived(np)')
 s=s.replace('    ): Boolean {\n        if (!supportsPacketType(np.type))','    ): Boolean {\n        if (!org.eternalself.umbrielremote.EngineGate.packetAllowed(deviceId, np.type)) { np.payload?.close(); return false }\n        np.payload?.let { org.eternalself.umbrielremote.EnginePayloads.authorize(it, deviceId, np.type) }\n        if (!supportsPacketType(np.type))');p.write_text(s)
 p=OUT/'src/main/java/org/kde/kdeconnect/Device.kt';s=p.read_text().replace('fun sendPacket(np: NetworkPacket, callback: SendPacketStatusCallback) {','fun sendPacket(np: NetworkPacket, callback: SendPacketStatusCallback) {\n        if (!org.eternalself.umbrielremote.EngineGate.packetAllowed(deviceId, np.type)) { np.payload?.close(); callback.onFailure(Exception("Session is not authorized")); return }\n        np.payload?.let { org.eternalself.umbrielremote.EnginePayloads.authorize(it, deviceId, np.type) }');p.write_text(s)
+# Shared package: never delete channels owned by the session service or another module.
+p=OUT/'src/main/java/org/kde/kdeconnect/helpers/NotificationHelper.kt'
+s=p.read_text()
+cleanup='        nm.deleteUnlistedNotificationChannels(channels.map { channel -> channel.id })'
+if s.count(cleanup)!=1:raise SystemExit('Notification channel cleanup patch no longer matches pinned source')
+s=s.replace('        // Delete any notification channels which weren\'t added.\n        // Use this to deprecate old channels.\n'+cleanup,
+    '        // Other modules share this package (including the active session channel).\n        // Register our channels idempotently; never bulk-delete channels at startup.')
+if cleanup in s:raise SystemExit('Unsafe notification cleanup is still present')
+p.write_text(s)
 p=OUT/'src/main/java/org/kde/kdeconnect/KdeConnect.kt';s=p.read_text().replace('        _instance = this','        _instance = this\n        org.eternalself.umbrielremote.CrashReports.install(this)\n        org.eternalself.umbrielremote.EngineGate.init(this)');p.write_text(s)
 # Retain binary/API compatibility for plugin intents, but route the legacy entry to our app shell.
 p=OUT/'src/main/java/org/kde/kdeconnect/ui/MainActivity.kt';s=p.read_text()
