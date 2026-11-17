@@ -21,7 +21,7 @@ void printJson(const QJsonObject &value) {
     QTextStream(stdout) << QJsonDocument(value).toJson(QJsonDocument::Compact) << Qt::endl;
 }
 void help() {
-    QTextStream(stdout) << "Umbriel Connect 0.3.0 — C++ / Qt6\n"
+    QTextStream(stdout) << "Umbriel Connect 0.3.1 — C++ / Qt6\n"
         "  umbriel-connect                         Abrir aplicación\n"
         "  umbriel-connect --send ARCHIVO...       Enviar con Umbriel Remote, sin KDE Connect\n"
         "  umbriel-connect list                    Estado JSON\n"
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     }
     const auto command = args.value(0);
     if (command == "--help" || command == "-h") { help(); return 0; }
-    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.3.0\n"; return 0; }
+    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.3.1\n"; return 0; }
     KdeClient client;
     Integration integration;
     LocalRemote remote;

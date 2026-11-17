@@ -103,3 +103,5 @@ diálogo usa un servidor local simulado y archivos de ejemplo.
 
 La nueva pestaña Archivos y los selectores Android compilan; no se atribuye a las
 capturas Qt una inspección visual de Android.
+
+0.3.1 añade progreso de transferencia y la vista «Solo transferencia · control vencido». Ambas compilan; inspección física Android pendiente. Se conserva el diseño Qt anterior.

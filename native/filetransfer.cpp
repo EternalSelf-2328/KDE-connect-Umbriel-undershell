@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QUuid>
+#include <QStorageInfo>
 bool FileTransfer::validName(const QString &name){
     if(name.isEmpty()||name=="."||name==".."||name.toUtf8().size()>180||name.contains('/')||name.contains('\\'))return false;
     for(auto c:name)if(c.unicode()<32||c.unicode()==127||c.category()==QChar::Other_Format)return false;
@@ -12,9 +13,11 @@ bool FileTransfer::validName(const QString &name){
 Reply FileTransfer::begin(const QJsonObject &offer){
     if(m_file)return {false,"Ya hay un archivo en recepción",{}};
     auto size=offer["size"];auto name=offer["name"].toString(),id=offer["id"].toString();
-    if(!validName(name)||id.size()!=32||!size.isDouble()||size.toDouble()!=double(size.toInteger(-1))||size.toInteger(-1)<0||size.toInteger()>Limit)return {false,"Nombre o tamaño de archivo inválido (máximo 1 GiB)",{}};
+    if(!validName(name)||id.size()!=32||!size.isDouble()||size.toDouble()!=double(size.toInteger(-1))||size.toInteger(-1)<0||size.toInteger()>Limit)return {false,"Nombre o tamaño de archivo inválido",{}};
     auto root=m_root.isEmpty()?QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)+"/Umbriel Connect":m_root;
     if(!QDir().mkpath(root))return {false,"No se pudo crear la carpeta de descargas",{}};
+    const QStorageInfo storage(root);
+    if(!storage.isValid()||!storage.isReady()||storage.bytesAvailable()<8*1024*1024||size.toInteger()>storage.bytesAvailable()-8*1024*1024)return {false,"No hay espacio libre suficiente para recibir el archivo",{}};
     // A random prefix prevents overwrites, including races and existing symlinks.
     auto destination=root+'/'+QUuid::createUuid().toString(QUuid::Id128)+'-'+name;
     m_file=std::make_unique<QSaveFile>(destination);m_file->setDirectWriteFallback(false);

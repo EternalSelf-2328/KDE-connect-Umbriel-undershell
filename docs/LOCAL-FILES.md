@@ -1,4 +1,4 @@
-# Red local, archivos propios y respuesta del mouse — 0.3.0
+# Red local, archivos propios y respuesta del mouse — 0.3.1
 
 En la misma red **no hace falta Tailscale**. El receptor ofrece TLS en las IPv4
 privadas reales de las interfaces activas (RFC1918), además del loopback usado
@@ -22,7 +22,9 @@ limita las consultas a veinte por segundo. La
 configuración sigue admitiendo loopback para pruebas/proxy y tailscale0 de sistema.
 
 Se conservan certificado fijado, desafío firmado P-256, biometría fuerte, secuencia,
-revocación, sesión de hasta diez minutos y cierre al bloquear o salir de la app.
+revocación, control de hasta diez minutos y cierre al bloquear o salir de la app.
+Solo un archivo ya aprobado puede terminar después del vencimiento del control;
+[alcance y límites de archivos grandes](LARGE-FILES.md).
 La conexión local no reduce la autenticación. Las redes de invitados, aislamiento
 entre clientes o un firewall pueden bloquear la detección o TCP. En ese caso:
 
@@ -89,9 +91,8 @@ automáticamente kdeconnectd; para usar la compatibilidad, iniciar su cliente/da
   la sesión de control; al volver pide huella. Después, **Enviar archivo seleccionado**.
 - Las descargas se guardan en `Descargas/Umbriel Connect` del dispositivo receptor,
   con un prefijo aleatorio para preservar los archivos existentes.
-- Transferencia por bloques de hasta 32 KiB, ventana de cuatro bloques en PC →
-  Android, tamaños/offsets validados y verificación SHA256 al terminar. Máximo 1 GiB
-  por archivo y una transferencia por sentido por sesión. Sin reanudación automática.
+- Transferencia por bloques de hasta 32 KiB, ventana de ocho bloques en ambos sentidos, tamaños/offsets validados y verificación SHA256 al terminar. Sin el antiguo tope de 1 GiB;
+  espacio libre y rango JSON de 64 bits comprobados. Una transferencia por sentido. Sin reanudación automática.
   Se separa el presupuesto de mensajes de archivos (4096/s) del de controles (180/s),
   para no cerrar una transferencia rápida de LAN con el límite pensado para acciones.
   La confianza se consulta en caché durante 250 ms y los cambios del almacén fuerzan

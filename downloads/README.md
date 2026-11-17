@@ -1,6 +1,6 @@
 # APK experimental para controlar la computadora
 
-- [Descargar Umbriel Remote 0.3.0](UmbrielRemote-0.3.0.apk).
+- [Descargar Umbriel Remote 0.3.1](UmbrielRemote-0.3.1.apk).
 - [Comprobar SHA256](SHA256SUMS).
 - [Huella pública del certificado de firma](SIGNING-CERTIFICATE-SHA256).
 - [Cambio de permisos y bloqueo de Play Protect](../docs/PLAY-PROTECT.md).
@@ -16,7 +16,7 @@ leer sus ventanas ni obtener capturas.** No incluye un servicio de accesibilidad
 lector de notificaciones, permisos SMS ni código de captura/gestos del teléfono.
 
 Compilada contra Android API 36, mínimo API 30, sin dependencias externas en el APK.
-Firma APK v3 verificada, con la misma identidad de firma de 0.1.0; versionCode 4.
+Firma APK v3 verificada, con la misma identidad de firma de 0.1.0; versionCode 5.
 La clave privada está fuera del repositorio. Requiere la red privada preparada,
 registro explícito, notificaciones y biometría fuerte.
 

@@ -9,3 +9,6 @@ mkdir -p "$OUT"
 
 "$JDK/bin/javac" -d "$OUT" "$ROOT/android/src/org/eternalself/umbrielremote/MotionBuffer.java" "$ROOT/tests/MotionBufferTest.java"
 "$JDK/bin/java" -cp "$OUT" org.eternalself.umbrielremote.MotionBufferTest
+
+"$JDK/bin/javac" -d "$OUT" "$ROOT/android/src/org/eternalself/umbrielremote/TransferScope.java" "$ROOT/tests/TransferScopeTest.java"
+"$JDK/bin/java" -cp "$OUT" org.eternalself.umbrielremote.TransferScopeTest

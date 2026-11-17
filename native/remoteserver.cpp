@@ -39,7 +39,7 @@ class RemotePeer : public QObject {
 public:
     RemotePeer(RemoteServer *owner, QSslSocket *socket) : QObject(owner), server(owner), pointer(this), wire(socket) {
         expiry.setSingleShot(true); expiry.setInterval(15000);
-        connect(&expiry, &QTimer::timeout, this, [this] { wire->abort(); });
+        connect(&expiry, &QTimer::timeout, this, [this] { if(ready)expireControls();else wire->abort(); });
         connect(wire, &QSslSocket::readyRead, this, [this] { read(); });
         connect(wire, &QSslSocket::disconnected, this, [this] {
             pointer.stop();
@@ -66,12 +66,24 @@ public:
     QCryptographicHash outgoingHash{QCryptographicHash::Sha256};
     QString outgoingId;
     qint64 sent=0,acked=0,outgoingSize=0;
-    bool endingFile=false;
+    bool endingFile=false,outgoingAccepted=false,largeFiles=false,controlsExpired=false;
+    QTimer uploadDeadline;
+    int controlMillis=600000;
+    static constexpr int TransferMillis=24*60*60*1000;
     Done fileDone;
     QTimer fileDeadline;
-    void completeFile(Reply r){auto done=std::move(fileDone);fileDone={};outgoing.reset();outgoingId.clear();fileDeadline.stop();if(done)done(r);}
+    bool continuingFiles()const{return largeFiles&&(upload.active()||(outgoing&&outgoingAccepted));}
+    void closeIfFinished(){if(controlsExpired&&!continuingFiles())wire->disconnectFromHost();}
+    void expireControls(){
+        if(!controlsExpired){controlsExpired=true;pointer.stop();++pointerGeneration;if(server->m_pointerOwner==this)server->m_pointerOwner.clear();
+            auto callbacks=pending;pending.clear();for(auto cb:callbacks)cb({false,"Permiso de control vencido",{}});
+            send({{"type","controls-expired"}});server->notifyClients();}
+        auto remaining=TransferMillis-leaseTime.elapsed();
+        if(continuingFiles()&&remaining>0)expiry.start(int(remaining));else wire->disconnectFromHost();
+    }
+    void completeFile(Reply r){auto done=std::move(fileDone);fileDone={};outgoing.reset();outgoingId.clear();outgoingAccepted=false;fileDeadline.stop();if(done)done(r);closeIfFinished();}
     void pumpFile(){
-        while(outgoing&&!endingFile&&sent<outgoingSize&&sent-acked<4*FileTransfer::Chunk){
+        while(outgoing&&!endingFile&&sent<outgoingSize&&sent-acked<FileTransfer::Window*FileTransfer::Chunk){
             auto data=outgoing->read(qMin<qint64>(FileTransfer::Chunk,outgoingSize-sent));
             if(data.isEmpty()){completeFile({false,"No se pudo leer el archivo",{}});return;}
             outgoingHash.addData(data);send({{"type","file-chunk"},{"id",outgoingId},{"offset",sent},{"data",QString::fromLatin1(data.toBase64())}});sent+=data.size();
@@ -120,7 +132,7 @@ public:
             publicKey = base64(message["key"], 256);
             if (!RemoteAuth::validKey(publicKey)) { fail("Clave inválida: se exige EC P-256"); return; }
             keyId = RemoteAuth::digest(publicKey);
-            wantsPhone = message["phoneControl"].toBool();supportsFiles=message["files"].toBool();
+            wantsPhone = message["phoneControl"].toBool();supportsFiles=message["files"].toBool();largeFiles=message["largeFiles"].toBool();
             deviceName=message["name"].toString().left(80);if(!FileTransfer::validName(deviceName))deviceName="Teléfono Umbriel";
             const auto nonce = RemoteAuth::random();
             if (nonce.isEmpty()) { fail("No se pudo crear el desafío"); return; }
@@ -155,12 +167,17 @@ public:
             if(known[keyId].toObject()["name"].toString()!=deviceName){auto entry=known[keyId].toObject();entry["name"]=deviceName;known[keyId]=entry;if(!RemoteAuth::writeJson(server->directory()+"/clients.json",known,&error)){fail(error);return;}}
             const auto peers = server->m_peers;
             for (auto *peer : peers) if (peer != this && peer->keyId == keyId && peer->ready) peer->wire->abort();
-            ready = true; proof.clear(); leaseTime.start(); expiry.start(10 * 60 * 1000); heartbeat.start();
+            ready = true; proof.clear();leaseTime.start();
+            bool configured=false;auto duration=qEnvironmentVariableIntValue("UMBRIEL_REMOTE_CONTROL_MS",&configured);controlMillis=configured?qBound(100,duration,600000):600000;
+            expiry.start(controlMillis);heartbeat.start();uploadDeadline.setSingleShot(true);
+            connect(&uploadDeadline,&QTimer::timeout,this,[this]{fail("La transferencia no tuvo progreso durante 30 segundos");});
             send({{"type", "authorized"}, {"keyId", keyId}, {"leaseSeconds", 600}, {"phoneControl", wantsPhone}});
             emit server->authorized(keyId);server->notifyClients();
             return;
         }
-        if (leaseTime.elapsed() >= 10 * 60 * 1000 || !stillTrusted()) { fail("Autorización revocada o vencida"); return; }
+        if(!stillTrusted()){fail("Autorización revocada");return;}
+        if(leaseTime.elapsed()>=controlMillis&&!controlsExpired)expireControls();
+        if(leaseTime.elapsed()>=TransferMillis){fail("La autorización de transferencia venció");return;}
         if (message["seq"].toInteger(-1) != sequence + 1) { fail("Secuencia inválida"); return; }
         ++sequence;
         const auto requestId = message["request"].toString();
@@ -168,6 +185,12 @@ public:
             send({{"type", "result"}, {"request", requestId}, {"ok", reply.ok},
                   {"error", reply.error}, {"value", QJsonValue::fromVariant(reply.value)}});
         };
+        if(controlsExpired&&type!="pong"&&type!="close"){
+            const auto id=message["id"].toString();
+            const bool incoming=upload.active()&&id==upload.id()&&QStringList{"file-chunk","file-end","file-cancel"}.contains(type);
+            const bool outgoingFile=outgoing&&outgoingAccepted&&id==outgoingId&&QStringList{"file-ack","file-complete","file-reject","file-cancel"}.contains(type);
+            if(!largeFiles||(!incoming&&!outgoingFile)){respond({false,"El permiso de control venció. Solo puede terminar el archivo ya aprobado",{}});return;}
+        }
         if (type == "pong") return;
         if (type == "close") { wire->disconnectFromHost(); return; }
         if (type == "phone-result") {
@@ -178,22 +201,22 @@ public:
             }
             return;
         }
-        if(type=="file-begin"){respond(upload.begin(message));return;}
-        if(type=="file-chunk"){respond(upload.chunk(message));return;}
-        if(type=="file-end"){respond(upload.finish(message));return;}
-        if(type=="file-cancel"){auto id=message["id"].toString();if(id.isEmpty()){respond({false,"Falta identificar la transferencia",{}});return;}upload.cancel(id);if(id==outgoingId)completeFile({false,"Transferencia cancelada",{}});respond({true,{},{}});return;}
+        if(type=="file-begin"){auto r=upload.begin(message);if(r.ok)uploadDeadline.start(30000);respond(r);return;}
+        if(type=="file-chunk"){auto r=upload.chunk(message);if(r.ok)uploadDeadline.start(30000);else uploadDeadline.stop();respond(r);closeIfFinished();return;}
+        if(type=="file-end"){uploadDeadline.stop();respond(upload.finish(message));closeIfFinished();return;}
+        if(type=="file-cancel"){auto id=message["id"].toString();if(id.isEmpty()){respond({false,"Falta identificar la transferencia",{}});return;}upload.cancel(id);if(!upload.active())uploadDeadline.stop();if(id==outgoingId)completeFile({false,"Transferencia cancelada",{}});respond({true,{},{}});closeIfFinished();return;}
         if(type=="file-accept"||type=="file-ack"||type=="file-complete"||type=="file-reject"){
             if(!outgoing||message["id"]!=outgoingId){respond({false,"No hay una transferencia pendiente",{}});return;}
             if(type=="file-reject"){completeFile({false,"El teléfono rechazó la descarga",{}});return;}
             if(type=="file-complete"){if(!endingFile){fail("Confirmación de archivo inesperada");return;}completeFile({true,{},"Archivo recibido y verificado en el teléfono"});return;}
-            if(type=="file-accept"&&sent!=0){fail("Aceptación de archivo repetida");return;}
+            if(type=="file-accept"){if(outgoingAccepted){fail("Aceptación de archivo repetida");return;}outgoingAccepted=true;}
             if(type=="file-ack"){
                 auto value=message["offset"];auto next=value.toInteger(-1);
                 if(!value.isDouble()||value.toDouble()!=double(next)||next<=acked||next>sent){fail("Confirmación de bloque inválida");return;}acked=next;
             }
             fileDeadline.start(30000);pumpFile();return;
         }
-        if(type=="features"){respond({true,{},QVariantMap{{"pointer",Pointer::available()},{"pointerStreaming",true},{"files",true},{"wallpapers",Wallpapers::available()},{"version","0.3.0"}}});return;}
+        if(type=="features"){respond({true,{},QVariantMap{{"pointer",Pointer::available()},{"pointerStreaming",true},{"files",true},{"maxFileBytes",FileTransfer::Limit},{"fileContinuation",true},{"wallpapers",Wallpapers::available()},{"version","0.3.1"}}});return;}
         if(type=="pointer"){
             auto op=message["op"].toString();
             if(op=="stop"){++pointerGeneration;pointer.stop();if(server->m_pointerOwner==this)server->m_pointerOwner.clear();respond({true,{}, {}});return;}
@@ -350,13 +373,13 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
                     socket->write(QJsonDocument(QJsonObject{{"ok",true},{"value",QJsonObject{{"hosts",hosts},{"port",serverPort()},{"discovery",m_discovery.state()==QAbstractSocket::BoundState}}}}).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();return;
                 }
                 if(action=="share"){
-                    deadline->start(600000);
+                    deadline->start(RemotePeer::TransferMillis+15000);
                     share(request,[guard=QPointer<QLocalSocket>(socket)](Reply r){if(!guard)return;guard->write(QJsonDocument(QJsonObject{{"ok",r.ok},{"error",r.error},{"value",QJsonValue::fromVariant(r.value)}}).toJson(QJsonDocument::Compact)+'\n');guard->disconnectFromServer();});return;
                 }
                 if(action=="devices"){
                     const auto known=RemoteAuth::readJson(directory()+"/clients.json",nullptr);QJsonArray list;
                     for(auto it=known.begin();it!=known.end();++it){bool online=false,files=false;QString name=it.value().toObject()["name"].toString("Teléfono Umbriel");
-                        for(auto *peer:m_peers)if(peer->ready&&peer->keyId==it.key()){online=true;files=peer->supportsFiles;name=peer->deviceName;}
+                        for(auto *peer:m_peers)if(peer->ready&&peer->keyId==it.key()){online=true;files=peer->supportsFiles&&!peer->controlsExpired;name=peer->deviceName;}
                         list.append(QJsonObject{{"id",it.key()},{"name",name},{"reachable",online},{"files",files}});
                     }
                     socket->write(QJsonDocument(QJsonObject{{"ok",true},{"value",list}}).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();return;
@@ -387,7 +410,7 @@ void RemoteServer::incomingConnection(qintptr descriptor) {
 }
 QJsonArray RemoteServer::clients() const {
     QJsonArray list;
-    for (const auto *peer : m_peers) if (peer->ready) list.append(QJsonObject{{"id", peer->keyId}, {"phoneControl", peer->wantsPhone},{"name",peer->deviceName},{"files",peer->supportsFiles}});
+    for (const auto *peer : m_peers) if (peer->ready) list.append(QJsonObject{{"id", peer->keyId}, {"phoneControl", peer->wantsPhone&&!peer->controlsExpired},{"name",peer->deviceName},{"files",peer->supportsFiles}});
     return list;
 }
 void RemoteServer::phoneRequest(const QJsonObject &request, Done done) {
@@ -395,7 +418,7 @@ void RemoteServer::phoneRequest(const QJsonObject &request, Done done) {
     if (!allowed.contains(request["action"].toString())) { done({false, "Acción de teléfono desconocida", {}}); return; }
     RemotePeer *chosen = nullptr;
     int candidates = 0;
-    for (auto *peer : m_peers) if (peer->ready && peer->wantsPhone && (request["peer"].toString().isEmpty() || peer->keyId == request["peer"].toString())) { chosen = peer; ++candidates; }
+    for (auto *peer : m_peers) if (peer->ready && !peer->controlsExpired && peer->leaseTime.elapsed()<peer->controlMillis && peer->wantsPhone && (request["peer"].toString().isEmpty() || peer->keyId == request["peer"].toString())) { chosen = peer; ++candidates; }
     if (candidates != 1 || !chosen->stillTrusted()) { done({false, "Selecciona un único teléfono conectado y autorizado con huella", {}}); return; }
     if (chosen->pending.size() >= 2) { done({false, "El teléfono está ocupado", {}}); return; }
     const auto id = QString::fromLatin1(RemoteAuth::random(16).toHex());
@@ -412,14 +435,15 @@ void RemoteServer::notifyClients(){
 }
 void RemoteServer::share(const QJsonObject &request,Done done){
     RemotePeer *chosen=nullptr;int count=0;auto id=request["peer"].toString();if(id.startsWith("remote:"))id.remove(0,7);
-    for(auto *peer:m_peers)if(peer->ready&&peer->leaseTime.elapsed()<600000&&peer->stillTrusted()&&(id.isEmpty()||id==peer->keyId)){chosen=peer;++count;}
+    for(auto *peer:m_peers)if(peer->ready&&!peer->controlsExpired&&peer->leaseTime.elapsed()<peer->controlMillis&&peer->stillTrusted()&&(id.isEmpty()||id==peer->keyId)){chosen=peer;++count;}
     if(count!=1){done({false,"Abre Umbriel Remote, conecta con huella y selecciona un único teléfono",{}});return;}
     if(!chosen->supportsFiles){done({false,"Actualiza Umbriel Remote a 0.3.0 para transferir archivos",{}});return;}
     if(chosen->outgoing){done({false,"Ya se está enviando un archivo a ese teléfono",{}});return;}
     const auto path=request["path"].toString();QFileInfo info(path);
-    if(!info.isFile()||!FileTransfer::validName(info.fileName())||info.size()>FileTransfer::Limit){done({false,"Selecciona un archivo regular de hasta 1 GiB",{}});return;}
+    if(!info.isFile()||!FileTransfer::validName(info.fileName())||info.size()>FileTransfer::Limit){done({false,"Selecciona un archivo regular con un tamaño válido",{}});return;}
+    if(info.size()>1024ll*1024*1024&&!chosen->largeFiles){done({false,"Actualiza Umbriel Remote a 0.3.1 para enviar archivos grandes",{}});return;}
     auto file=std::make_unique<QFile>(path);if(!file->open(QIODevice::ReadOnly)){done({false,"No se pudo leer el archivo",{}});return;}
-    chosen->outgoing=std::move(file);chosen->sent=chosen->acked=0;chosen->outgoingSize=info.size();chosen->endingFile=false;
+    chosen->outgoing=std::move(file);chosen->sent=chosen->acked=0;chosen->outgoingSize=info.size();chosen->endingFile=false;chosen->outgoingAccepted=false;
     chosen->outgoingId=QUuid::createUuid().toString(QUuid::Id128);chosen->outgoingHash.reset();chosen->fileDone=done;
     chosen->fileDeadline.setSingleShot(true);QObject::disconnect(&chosen->fileDeadline,nullptr,chosen,nullptr);
     connect(&chosen->fileDeadline,&QTimer::timeout,chosen,[chosen]{chosen->send({{"type","file-abort"},{"id",chosen->outgoingId}});chosen->completeFile({false,"La transferencia no respondió en 30 segundos",{}});});chosen->fileDeadline.start(30000);

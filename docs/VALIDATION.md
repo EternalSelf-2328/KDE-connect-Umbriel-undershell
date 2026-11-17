@@ -200,3 +200,36 @@ agrupación de 16 ms, envío sin esperar respuesta y TCP_NODELAY se comprueba en
 y pruebas de búfer; no se afirma una nueva latencia física ni se movió el puntero
 real para medir. Renders Qt de filtros y selector de envío revisados con datos
 sintéticos; APK 0.3.0 aún requiere actualizarse en el Galaxy.
+
+## Archivos grandes —0.3.1 / 2026-11-16
+
+Investigación del código oficial de KDE y decisiones: [LARGE-FILES.md](LARGE-FILES.md).
+Se eliminó el tope propio de1 GiB; se comprueba espacio libre y se utiliza una
+ventana de ocho bloques en ambos sentidos. Se conserva la expiración de controles:
+solo un archivo previamente aprobado puede terminar, sin permitir órdenes o archivos
+nuevos. Las pruebas también rechazan ofertas pendientes aceptadas demasiado tarde.
+
+Suite final7/7 en23,35s:21TLS,helper,7resultados de transferencias,7servicios,
+5pointer,15nativo,7diseño (incluyen init/cleanup QtTest). Android:20SessionGuard,
+9MotionBuffer y23TransferScope; total52 comprobaciones Java. Dos variantes APK
+firmadas; descarga mínima versionCode5,61842bytes y mismos seis permisos, sin
+accesibilidad. Se comprueba también la presencia de TransferScope en el DEX.
+
+Pruebas grandes opcionales reales contra el receptor TLS C++, cliente simulado:
+
+| Tamaño por sentido | PC→cliente simulado | Cliente simulado→PC | Mayor VmRSS muestreado del receptor |
+|---|---:|---:|---:|
+|1 GiB +17bytes|29,89s|25,27s|41176KiB|
+|4 GiB +17bytes|77,15s|100,68s|41116KiB|
+
+Se verificó SHA256 en ambos sentidos y se releyó el archivo recibido desde disco.
+Se usaron archivos sintéticos temporales (origen disperso), búferes acotados y una
+lease de control acortada a un segundo: la transferencia terminó con controles
+vencidos. Los temporales se eliminaron al concluir. El RSS es una muestra del
+receptor, no el consumo total del sistema, caché del kernel o cliente Android.
+No extrapolar estas velocidades loopback al Wi-Fi, Tailscale ni al Galaxy.
+
+Sin verificar físicamente: archivos grandes y espacio/MediaStore del Samsung,
+progreso/evitar apagado automático y vista «Solo transferencia». Cerrar la app o
+bloquear manualmente sigue cancelando la transferencia. No se añade WAKE_LOCK ni
+recepción permanente en segundo plano. No se aplicaron fondos ni movió el puntero.

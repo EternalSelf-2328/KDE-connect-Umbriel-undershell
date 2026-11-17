@@ -124,15 +124,18 @@ public class MainActivity extends Activity {
         commands = new LinearLayout(this); commands.setOrientation(LinearLayout.VERTICAL); root.addView(commands);
         String stored = getSharedPreferences("connection",MODE_PRIVATE).getString("server", "");
         if (!stored.isEmpty()) pairing.setText(stored);
-        updateRegistration();showStatus("Versión de prueba · la sesión dura hasta 10 minutos y termina al bloquear el teléfono.");
+        updateRegistration();showStatus("Control por hasta 10 minutos. Los archivos aprobados pueden terminar; mantén la app abierta y el teléfono desbloqueado.");
     }
     @Override protected void onStart() {
         super.onStart(); current = new WeakReference<>(this);
-        RemoteService owner=RemoteService.instance;
+        RemoteService owner=RemoteService.instance;transferRunning(owner!=null&&owner.transferScope.active(android.os.SystemClock.elapsedRealtime()));
         if(owner!=null)phoneControl.setChecked(owner.phoneControlAllowed());
         if(owner!=null && owner.isAuthorized()) authorized(owner);
+        else if(owner!=null&&owner.fileOnly())transferOnly(owner);
     }
+    void transferRunning(boolean active){runOnUiThread(()->{if(active)getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);});}
     @Override protected void onStop() {
+        transferRunning(false);
         if (current.get() == this) current.clear();
         if (biometric != null) biometric.cancel();
         if (RemoteService.instance != null && !RemoteService.instance.phoneControlAllowed()) stopService(new Intent(this, RemoteService.class));
@@ -204,6 +207,13 @@ public class MainActivity extends Activity {
                 });
         });
     }
+    void transferOnly(RemoteService owner){runOnUiThread(()->{
+        if(RemoteService.instance!=owner)return;clearActions();connectionPanel.setVisibility(View.GONE);intro.setVisibility(View.GONE);tagline.setVisibility(View.GONE);disconnectButton.setVisibility(View.VISIBLE);
+        deviceState.setText("Solo transferencia · control vencido");
+        design.add(commands,design.label("Terminando tu archivo",22,design.text,true),12);
+        design.add(commands,design.label("La transferencia ya aprobada puede terminar. El mouse y los controles están desactivados; no se aceptan archivos nuevos. Mantén la app abierta. Al terminar necesitarás otra huella para volver a controlar.",15,design.muted,false),12);
+        showStatus("Permiso de control vencido; continúa únicamente el archivo aprobado.");
+    });}
     void authorized(RemoteService owner) {
         runOnUiThread(() -> {
             if(RemoteService.instance!=owner||!owner.isAuthorized())return;
@@ -213,7 +223,7 @@ public class MainActivity extends Activity {
             } catch (JSONException ignored) { }
             clearActions();
             deviceState.setText(owner.routeLabel+" · sesión aprobada con huella");
-            showStatus("Sesión aprobada con huella. Se cerrará al bloquear el teléfono o al cumplirse 10 minutos.");
+            showStatus("Control aprobado con huella por hasta 10 minutos; una transferencia ya aprobada puede terminar después.");
             connectionPanel.setVisibility(View.GONE);intro.setVisibility(View.GONE);tagline.setVisibility(View.GONE);disconnectButton.setVisibility(View.VISIBLE);
             dashboard=new RemoteDashboard(this,design,owner,this::showStatus);commands.addView(dashboard);if(pendingFile!=null)dashboard.select(4);
         });

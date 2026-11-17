@@ -1,6 +1,6 @@
 # Canal remoto con aprobación biométrica
 
-**Estado actualizado el 2026-11-16: versión 0.3.0, experimental.** El APK 0.1.0 fue
+**Estado actualizado el 2026-11-16: versión 0.3.1, experimental.** El APK 0.1.0 fue
 bloqueado por Play Protect; la edición mínima 0.1.1 después registró una sesión
 Android autorizada. La 0.3.0 conserva permisos mínimos y añade controles de
 computadora, touchpad y galería; su nueva UI/entrada física siguen pendientes de
@@ -20,11 +20,13 @@ La clasificación biométrica real se comprueba en ejecución con `BIOMETRIC_STR
   campos editables que no sean contraseñas. Requiere permiso explícito de Android.
 - TLS 1.2 o posterior, certificado de computadora fijado al registrar, clave EC
   P-256 de Android Keystore que exige biometría fuerte por uso y autorización de
-  diez minutos como máximo. No hay sustitución silenciosa por PIN o biometría débil.
+  diez minutos de control como máximo. Solo los archivos previamente aprobados pueden
+  terminar después, con alcance limitado por identificador; [detalle](LARGE-FILES.md). No hay sustitución silenciosa por PIN o biometría débil.
 - Rechazo de firmas inválidas, desafíos de otra conexión, permisos alterados,
   identidades no registradas, repetición de mensajes y autorizaciones repetidas.
-- Cierre al desconectar, bloquear/apagar pantalla del teléfono, vencer o revocar la
-  clave desde la computadora. Aviso persistente en Android con botón Desconectar.
+- Cierre al desconectar, bloquear/apagar pantalla del teléfono o revocar la clave.
+  Al vencer el permiso se detienen los controles; solo puede terminar un archivo
+  ya aprobado (máximo24 h, sin aceptar otros archivos ni órdenes nuevas). Aviso persistente en Android con botón Desconectar.
 
 Son controles y capturas bajo demanda. **No es todavía un escritorio remoto con
 video continuo, streaming de audio ni teclado general de la computadora. El touchpad
@@ -35,7 +37,7 @@ notificaciones o accesos remotos que ya existan.
 
 ## Instalar la app Android
 
-APK mínimo de prueba: [UmbrielRemote-0.3.0.apk](../downloads/UmbrielRemote-0.3.0.apk).
+APK mínimo de prueba: [UmbrielRemote-0.3.1.apk](../downloads/UmbrielRemote-0.3.1.apk).
 Esta edición no declara accesibilidad y no permite controlar ni capturar el teléfono.
 La 0.3.0 añade mouse de computadora, controles dedicados y fondos; [uso y límites](REMOTE-CONTROLS.md).
 Está firmado con una identidad de desarrollo propia que se conserva fuera del

@@ -8,7 +8,7 @@ y transferencia de archivos sin KDE Connect. La compatibilidad con el cliente
 Android oficial utiliza `kdeconnectd` mediante D-Bus; no necesita Plasma. La aplicación, el CLI y los
 controles de escritorio nuevos están en `native/`; no requieren Python.
 
-**Estado: 0.3.0, migración parcial.** No es una traducción completa de las 14.000
+**Estado: 0.3.1, migración parcial.** No es una traducción completa de las 14.000
 líneas del cliente original. Su código y sus extras se conservan en
 `caelestia_connect/`. Cámara, scrcpy y monitor virtual aún requieren trabajo para
 ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/COMPATIBILITY.md).
@@ -36,7 +36,11 @@ ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/
 `Mostrar todos los widgets` hace visibles también los que ocultaste individualmente;
 ambas acciones de visibilidad persisten mediante el IPC de undershell.
 
-## Conexión local, mouse y fondos en 0.3.0
+## Conexión local, mouse y fondos
+
+**0.3.1:** archivos grandes sin el tope de 1 GiB, espacio comprobado, progreso y
+finalización de archivos aprobados sin prolongar permisos de control.
+[Investigación de KDE y verificación](docs/LARGE-FILES.md).
 
 - Conexión local automática con el mismo certificado; Tailscale opcional fuera de casa.
 - Archivos en ambos sentidos por el canal propio, aceptación y SHA256; integración Yazi.
@@ -95,10 +99,10 @@ DESTDIR="$PWD/staging" cmake --install build
 
 ## Acceso remoto con aprobación biométrica (experimental)
 
-[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.3.0.apk) ·
+[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.3.1.apk) ·
 [Guía de registro, VPN y límites](docs/REMOTE-SECURITY.md).
 
-La descarga **0.3.0 tiene permisos mínimos y solo controla la computadora**. No
+La descarga **0.3.1 tiene permisos mínimos y solo controla la computadora**. No
 incluye accesibilidad ni captura/control del teléfono. El APK 0.1.0 fue
 bloqueado por Play Protect: consulta el [diagnóstico y cambio de alcance](docs/PLAY-PROTECT.md).
 La nueva instalación todavía debe verificarse en el Galaxy; no se pide desactivar

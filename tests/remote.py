@@ -55,7 +55,7 @@ class Peer:
         return json.loads(line) if line else None
 
     def hello(self):
-        self.send({"type": "hello", "key": encode(self.public), "phoneControl": self.control,"files":True,"name":"Test phone"})
+        self.send({"type": "hello", "key": encode(self.public), "phoneControl": self.control,"files":True,"largeFiles":True,"name":"Test phone"})
         return self.receive()
 
     def authenticate(self, token="", challenge=None, signature=None):
@@ -228,7 +228,7 @@ class RemoteTests(unittest.TestCase):
         def request(kind,**fields):
             peer.send({"type":kind,"request":"check",**fields},sequenced=True)
             return peer.receive()
-        self.assertEqual(request("features")["value"]["version"],"0.3.0")
+        self.assertEqual(request("features")["value"]["version"],"0.3.1")
         page=request("wallpapers",offset=0)["value"];self.assertEqual(page["total"],1)
         item=page["items"][0];self.assertEqual(len(item["id"]),64);self.assertNotIn("key",item)
         self.assertFalse(request("wallpaper-thumb",id="../../server-key.pem")["ok"])
@@ -316,6 +316,40 @@ class RemoteTests(unittest.TestCase):
         with ctx.wrap_socket(socket.create_connection((host,self.port),timeout=3),server_hostname="local") as direct:
             self.assertEqual(hashlib.sha256(direct.getpeercert(binary_form=True)).hexdigest(),self.pin)
         self.assertEqual(json.loads(self.cli("clients").stdout),[])
+
+    def shortened_control_lease(self):
+        self.server.terminate();self.server.communicate(timeout=5)
+        self.env["UMBRIEL_REMOTE_CONTROL_MS"]="400"
+        self.server=subprocess.Popen([BINARY,"serve","127.0.0.1",str(self.port)],env=self.env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        self.assertTrue(select.select([self.server.stdout],[],[],4)[0]);self.server.stdout.readline()
+
+    def test_expired_controls_allow_only_finishing_an_approved_download(self):
+        self.shortened_control_lease();peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        path=self.root/"grace.txt";path.write_bytes(b"abc")
+        with self.local({"action":"share","path":str(path)}) as ipc:
+            offer=peer.receive();peer.send({"type":"file-accept","id":offer["id"]},sequenced=True)
+            chunk=peer.receive();self.assertEqual(chunk["type"],"file-chunk")
+            self.assertEqual(peer.receive()["type"],"controls-expired")
+            peer.send({"type":"action","request":"denied","action":"undershell.edit-on","args":[]},sequenced=True);self.assertFalse(peer.receive()["ok"])
+            peer.send({"type":"file-begin","request":"new","id":"f"*32,"name":"new","size":0},sequenced=True);self.assertFalse(peer.receive()["ok"])
+            peer.send({"type":"file-ack","id":offer["id"],"offset":3},sequenced=True);end=peer.receive();self.assertEqual(end["sha256"],hashlib.sha256(b"abc").hexdigest())
+            peer.send({"type":"file-complete","id":offer["id"]},sequenced=True);self.assertTrue(json.loads(ipc.recv(8192))["ok"])
+            self.assertIsNone(peer.receive())
+
+    def test_expired_controls_allow_only_the_existing_upload_id(self):
+        self.shortened_control_lease();peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        peer.send({"type":"file-begin","request":"begin","id":"a"*32,"name":"upload.txt","size":3},sequenced=True);self.assertTrue(peer.receive()["ok"])
+        self.assertEqual(peer.receive()["type"],"controls-expired")
+        for kind,fields in [("pointer",{"op":"start"}),("file-chunk",{"id":"b"*32,"offset":0,"data":encode(b"abc")})]:
+            peer.send({"type":kind,"request":"denied",**fields},sequenced=True);self.assertFalse(peer.receive()["ok"])
+        peer.send({"type":"file-chunk","request":"chunk","id":"a"*32,"offset":0,"data":encode(b"abc")},sequenced=True);self.assertTrue(peer.receive()["ok"])
+        peer.send({"type":"file-end","request":"end","id":"a"*32,"sha256":hashlib.sha256(b"abc").hexdigest()},sequenced=True);self.assertTrue(peer.receive()["ok"]);self.assertIsNone(peer.receive())
+
+    def test_offer_not_accepted_before_expiry_cannot_extend_connection(self):
+        self.shortened_control_lease();peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        path=self.root/"pending.txt";path.write_bytes(b"abc")
+        with self.local({"action":"share","path":str(path)}) as ipc:
+            self.assertEqual(peer.receive()["type"],"file-offer");self.assertEqual(peer.receive()["type"],"controls-expired");self.assertIsNone(peer.receive());self.assertFalse(json.loads(ipc.recv(8192))["ok"])
 
     def test_malformed_and_oversized_frames_fail_closed(self):
         peer = self.peer()

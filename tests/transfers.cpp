@@ -2,6 +2,7 @@
 #include "filetransfer.h"
 #include <QDir>
 #include <QTemporaryDir>
+#include <QStorageInfo>
 #include <QtTest>
 class TransferTests:public QObject {
     Q_OBJECT
@@ -21,6 +22,14 @@ private slots:
         auto result=f.finish(end(bytes));QVERIFY(result.ok);QFile received(dir.path()+'/'+result.value.toMap()["name"].toString());QVERIFY(received.open(QIODevice::ReadOnly));QCOMPARE(received.readAll(),bytes);
         QVERIFY(original.open(QIODevice::ReadOnly));QCOMPARE(original.readAll(),QByteArray("preserve"));
         QVERIFY(f.begin(offer(0,"empty")).ok);QVERIFY(f.finish(end({})).ok);
+    }
+    void largeOffersUse64BitSizesWithoutPreallocatingMemory(){QTemporaryDir dir;FileTransfer f(dir.path());
+        for(qint64 size:{1024ll*1024*1024+17,5ll*1024*1024*1024+19}){
+            auto result=f.begin(offer(size));if(QStorageInfo(dir.path()).bytesAvailable()<size+8*1024*1024){QVERIFY(!result.ok);QVERIFY(result.error.contains("espacio"));continue;}QVERIFY2(result.ok,qPrintable(result.error));QVERIFY(f.active());
+            auto bad=part("small",4294967296ll);QVERIFY(!f.chunk(bad).ok);QVERIFY(!f.active());
+        }
+        auto result=f.begin(offer(FileTransfer::Limit));QVERIFY(!result.ok);QVERIFY(result.error.contains("espacio"));
+        QVERIFY(QDir(dir.path()).entryList(QDir::Files).isEmpty());
     }
     void duplicateOrOversizedChunksCancelPartialFiles(){QTemporaryDir dir;FileTransfer f(dir.path());QVERIFY(f.begin(offer(100)).ok);QVERIFY(f.chunk(part("hello")).ok);QVERIFY(!f.chunk(part("again")).ok);QVERIFY(!f.finish(end("hello")).ok);QVERIFY(QDir(dir.path()).entryList(QDir::Files).isEmpty());
         QVERIFY(f.begin(offer(FileTransfer::Chunk+1)).ok);QVERIFY(!f.chunk(part(QByteArray(FileTransfer::Chunk+1,'a'))).ok);QVERIFY(QDir(dir.path()).entryList(QDir::Files).isEmpty());

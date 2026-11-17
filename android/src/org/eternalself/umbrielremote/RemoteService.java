@@ -26,6 +26,7 @@ public class RemoteService extends Service {
     private final ExecutorService readerExecutor = Executors.newCachedThreadPool();
     private final ThreadPoolExecutor writerExecutor = new ThreadPoolExecutor(1,1,0L,TimeUnit.SECONDS,new ArrayBlockingQueue<>(64));
     private final ConcurrentHashMap<String, Consumer<JSONObject>> callbacks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String,Runnable> requestTimeouts=new ConcurrentHashMap<>();
     private volatile SSLSocket socket;
     private volatile boolean authorized, requestedPhone;
     private volatile long connection, deadline;
@@ -33,6 +34,8 @@ public class RemoteService extends Service {
     private long sequence=0, requestNumber=0;
     private final MotionBuffer motion=new MotionBuffer();private boolean motionQueued;
     FileTransfers files;
+    final TransferScope transferScope=new TransferScope();
+    private volatile boolean controlsExpired,expectedTransferClose;
     private volatile JSONObject config;
     private volatile SessionGuard guard;
     private BroadcastReceiver lockReceiver;
@@ -66,6 +69,25 @@ public class RemoteService extends Service {
     @Override public IBinder onBind(Intent intent){return null;}
     @Override public void onDestroy(){closeConnection(); instance=null; unregisterReceiver(lockReceiver); readerExecutor.shutdownNow(); writerExecutor.shutdownNow();files.shutdown(); super.onDestroy();}
     boolean isAuthorized(){SessionGuard g=guard;return authorized && g!=null && g.allows(SystemClock.elapsedRealtime());}
+    boolean isTransportAuthorized(){return authorized&&(isAuthorized()||transferScope.active(SystemClock.elapsedRealtime()));}
+    boolean fileOnly(){return controlsExpired&&isTransportAuthorized();}
+    boolean approveTransfer(String id){boolean approved=isAuthorized()&&transferScope.approve(id,SystemClock.elapsedRealtime());if(approved){MainActivity a=MainActivity.current.get();if(a!=null)a.transferRunning(true);}return approved;}
+    private boolean permitted(String type,JSONObject args){
+        if(isAuthorized())return true;
+        return authorized&&transferScope.allows(type,args.optString("id"),SystemClock.elapsedRealtime());
+    }
+    void expireControls(){
+        if(!authorized)return;controlsExpired=true;cancelMotion();SessionGuard g=guard;if(g!=null)g.close();
+        if(!transferScope.active(SystemClock.elapsedRealtime())){closeConnection();stopSelf();return;}
+        MainActivity activity=MainActivity.current.get();if(activity!=null)activity.transferOnly(this);
+    }
+    void expectTransferClose(String id){if(controlsExpired&&transferScope.only(id))expectedTransferClose=true;}
+    void releaseTransfer(String id){releaseTransfer(id,false);}
+    void releaseTransfer(String id,boolean verified){
+        if(verified)expectTransferClose(id);
+        final long epoch=connection;
+        try{writerExecutor.execute(()->{if(epoch!=connection)return;transferScope.finish(id);if(!transferScope.active(SystemClock.elapsedRealtime())){MainActivity a=MainActivity.current.get();if(a!=null)a.transferRunning(false);}if(controlsExpired&&!transferScope.active(SystemClock.elapsedRealtime())){closeConnection();tell(verified?"Transferencia verificada. Sesión cerrada; vuelve a aprobar con huella para controlar.":"Transferencia cerrada. Vuelve a aprobar con huella para controlar.");stopSelf();}});}catch(RejectedExecutionException ignored){}
+    }
     boolean phoneControlAllowed(){return requestedPhone;}
     String routeLabel="Red privada";
     String configuration(){return config==null?"":config.toString();}
@@ -73,13 +95,13 @@ public class RemoteService extends Service {
     void closeConnection(){
         final SSLSocket old;final long closed;
         synchronized(this){
-            connection++;closed=connection;motion.clear();motionQueued=false;authorized=false;deadline=0;sequence=0;proofSubmitted=-1;
-            if(guard!=null)guard.close();guard=null;old=socket;socket=null;callbacks.clear();main.removeCallbacksAndMessages(null);
+            connection++;closed=connection;motion.clear();motionQueued=false;authorized=false;controlsExpired=false;expectedTransferClose=false;transferScope.clear();deadline=0;sequence=0;proofSubmitted=-1;
+            if(guard!=null)guard.close();guard=null;old=socket;socket=null;callbacks.clear();requestTimeouts.clear();main.removeCallbacksAndMessages(null);
         }
         if(old!=null)try{old.close();}catch(IOException ignored){}
         // File I/O has its own lock. Never hold the session lock while closing it.
         if(files!=null)files.cancel();
-        MainActivity a=MainActivity.current.get();if(a!=null)a.runOnUiThread(()->{if(connection!=closed||isAuthorized())return;a.clearActions();a.showStatus("Sesión cerrada. Vuelve a aprobar con huella para conectar.");});
+        MainActivity a=MainActivity.current.get();if(a!=null)a.runOnUiThread(()->{if(connection!=closed||isAuthorized())return;a.transferRunning(false);a.clearActions();a.showStatus("Sesión cerrada. Vuelve a aprobar con huella para conectar.");});
     }
     private void tell(String value){MainActivity a=MainActivity.current.get();if(a!=null)a.showStatus(value);}
     private static String hex(byte[] value){StringBuilder b=new StringBuilder();for(byte v:value)b.append(String.format(Locale.ROOT,"%02x",v&255));return b.toString();}
@@ -133,7 +155,7 @@ public class RemoteService extends Service {
             KeyStore keys=keyStore();byte[] publicKey=keys.getCertificate(ALIAS).getPublicKey().getEncoded();
             SessionGuard session=new SessionGuard(pin,publicKey,requestedPhone);
             synchronized(this){if(generation!=connection){wire.close();return;}guard=session;}
-            sendUnsequenced(new JSONObject().put("type","hello").put("key",Base64.encodeToString(publicKey,Base64.NO_WRAP)).put("phoneControl",requestedPhone).put("name",Build.MODEL).put("files",true),generation);
+            sendUnsequenced(new JSONObject().put("type","hello").put("key",Base64.encodeToString(publicKey,Base64.NO_WRAP)).put("phoneControl",requestedPhone).put("name",Build.MODEL).put("files",true).put("largeFiles",true),generation);
             InputStream in=new BufferedInputStream(wire.getInputStream(),16384);boolean prompted=false;
             while(generation==connection){
                 JSONObject message=readMessage(in);String type=message.optString("type");
@@ -149,16 +171,20 @@ public class RemoteService extends Service {
                     authorized=true;deadline=SystemClock.elapsedRealtime()+600000;wire.setSoTimeout(30000);
                     settings.remove("token");settings.remove("expires");
                     getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",settings.toString()).apply();
-                    main.postDelayed(()->{if(generation==connection){closeConnection();stopSelf();}},600000);
+                    main.postDelayed(()->{if(generation==connection)expireControls();},600000);
+                    main.postDelayed(()->{if(generation==connection){closeConnection();stopSelf();}},TransferScope.MAX_MILLIS);
                     MainActivity a=MainActivity.current.get();if(a!=null)a.authorized(this);
                 }else if(type.equals("ping")){
-                    if(!isAuthorized())throw new GeneralSecurityException("Sesión no autorizada");send(new JSONObject().put("type","pong"));
+                    if(!isTransportAuthorized())throw new GeneralSecurityException("Sesión no autorizada");send(new JSONObject().put("type","pong"));
                 }else if(type.equals("result")){
-                    if(!isAuthorized())throw new GeneralSecurityException("Sesión vencida");
-                    Consumer<JSONObject> callback=callbacks.remove(message.optString("request"));if(callback!=null)callback.accept(message);
+                    if(!isTransportAuthorized())throw new GeneralSecurityException("Sesión vencida");
+                    String requestId=message.optString("request");Runnable timeout=requestTimeouts.remove(requestId);if(timeout!=null)main.removeCallbacks(timeout);
+                    Consumer<JSONObject> callback=callbacks.remove(requestId);if(callback!=null)callback.accept(message);
                 }else if(type.startsWith("file-")){
-                    if(!isAuthorized()||!unlocked())throw new GeneralSecurityException("Transferencia no autorizada");
+                    if(!isTransportAuthorized()||!unlocked()||(type.equals("file-offer")&&!isAuthorized()))throw new GeneralSecurityException("Transferencia no autorizada");
                     files.receive(message);
+                }else if(type.equals("controls-expired")){
+                    if(!authorized)throw new GeneralSecurityException("Sesión no autorizada");expireControls();
                 }else if(type.equals("pointer-error")){
                     tell(message.optString("error","Activa el mouse de nuevo"));
                 }else if(type.equals("phone-command")){
@@ -174,7 +200,7 @@ public class RemoteService extends Service {
                 }else throw new GeneralSecurityException(message.optString("error","Mensaje inesperado"));
             }
         }catch(Exception e){
-            if(generation==connection){closeConnection();tell("Conexión cerrada: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));main.post(this::stopSelf);}
+            if(generation==connection){boolean completed=expectedTransferClose;closeConnection();tell(completed?"Transferencia verificada. Sesión cerrada.":"Conexión cerrada: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));main.post(this::stopSelf);}
         }finally{if(wire!=null)try{wire.close();}catch(IOException ignored){}}
     }
     private static JSONObject readMessage(InputStream in)throws Exception{
@@ -192,7 +218,7 @@ public class RemoteService extends Service {
     void send(JSONObject message){
         final long generation=connection;
         try{writerExecutor.execute(()->{
-            try{SSLSocket wire; synchronized(this){if(generation!=connection||socket==null||!isAuthorized())return;message.put("seq",++sequence);wire=socket;}
+            try{SSLSocket wire; synchronized(this){if(generation!=connection||socket==null||!(permitted(message.optString("type"),message)||(message.optString("type").equals("pong")&&isTransportAuthorized())))return;message.put("seq",++sequence);wire=socket;}
                 OutputStream out=wire.getOutputStream();out.write((message.toString()+"\n").getBytes(StandardCharsets.UTF_8));out.flush();}
             catch(Exception e){if(generation==connection){closeConnection();tell("No se pudo enviar la solicitud");}}
         });}catch(RejectedExecutionException e){closeConnection();}
@@ -222,11 +248,12 @@ public class RemoteService extends Service {
         });return true;}catch(RejectedExecutionException e){motionQueued=false;return false;}
     }
     void request(String type,JSONObject args,Consumer<JSONObject> callback){
-        if(!isAuthorized()){tell("La sesión ya no está autorizada");return;}
+        if(!permitted(type,args)){try{callback.accept(new JSONObject().put("ok",false).put("error","La sesión ya no está autorizada para esta acción"));}catch(JSONException ignored){}return;}
         if(callbacks.size()>=16){tell("Espera a que terminen las solicitudes anteriores");return;}
         try{String id; synchronized(this){id=Long.toString(++requestNumber);}
-            args.put("type",type).put("request",id);callbacks.put(id,callback);send(args);
-            main.postDelayed(()->{Consumer<JSONObject> waiting=callbacks.remove(id);if(waiting!=null)try{waiting.accept(new JSONObject().put("ok",false).put("error","La computadora no respondió a tiempo"));}catch(JSONException ignored){}},12000);
+            args.put("type",type).put("request",id);
+            Runnable timeout=()->{requestTimeouts.remove(id);Consumer<JSONObject> waiting=callbacks.remove(id);if(waiting!=null)try{waiting.accept(new JSONObject().put("ok",false).put("error","La computadora no respondió a tiempo"));}catch(JSONException ignored){}};
+            callbacks.put(id,callback);requestTimeouts.put(id,timeout);main.postDelayed(timeout,12000);send(args);
         }catch(JSONException e){closeConnection();}
     }
 }

@@ -27,7 +27,7 @@ void LocalRemote::call(QJsonObject request,Done done){
     });
     connect(socket,&QLocalSocket::errorOccurred,this,[finish,socket](auto error){if(error!=QLocalSocket::PeerClosedError)finish({false,"Inicia el receptor de Umbriel Connect: "+socket->errorString(),{}});});
     connect(socket,&QLocalSocket::disconnected,this,[finish]{finish({false,"El receptor cerró la conexión",{}});});
-    QTimer::singleShot(request["action"]=="share"?600000:3000,socket,[finish]{finish({false,"El receptor no respondió a tiempo",{}});});
+    QTimer::singleShot(request["action"]=="share"?24*60*60*1000+15000:3000,socket,[finish]{finish({false,"El receptor no respondió a tiempo",{}});});
     socket->connectToServer(path());
 }
 void LocalRemote::snapshot(std::function<void(QJsonObject)> done){
