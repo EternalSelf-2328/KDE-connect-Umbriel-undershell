@@ -367,7 +367,7 @@ class RemoteTests(unittest.TestCase):
         def request(kind,**fields):
             peer.send({"type":kind,"request":"check",**fields},sequenced=True)
             return peer.receive()
-        self.assertEqual(request("features")["value"]["version"],"0.3.1")
+        self.assertEqual(request("features")["value"]["version"],"0.7.0")
         page=request("wallpapers",offset=0)["value"];self.assertEqual(page["total"],1)
         item=page["items"][0];self.assertEqual(len(item["id"]),64);self.assertNotIn("key",item)
         self.assertFalse(request("wallpaper-thumb",id="../../server-key.pem")["ok"])
@@ -376,6 +376,12 @@ class RemoteTests(unittest.TestCase):
         self.assertEqual((self.root/"wall-args").read_text(),"apply\nstatic:sample\n")
         self.assertEqual(request("audio-state")["value"]["volume"],37)
         self.assertFalse(request("pointer",op="move",dx=1,dy=1)["ok"])
+
+    def test_media_endpoints_require_authentication_and_fixed_targets(self):
+        denied=self.peer();denied.hello();denied.send({"type":"media-state"});self.assertEqual(denied.receive()["type"],"error")
+        peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
+        for kind,fields,expected in [("media-state",{},True),("media-watch",{"enabled":True},True),("media-watch",{"enabled":False},True),("media-action",{"player":"org.freedesktop.DBus","action":"Quit"},False),("media-art",{"player":"org.mpris.MediaPlayer2.fake","key":"/etc/passwd"},False),("audio-output-set",{"id":"$(id)"},False)]:
+            peer.send({"type":kind,"request":"media",**fields},sequenced=True);result=peer.receive();self.assertEqual(result["type"],"result");self.assertEqual(result["ok"],expected)
 
     def local(self, message):
         wire=socket.socket(socket.AF_UNIX);wire.settimeout(4);wire.connect(str(self.root/"run/umbriel-connect-remote.sock"));wire.sendall(json.dumps(message).encode()+b"\n");return wire
@@ -479,7 +485,7 @@ class RemoteTests(unittest.TestCase):
         self.shortened_control_lease();peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
         peer.send({"type":"file-begin","request":"begin","id":"a"*32,"name":"upload.txt","size":3},sequenced=True);self.assertTrue(peer.receive()["ok"])
         self.assertEqual(peer.receive()["type"],"controls-expired")
-        for kind,fields in [("pointer",{"op":"start"}),("file-chunk",{"id":"b"*32,"offset":0,"data":encode(b"abc")})]:
+        for kind,fields in [("pointer",{"op":"start"}),("media-state",{}),("media-watch",{"enabled":True}),("audio-output-set",{"id":"1"}),("file-chunk",{"id":"b"*32,"offset":0,"data":encode(b"abc")})]:
             peer.send({"type":kind,"request":"denied",**fields},sequenced=True);self.assertFalse(peer.receive()["ok"])
         peer.send({"type":"file-chunk","request":"chunk","id":"a"*32,"offset":0,"data":encode(b"abc")},sequenced=True);self.assertTrue(peer.receive()["ok"])
         peer.send({"type":"file-end","request":"end","id":"a"*32,"sha256":hashlib.sha256(b"abc").hexdigest()},sequenced=True);self.assertTrue(peer.receive()["ok"]);self.assertIsNone(peer.receive())

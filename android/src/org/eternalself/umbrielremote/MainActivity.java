@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(design.dp(20),design.dp(14),design.dp(20),design.dp(12));
         View mark=design.glyph("computer");header.addView(mark,new LinearLayout.LayoutParams(design.dp(44),design.dp(44)));
         LinearLayout label=design.column();label.setPadding(design.dp(12),0,0,0);title=design.label("Umbriel",23,design.text,true);subtitle=design.label("Tu escritorio, contigo",12,design.muted,false);label.addView(title);label.addView(subtitle);header.addView(label,new LinearLayout.LayoutParams(0,-2,1));
-        Button settings=design.button("",false);settings.setContentDescription("Abrir ajustes");settings.setCompoundDrawables(design.icon("settings",design.muted,20),null,null,null);settings.setMinWidth(design.dp(48));settings.setMinimumWidth(design.dp(48));settings.setPadding(design.dp(12),design.dp(10),design.dp(12),design.dp(10));settings.setOnClickListener(v->navigate(3));header.addView(settings,new LinearLayout.LayoutParams(design.dp(48),design.dp(48)));root.addView(header);
+        ImageButton settings=design.iconButton("settings","Abrir ajustes");settings.setTag("header-settings");settings.setOnClickListener(v->navigate(3));header.addView(settings,new LinearLayout.LayoutParams(design.dp(48),design.dp(48)));root.addView(header);
         scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setVerticalScrollBarEnabled(false);
         content=design.column();content.setPadding(design.dp(20),design.dp(8),design.dp(20),design.dp(12));scroll.addView(content);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         status=design.label("",12,design.muted,false);status.setPadding(design.dp(24),design.dp(4),design.dp(24),design.dp(4));status.setMaxLines(2);status.setVisibility(View.GONE);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(status);
@@ -62,7 +62,7 @@ public class MainActivity extends Activity {
     boolean registered(){return configuration().optString("pin").matches("[0-9a-f]{64}");}
     boolean paused(){return preferences().getBoolean("autoPaused",false);}
     @Override protected void onStart(){super.onStart();visible=true;current=new WeakReference<>(this);EngineBridge.observe(this,()->{if(destination==3&&settingsPage.equals("devices"))render();});ConnectionStartup.start(this);EngineBridge.startup(this);if(!registered()&&!scanAttempted){scanAttempted=true;scanNearby();}RemoteService owner=RemoteService.instance;if(owner!=null&&owner.isAuthorized())authorized(owner);else render();}
-    @Override protected void onStop(){if(dashboard!=null)dashboard.stopPointer();EngineBridge.stopObserving(this);transferRunning(false);visible=false;super.onStop();}
+    @Override protected void onStop(){if(dashboard!=null){dashboard.stopPointer();dashboard.pauseMedia();}EngineBridge.stopObserving(this);transferRunning(false);visible=false;super.onStop();}
     @Override protected void onDestroy(){if(pairing!=null)pairing.close();if(biometric!=null)biometric.cancel();if(dashboard!=null)dashboard.dispose();if(current.get()==this)current.clear();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle state){state.putInt("destination",destination);state.putInt("controlPage",controlPage);state.putString("settingsPage",settingsPage);super.onSaveInstanceState(state);}
     @Override public void onBackPressed(){back();}
@@ -80,7 +80,7 @@ public class MainActivity extends Activity {
         if(owner!=null&&owner.isAuthorized()){
             if(dashboard==null||dashboardOwner!=owner){if(dashboard!=null)dashboard.dispose();dashboardOwner=owner;dashboard=new RemoteDashboard(this,design,owner,this::showStatus);}
             if(destination==0)connectionCard();
-            content.addView(dashboard);dashboard.showNavigation(destination==1);dashboard.select(destination==0?5:destination==2?4:controlPage);
+            dashboard.showNavigation(destination==1);dashboard.select(destination==0?5:destination==2?4:controlPage);content.addView(dashboard);
         }else{
             connectionCard();
             if(destination==0)homeShortcuts(false);else{section(destination==2?"Tus archivos":"Tus controles","Aparecerán aquí cuando la computadora esté conectada.");}
@@ -116,13 +116,15 @@ public class MainActivity extends Activity {
     private void settings(){
         if(settingsPage.equals("connection")){connectionSettings();return;}
         if(settingsPage.equals("permissions")){permissions();return;}
+        if(settingsPage.equals("mouse")){LinearLayout mouse=section("Preferencias del mouse","Personaliza el touchpad; los cambios quedan guardados en este teléfono.");MousePreferences.build(this,design,mouse);return;}
         if(settingsPage.equals("devices")){section("Dispositivos y funciones","Vínculos, intercambio y permisos de cada computadora.");FeatureSettings.build(this,design,content,this::showStatus);return;}
         LinearLayout connection=section("Conexión","La red local se conecta sola; el acceso remoto requiere tu autorización.");
         setting(connection,"Mi computadora",registered()?"Vínculo y conexión local":"Vincular tu computadora","computer",()->{settingsPage="connection";render();});
         setting(connection,"Dispositivos y funciones","Archivos, multimedia y sincronización","link",()->{settingsPage="devices";render();});
+        LinearLayout controls=section("Controles","");setting(controls,"Mouse","Dirección del cursor y desplazamiento","mouse",()->{settingsPage="mouse";render();});
         LinearLayout privacy=section("Privacidad y permisos","");setting(privacy,"Permisos del teléfono","Tú decides qué compartir","shield",()->{settingsPage="permissions";render();});
         setting(privacy,paused()?"Reanudar conexión":"Pausar conexión automática",paused()?"Volver a buscar la computadora":"Se mantiene pausada hasta que la reanudes","pause",()->{if(paused()){preferences().edit().putBoolean("autoPaused",false).apply();ConnectionStartup.start(this);EngineBridge.startup(this);}else{preferences().edit().putBoolean("autoPaused",true).apply();EngineBridge.pause();stopService(new Intent(this,RemoteService.class));clearActions();}render();});
-        LinearLayout about=section("Acerca de","");design.add(about,design.label("Umbriel Connect · 0.6.1\nUmbriel, Noctalia y undershell",14,design.muted,false),12);
+        LinearLayout about=section("Acerca de","");design.add(about,design.label("Umbriel Connect · 0.7.0\nUmbriel, Noctalia y undershell",14,design.muted,false),12);
         if(!CrashReports.read(this).isEmpty())setting(about,"Copiar informe del último error","Solo información técnica del cierre","file",()->{getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("Informe de Umbriel Connect",CrashReports.read(this)));showStatus("Informe técnico copiado");});
 
     }
@@ -184,6 +186,7 @@ public class MainActivity extends Activity {
     void transferRunning(boolean active){runOnUiThread(()->{if(active)getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);});}
     void showStatus(String value){runOnUiThread(()->{lastStatus=value;if(status!=null){status.setVisibility(value.startsWith("Todo listo")||value.equals("Conectado en tu red local")||value.equals("Acceso remoto autorizado")?View.GONE:View.VISIBLE);status.setText(value.contains("Registro no autorizado o vencido")?"El registro caducó. Genera otro en tu computadora.":value.startsWith("Conexión cerrada:")?"No encuentro tu computadora. Revisa la conexión o autoriza el acceso remoto.":value);}});}
     void clearActions(){if(dashboard!=null){dashboard.dispose();dashboard=null;dashboardOwner=null;}runOnUiThread(this::render);}
+    void mediaChanged(RemoteService owner){runOnUiThread(()->{if(visible&&RemoteService.instance==owner&&dashboard!=null&&(destination==0||(destination==1&&controlPage==2)))dashboard.mediaChanged();});}
     void connectionChanged(RemoteService owner){runOnUiThread(()->{if(RemoteService.instance!=owner)return;if(renderedPhase!=owner.phase){renderedPhase=owner.phase;if(owner.isAuthorized())authorized(owner);else render();}});}
     void authorized(RemoteService owner){runOnUiThread(()->{if(RemoteService.instance!=owner||!owner.isAuthorized())return;try{JSONObject config=new JSONObject(owner.configuration());config.remove("token");config.remove("expires");preferences().edit().putString("server",config.toString()).apply();}catch(JSONException ignored){}render();showStatus(owner.automaticLocal()?"Conectado en tu red local":"Acceso remoto autorizado");});}
     void transferOnly(RemoteService owner){runOnUiThread(()->{if(RemoteService.instance==owner){render();showStatus("Terminando una transferencia · el control remoto ya venció");}});}

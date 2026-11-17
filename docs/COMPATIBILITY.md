@@ -100,3 +100,13 @@ Escritorio0.6.0 compatible; canales compartidos conservados al arrancar, espacia
 entre pestañas/touchpad/botones y márgenes verificados en37pruebas Android. Render
 API36 con datos sintéticos y densidad1.5; Samsung físico pendiente.
 [Diagnóstico y actualización](UPDATE-0.6.1.md).
+
+## Reproductor y salida de audio 0.7.0
+
+El panel propio Android consulta MPRIS y permite elegir el reproductor. Título,
+artista, aplicación, dominio y carátula dependen de los datos publicados por cada
+aplicación. El selector de salida requiere libpulse al compilar y un servidor
+PulseAudio o PipeWire-Pulse; cambia el destino predeterminado y solicita mover los
+flujos actuales, con aviso si hay fallos parciales. Pruebas con salidas nulas y
+reproductor sintético; Galaxy y dispositivos físicos pendientes.
+[Detalles y restricciones](UPDATE-0.7.0.md).

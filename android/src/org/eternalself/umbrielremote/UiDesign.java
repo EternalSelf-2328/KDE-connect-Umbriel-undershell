@@ -52,6 +52,7 @@ final class UiDesign {
         b.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf((fg&0x00ffffff)|0x26000000),states,shape(Color.WHITE,26)));
         return b;
     }
+    ImageButton iconButton(String name,String label){ImageButton b=new ImageButton(activity);b.setImageDrawable(icon(name,muted,22));b.setContentDescription(label);b.setScaleType(ImageView.ScaleType.CENTER);b.setPadding(dp(12),dp(12),dp(12),dp(12));b.setBackgroundTintList(null);b.setImageTintList(null);StateListDrawable states=new StateListDrawable();GradientDrawable focus=shape(raised,24);focus.setStroke(dp(2),accent);states.addState(new int[]{android.R.attr.state_focused},focus);states.addState(new int[]{},shape(raised,24));b.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf((accent&0xffffff)|0x22000000),states,shape(Color.WHITE,24)));return b;}
     Button tile(String value){
         Button b=button(value,false);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setMinHeight(dp(76));b.setTextSize(14);
         StateListDrawable states=new StateListDrawable();GradientDrawable focus=shape(raised,20);focus.setStroke(dp(2),accent);

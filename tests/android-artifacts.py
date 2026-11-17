@@ -23,7 +23,7 @@ for variant in ["desktop","phone-control"]:
     expected={"INTERNET","ACCESS_LOCAL_NETWORK","ACCESS_NETWORK_STATE","RECEIVE_BOOT_COMPLETED","USE_BIOMETRIC","POST_NOTIFICATIONS","FOREGROUND_SERVICE","FOREGROUND_SERVICE_CONNECTED_DEVICE","CHANGE_NETWORK_STATE"}
     permissions=set(re.findall(r'android\.permission\.([A-Z_]+)',manifest))
     assert permissions==expected|({"BIND_ACCESSIBILITY_SERVICE"} if variant=="phone-control" else set()),permissions
-    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=11']:
+    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=12']:
         assert role in manifest,(variant,role)
     full=variant=="phone-control"
     assert ('.PhoneAccessibility' in manifest)==full
@@ -35,7 +35,7 @@ for variant in ["desktop","phone-control"]:
         assert (b'Lorg/eternalself/umbrielremote/PhoneAccessibility;' in dex)==full
         assert b'Lorg/eternalself/umbrielremote/RemoteDashboard;' in dex
         assert b'Lorg/eternalself/umbrielremote/Touchpad;' in dex
-        for component in [b'FileTransfers',b'LanDiscovery',b'MotionBuffer',b'TransferScope']:
+        for component in [b'FileTransfers',b'LanDiscovery',b'MotionBuffer',b'TransferScope',b'MediaPanel',b'MousePreferences']:
             assert b'Lorg/eternalself/umbrielremote/'+component+b';' in dex
     signing=run([tools/"apksigner","verify","--verbose","--print-certs",apk])
     assert 'Verified using v3 scheme (APK Signature Scheme v3): true' in signing

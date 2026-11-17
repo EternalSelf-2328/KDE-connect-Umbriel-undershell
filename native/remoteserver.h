@@ -2,6 +2,8 @@
 #pragma once
 #include "integration.h"
 #include "wallpapers.h"
+#include "mediahub.h"
+#include "audioroutes.h"
 #include <QHash>
 #include <QPointer>
 #include <QLocalServer>
@@ -32,6 +34,9 @@ public:
     void share(const QJsonObject &request, Done done);
     Integration integration;
     Wallpapers wallpapers;
+    MediaHub media;
+    AudioRoutes audio;
+    QTimer mediaEvents;
     void phoneRequest(const QJsonObject &request, Done done);
 signals:
     void authorized(const QString &keyId);

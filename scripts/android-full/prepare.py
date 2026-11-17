@@ -22,7 +22,7 @@ for p in OUT.rglob('*'):
  except UnicodeError:continue
  s=s.replace('org.kde.kdeconnect_tp','org.eternalself.umbrielremote').replace('org.kde.kdeconnect','org.eternalself.umbrielremote.engine').replace('org/kde/kdeconnect','org/eternalself/umbrielremote/engine')
  p.write_text(s)
-p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 11').replace('versionName = "1.37.3"','versionName = "0.6.1-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
+p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 12').replace('versionName = "1.37.3"','versionName = "0.7.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
 # Robolectric SDK36 uses a JDK21 internal FileDescriptor accessor; export only in test JVMs.
 with (OUT/'build.gradle.kts').open('a') as stream:
  stream.write('\ntasks.withType<Test>().configureEach { jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }\n')

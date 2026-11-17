@@ -221,6 +221,8 @@ public class RemoteService extends Service {
                     if(!isTransportAuthorized())throw new GeneralSecurityException("Sesión vencida");
                     String requestId=message.optString("request");Runnable timeout=requestTimeouts.remove(requestId);if(timeout!=null)main.removeCallbacks(timeout);
                     Consumer<JSONObject> callback=callbacks.remove(requestId);if(callback!=null)callback.accept(message);
+                }else if(type.equals("media-changed")){
+                    if(!isTransportAuthorized())throw new GeneralSecurityException("Sesión vencida");MainActivity a=MainActivity.current.get();if(isAuthorized()&&a!=null)a.mediaChanged(this);
                 }else if(type.startsWith("file-")){
                     if(!isTransportAuthorized()||(!localAuto&&!unlocked())||(type.equals("file-offer")&&!isAuthorized()))throw new GeneralSecurityException("Transferencia no autorizada");
                     files.receive(message);
@@ -290,7 +292,7 @@ public class RemoteService extends Service {
     }
     void request(String type,JSONObject args,Consumer<JSONObject> callback){
         if(!permitted(type,args)){try{callback.accept(new JSONObject().put("ok",false).put("error","La sesión ya no está autorizada para esta acción"));}catch(JSONException ignored){}return;}
-        if(callbacks.size()>=16){tell("Espera a que terminen las solicitudes anteriores");return;}
+        if(callbacks.size()>=16){try{callback.accept(new JSONObject().put("ok",false).put("error","Espera a que terminen las solicitudes anteriores"));}catch(JSONException ignored){}return;}
         try{String id; synchronized(this){id=Long.toString(++requestNumber);}
             args.put("type",type).put("request",id);
             Runnable timeout=()->{requestTimeouts.remove(id);Consumer<JSONObject> waiting=callbacks.remove(id);if(waiting!=null)try{waiting.accept(new JSONObject().put("ok",false).put("error","La computadora no respondió a tiempo"));}catch(JSONException ignored){}};

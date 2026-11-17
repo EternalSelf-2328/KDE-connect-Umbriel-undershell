@@ -1,4 +1,4 @@
-# Compilar Umbriel Connect 0.6.0
+# Compilar Umbriel Connect 0.7.0
 
 El cliente, receptor y motor de escritorio están en C++20/Qt6. El motor se compila desde
 una revisión de KDE Connect vendorizada como submódulo; **no utiliza el programa
@@ -32,6 +32,10 @@ no modifica firewall/rutas/DNS ni reinicia ventanas o servicios.
 gráfica; sin esa opción se conserva el inicio por GUI/D-Bus.
 El motor propio se activa al abrir la aplicación o por su servicio D-Bus privado.
 Si tienes una instancia anterior abierta, ciérrala y vuelve a abrirla.
+
+`libpulse` es opcional para el selector nativo de salidas PulseAudio/PipeWire-Pulse.
+Las pruebas de audio necesitan además `pipewire`, `pipewire-pulse`, `wireplumber`,
+`pactl` y, para verificar una reproducción activa, `pacat`; usan un servidor privado.
 
 `prison` es opcional: genera el QR de vinculación dentro del proceso, sin servicios
 web. Sin ella, el diálogo conserva exportación de archivo y portapapeles privados.
@@ -67,8 +71,7 @@ python3 scripts/setup-android-tools.py
 python3 scripts/android-full/sdk.py
 scripts/android-full/build.sh
 # Pruebas Android con recursos (Robolectric):
-scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.IncomingShareTest --tests org.eternalself.umbrielremote.ConnectionRegressionTest
-bash scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.HomeNavigationTest --tests org.eternalself.umbrielremote.HomeRenderTest --tests org.eternalself.umbrielremote.RegistrationUiTest --tests org.eternalself.umbrielremote.AuthenticatedUiTest --tests org.eternalself.umbrielremote.LanPairingTest --tests org.eternalself.umbrielremote.NotificationChannelsTest --tests org.eternalself.umbrielremote.ControlSpacingTest
+bash scripts/android-full/test.sh
 bash tests/android-guard.sh
 ```
 
@@ -79,6 +82,8 @@ y actualizar `data/android-full-verification-metadata.xml`, no desactivar la com
 
 `HomeRenderTest` dibuja las Views reales con datos sintéticos y runtime gráfico nativo
 Robolectric, en API 36: claro/oscuro, ancho320/412/840 dp y texto aumentado al130%.
+El script selecciona las clases del fork; no presenta como validado el conjunto de
+pruebas unitarias heredadas, que tiene su propio arnés y stubs de Android.
 Los PNG quedan en `build/android-home-previews/`; no se captura el escritorio ni un
 teléfono real. Su dependencia de fuentes/runtime nativo suma unos152 MiB a la caché
 de pruebas; no entra en el APK. El checksum está fijado en los metadatos de verificación.

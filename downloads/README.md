@@ -1,18 +1,19 @@
 # Aplicaciones Android
 
-- **[Umbriel Connect 0.6.1 completo](UmbrielConnect-0.6.1.apk)**: corrección del cierre al inicializar notificaciones y espacios uniformes; vínculo LAN por código, Inicio con controles
+- **[Umbriel Connect 0.7.0 completo](UmbrielConnect-0.7.0.apk)**: reproductor con carátula, título/origen y estado real, selector de salida de la PC,
+  inversión del cursor y desplazamiento, menos espera de movimiento; vínculo LAN por código, Inicio con controles
   directos, navegación inferior, Archivos y Ajustes separados; LAN automática tras
   vincular y autorización remota con huella o PIN/patrón/contraseña. Incluye el arreglo
-  del NoSuchFieldError de 0.4.2. versionCode 11, API 37/min 30; prueba Galaxy pendiente.
+  del NoSuchFieldError de 0.4.2. versionCode 12, API 37/min 30; prueba Galaxy pendiente.
 - **[Umbriel Remote 0.3.1 mínimo](UmbrielRemote-0.3.1.apk)**: edición histórica sin SMS,
   lector de notificaciones ni accesibilidad. No incorpora las correcciones posteriores.
 
-Comparten paquete `org.eternalself.umbrielremote` y firmante. 0.6.1 actualiza las
+Comparten paquete `org.eternalself.umbrielremote` y firmante. 0.7.0 actualiza las
 versiones anteriores conservando datos. No borres los datos ni desinstales para
 actualizar. Una bajada de versión normalmente no se instala sobre una superior.
 Los APK completos anteriores se conservan en el historial de Git.
 
-[Pasos de actualización](../docs/UPDATE-0.6.1.md) · [SHA256](SHA256SUMS) ·
+[Pasos de actualización](../docs/UPDATE-0.7.0.md) · [SHA256](SHA256SUMS) ·
 [Certificado de firma](SIGNING-CERTIFICATE-SHA256) ·
 [Permisos y seguridad](../SECURITY.md) · [Play Protect](../docs/PLAY-PROTECT.md).
 

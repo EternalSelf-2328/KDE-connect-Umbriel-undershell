@@ -27,6 +27,12 @@ public class ControlSpacingTest {
             View left=((ViewGroup)clicks).getChildAt(0),right=((ViewGroup)clicks).getChildAt(1);assertTrue(right.getLeft()-left.getRight()>=ui.dp(12));
         }finally{screen.pause().stop().destroy();}
     }
+    @Test public void expandedWidgetsAndSettingsRespectTheirGeometry(){
+        RemoteService.instance=new HomeNavigationTest.Computer();ActivityController<MainActivity> screen=Robolectric.buildActivity(MainActivity.class).setup();try{
+            MainActivity a=screen.get();a.openControl(7);View more=a.findViewById(android.R.id.content).findViewWithTag("widget-more");more.performClick();layout(a,412);View extra=a.findViewById(android.R.id.content).findViewWithTag("widget-extra");assertTrue(extra.getTop()-more.getBottom()>=new UiDesign(a).dp(12));
+            ImageButton settings=a.findViewById(android.R.id.content).findViewWithTag("header-settings");assertNotNull(settings);assertEquals(ImageView.ScaleType.CENTER,settings.getScaleType());assertEquals(settings.getPaddingLeft(),settings.getPaddingRight());assertEquals(settings.getPaddingTop(),settings.getPaddingBottom());assertEquals(settings.getWidth(),settings.getHeight());
+        }finally{screen.pause().stop().destroy();}
+    }
     private void bounds(ViewGroup parent){for(int i=0;i<parent.getChildCount();i++){View child=parent.getChildAt(i);if(child.getVisibility()==View.GONE)continue;assertTrue("Content crosses panel left edge",child.getLeft()>=parent.getPaddingLeft());assertTrue("Content crosses panel right edge",child.getRight()<=parent.getWidth()-parent.getPaddingRight());assertTrue("Content crosses panel bottom edge",child.getBottom()<=parent.getHeight()-parent.getPaddingBottom());}}
     @Test public void controlCardsKeepTheirPaddingOnSmallAndLargeLayouts(){
         for(int width:new int[]{320,393,412,840}){

@@ -4,9 +4,11 @@
 
 ## Actualizar
 
-Instala [UmbrielConnect-0.6.1.apk](../downloads/UmbrielConnect-0.6.1.apk) sobre la versión
+Esta corrección está incluida en la [actualización 0.7.0](UPDATE-0.7.0.md).
+Instala el APK actual sobre la versión
 actual. Conserva datos, vínculos, claves y permisos; no requiere borrar datos ni
-volver a registrar por esta corrección. No hace falta actualizar/reiniciar el escritorio.
+volver a registrar por esta corrección. La corrección 0.6.1 era compatible con el escritorio 0.6.0. Para las funciones nuevas
+de 0.7.0, actualiza ambos siguiendo su guía.
 La prueba de esta actualización en el Galaxy físico sigue pendiente.
 
 ## Cierre reportado al abrir opciones

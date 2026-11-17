@@ -1,13 +1,13 @@
 # Umbriel Connect
 
 Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **Escritorio 0.6.0 / Android 0.6.1 experimental** incorpora un motor privado derivado
+y aplicación Android propia. **Escritorio y Android 0.7.0 experimental** incorpora un motor privado derivado
 de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
 Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
-![Umbriel Connect: datos de ejemplo](docs/screenshots/0.6.0/home-dark.png)
+![Umbriel Connect: datos de ejemplo](docs/screenshots/0.7.0/sound-dark.png)
 
-[Descargar Android completo 0.6.1](downloads/UmbrielConnect-0.6.1.apk) ·
+[Descargar Android completo 0.7.0](downloads/UmbrielConnect-0.7.0.apk) ·
 [Instalación y compilación](docs/BUILDING.md) ·
 [Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
 [Seguridad y permisos](SECURITY.md)
@@ -16,15 +16,17 @@ Android abre **Inicio**, con Mouse, Navegación, Sonido, Apariencia, Fondos y Wi
 a un toque, reproducción y volumen. La barra **Inicio / Control / Archivos / Ajustes**
 permanece visible; el registro y los permisos tienen su propia sección. La conexión
 LAN ya vinculada es automática; fuera de ella se ofrece autorización explícita.
-[Corrección del cierre y espaciado Android](docs/UPDATE-0.6.1.md).
+[Reproductor con carátula y origen, salidas de audio y preferencias del mouse](docs/UPDATE-0.7.0.md).
 
-<img src="docs/screenshots/0.5.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
-<img src="docs/screenshots/0.5.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">
+<img src="docs/screenshots/0.7.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
+<img src="docs/screenshots/0.7.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">
 
 ## Qué integra
 
 - Descubrimiento, emparejamiento, batería, señal móvil, archivos, enlaces y texto.
 - Notificaciones con acciones/respuesta, portapapeles, multimedia/MPRIS y volumen.
+- Reproductor móvil con estado real, carátula, título/origen y selección de aplicación;
+  salida de audio de la PC y preferencias de dirección del touchpad.
 - Mensajes SMS/MMS y contactos, avisos de llamada y encontrar dispositivos.
 - Entrada remota, presentación, tableta y órdenes, con permisos y opt-in por dispositivo.
 - Explorador de archivos y ventana de mensajes incluidos en el prefijo privado.

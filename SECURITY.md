@@ -137,3 +137,20 @@ incluido el de la sesión propia. Se elimina el borrado global que provocaba un
 SecurityException cuando el canal estaba asociado a un servicio foreground activo.
 Las notificaciones/permisos no se ocultan ni se evitan; el usuario conserva sus
 ajustes existentes. La regresión se verifica también en el bytecode release.
+
+## Multimedia propia0.7.0
+
+Las consultas y órdenes de MPRIS, carátulas y salidas de audio atraviesan la misma
+sesión TLS, autorización, secuencia y caducidad del canal de controles. Una sesión
+caducada que solo puede terminar un archivo no puede consultar ni cambiar multimedia.
+No se aceptan nombres D-Bus o métodos arbitrarios: solo reproductores MPRIS y cuatro
+acciones permitidas, con comprobación de capacidades. Las salidas usan índices
+numéricos y se consultan de nuevo antes de cambiar el destino.
+
+El móvil recibe una miniatura acotada de la imagen anunciada por el reproductor,
+sin recibir su ruta o URL. HTTPS verifica el certificado del nombre original, fija
+la dirección pública validada para evitar resolverla otra vez al conectar y aplica
+la política a cada redirección. No usa cookies ni proxy del sistema. Se rechazan
+red privada/Tailscale, loopback, HTTP, otros puertos y credenciales en la URL.
+Un reproductor o proceso malicioso que ya ejecute código con el mismo UID en la PC
+queda fuera de una promesa de aislamiento del propio usuario.

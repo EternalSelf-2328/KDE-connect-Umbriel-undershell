@@ -19,6 +19,7 @@ final class RemoteDashboard extends LinearLayout {
     final LinearLayout body;final Map<String,JSONObject> actions=new LinkedHashMap<>();final ArrayList<Button> tabs=new ArrayList<>();
     JSONArray profiles=new JSONArray();JSONObject features=new JSONObject();int selected=5,generation=0,offset=0;boolean disposed=false,pointerEnabled=false,pointerStarting=false,moving=false;int pointerEpoch=0;
     boolean loaded=false,wantPointer=false,loadFailed=false;private HorizontalScrollView navBar;private Button pointerToggle;
+    MediaPanel mediaPanel;
     Touchpad touchpad;boolean favourites=false;String filter="",source="local",folder="",kind="";
     RemoteDashboard(Activity a,UiDesign design,RemoteService service,Consumer<String> message){
         super(a);activity=a;ui=design;owner=service;status=message;setOrientation(VERTICAL);source=a.getPreferences(0).getString("wallSource","local");folder=a.getPreferences(0).getString("wallFolder","");kind=a.getPreferences(0).getString("wallKind","");
@@ -45,9 +46,11 @@ final class RemoteDashboard extends LinearLayout {
         });
     }
     private void loadError(){loadFailed=true;body.removeAllViews();LinearLayout c=card("No pude cargar los controles","La conexión sigue protegida. Vuelve a intentarlo.");Button retry=ui.button("Cargar de nuevo",true);retry.setOnClickListener(v->load());ui.add(c,retry,0);status.accept("No se pudieron cargar los controles");}
-    void dispose(){if(disposed)return;stopPointer();disposed=true;generation++;}
+    void pauseMedia(){if(mediaPanel!=null)mediaPanel.pause();}
+    void mediaChanged(){if(mediaPanel!=null)mediaPanel.refresh();}
+    void dispose(){if(disposed)return;if(mediaPanel!=null)mediaPanel.dispose();stopPointer();disposed=true;generation++;}
     void stopPointer(){if(touchpad!=null)touchpad.setEnabled(false);if(pointerToggle!=null){pointerToggle.setText("Activar mouse");pointerToggle.setEnabled(true);}wantPointer=false;pointerEpoch++;owner.cancelMotion();if(touchpad!=null)touchpad.cancel();if(pointerEnabled||pointerStarting)request("pointer",object("op","stop"),r->{});pointerEnabled=false;pointerStarting=false;}
-    void select(int page){stopPointer();selected=page;generation++;body.removeAllViews();pointerToggle=null;
+    void select(int page){if(mediaPanel!=null)mediaPanel.dispose();mediaPanel=null;stopPointer();selected=page;generation++;body.removeAllViews();pointerToggle=null;
         for(Button tab:tabs){boolean active=tab.getTag().equals(page);tab.setTextColor(active?ui.onAccent:ui.text);tab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(active?ui.accent:ui.raised));tab.setSelected(active);}
         for(Button tab:tabs)if(tab.getTag().equals(page)&&navBar.getVisibility()==VISIBLE){navBar.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener(){public void onGlobalLayout(){if(navBar.getViewTreeObserver().isAlive())navBar.getViewTreeObserver().removeOnGlobalLayoutListener(this);navBar.requestChildRectangleOnScreen((View)tab.getParent(),new android.graphics.Rect(tab.getLeft()-ui.dp(UiDesign.COMPACT_GAP),tab.getTop(),tab.getRight()+ui.dp(UiDesign.COMPACT_GAP),tab.getBottom()),true);}});break;}
         if(!loaded&&loadFailed){loadError();return;}
@@ -56,11 +59,7 @@ final class RemoteDashboard extends LinearLayout {
     }
     private void home(){
         if(activity instanceof MainActivity)((MainActivity)activity).homeShortcuts(body,true);
-        LinearLayout media=card("Reproducción","");
-        row(media,transport("noctalia.media-previous","Pista anterior","previous",false),transport("noctalia.media-play-pause","Reproducir o pausar","play",true),transport("noctalia.media-next","Pista siguiente","next",false));
-        TextView value=ui.label("Volumen · leyendo…",14,ui.muted,false);ui.add(media,value,0);SeekBar volume=new SeekBar(activity);volume.setMax(100);volume.setEnabled(false);ui.add(media,volume,0);Button mute=transport("noctalia.volume-mute","Silenciar","sound",false);
-        readVolume(volume,value,mute);volume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int v,boolean user){if(user)value.setText("Volumen · "+v+" %");}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){act("noctalia.volume-set",Integer.toString(s.getProgress()));}});
-
+        mediaPanel=new MediaPanel(this);ui.add(body,mediaPanel,UiDesign.SECTION_GAP);
     }
     private Button transport(String id,String label,String icon,boolean primary){Button b=action(id,"",primary);b.setContentDescription(label);b.setCompoundDrawables(null,ui.icon(icon,primary?ui.onAccent:ui.text,24),null,null);b.setCompoundDrawablePadding(0);return b;}
     LinearLayout card(String title,String hint){LinearLayout c=ui.card();ui.add(c,ui.label(title,20,ui.text,true),8);if(!hint.isEmpty())ui.add(c,ui.label(hint,14,ui.muted,false),12);ui.add(body,c,16);return c;}
@@ -87,8 +86,8 @@ final class RemoteDashboard extends LinearLayout {
         LinearLayout widgets=card("Tus widgets","Controles de undershell y perfiles guardados.");
         row(widgets,action("undershell.edit-on","Editar",true),action("undershell.edit-off","Terminar",false));
         row(widgets,action("undershell.show","Mostrar widgets",false),action("undershell.hide","Ocultar widgets",false));
-        Button more=ui.button("Más controles y perfiles…",false);ui.add(widgets,more,0);
-        LinearLayout extra=ui.column();extra.setVisibility(GONE);ui.add(widgets,extra,0);more.setOnClickListener(v->extra.setVisibility(extra.getVisibility()==GONE?VISIBLE:GONE));
+        Button more=ui.button("Más controles y perfiles…",false);more.setTag("widget-more");ui.add(widgets,more,UiDesign.GAP);
+        LinearLayout extra=ui.column();extra.setTag("widget-extra");extra.setVisibility(GONE);ui.add(widgets,extra,0);more.setOnClickListener(v->extra.setVisibility(extra.getVisibility()==GONE?VISIBLE:GONE));
         for(JSONObject action:actions.values())if(action.optString("group").equals("undershell")&&!Arrays.asList("undershell.edit-on","undershell.edit-off","undershell.show","undershell.hide").contains(action.optString("id")))ui.add(extra,action(action.optString("id"),action.optString("name"),false),8);
         for(int i=0;i<profiles.length();i++){JSONObject profile=profiles.optJSONObject(i);if(profile==null)continue;Button b=ui.button(profile.optString("name","Perfil guardado"),false);b.setOnClickListener(v->new AlertDialog.Builder(activity).setTitle("Aplicar perfil").setMessage(profile.optString("name")).setNegativeButton("Cancelar",null).setPositiveButton("Aplicar",(d,w)->act("undershell.profile",profile.optString("id"))).show());ui.add(extra,b,8);}
     }
@@ -105,18 +104,10 @@ final class RemoteDashboard extends LinearLayout {
         left.setOnClickListener(v->request("pointer",object("op","click","button","left"),this::result));right.setOnClickListener(v->request("pointer",object("op","click","button","right"),this::result));row(c,left,right);
         enable.setOnClickListener(v->{if(pointerEnabled){stopPointer();touchpad.setEnabled(false);left.setEnabled(false);right.setEnabled(false);enable.setText("Activar mouse");status.accept("Mouse detenido");return;}
             enable.setEnabled(false);pointerStarting=true;final int epoch=++pointerEpoch;request("pointer",object("op","start"),reply->{if(epoch!=pointerEpoch)return;pointerStarting=false;enable.setEnabled(true);pointerEnabled=reply.optBoolean("ok");touchpad.setEnabled(pointerEnabled);left.setEnabled(pointerEnabled);right.setEnabled(pointerEnabled);enable.setText(pointerEnabled?"Detener mouse":"Activar mouse");status.accept(pointerEnabled?"Mouse activado. Si Umbriel pide permiso, apruébalo localmente en la computadora.":reply.optString("error"));});});
-        ui.add(c,ui.label("Sensibilidad",14,ui.muted,false),4);SeekBar speed=new SeekBar(activity);speed.setMax(350);touchpad.sensitivity=activity.getPreferences(0).getFloat("mouseSensitivity",2.4f);speed.setProgress(Math.round((touchpad.sensitivity-.5f)*100));speed.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean user){touchpad.sensitivity=.5f+p/100f;}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){activity.getPreferences(0).edit().putFloat("mouseSensitivity",touchpad.sensitivity).apply();}});ui.add(c,speed,4);
+        ui.add(c,ui.label("Sensibilidad",14,ui.muted,false),4);SeekBar speed=new SeekBar(activity);speed.setMax(350);touchpad.sensitivity=activity.getPreferences(0).getFloat("mouseSensitivity",2.4f);speed.setProgress(Math.round((touchpad.sensitivity-.5f)*100));speed.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean user){touchpad.sensitivity=.5f+p/100f;}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){activity.getPreferences(0).edit().putFloat("mouseSensitivity",touchpad.sensitivity).apply();}});ui.add(c,speed,UiDesign.GAP);
+        Button preferences=ui.button("Dirección del mouse…",false);preferences.setOnClickListener(v->{touchpad.cancel();owner.cancelMotion();LinearLayout settings=ui.card();MousePreferences.build(activity,ui,settings);new AlertDialog.Builder(activity).setTitle("Preferencias del mouse").setView(settings).setPositiveButton("Listo",null).setOnDismissListener(d->{android.content.SharedPreferences saved=activity.getPreferences(0);touchpad.cancel();owner.cancelMotion();touchpad.invertScroll=saved.getBoolean("mouseInvertScroll",false);touchpad.invertX=saved.getBoolean("mouseInvertX",false);touchpad.invertY=saved.getBoolean("mouseInvertY",false);}).show();});ui.add(c,preferences,0);
     }
-    void sound(){
-        LinearLayout c=card("Sonido","Ajusta el volumen al soltar el control.");TextView value=ui.label("Volumen · leyendo…",16,ui.text,true);ui.add(c,value,4);
-        SeekBar volume=new SeekBar(activity);volume.setMax(100);volume.setEnabled(false);ui.add(c,volume,8);
-        Button mute=action("noctalia.volume-mute","Silenciar",false);
-        readVolume(volume,value,mute);
-        mute.setOnClickListener(v->request("action",object("action","noctalia.volume-mute","args",new JSONArray()),reply->{result(reply);readVolume(volume,value,mute);}));
-        volume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean user){if(user)value.setText("Volumen · "+p+" %");}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){act("noctalia.volume-set",Integer.toString(s.getProgress()));}});
-        row(c,action("noctalia.volume-down","− Volumen",false),mute,action("noctalia.volume-up","+ Volumen",false));
-        row(c,action("noctalia.media-previous","Anterior",false),action("noctalia.media-play-pause","Reproducir",true),action("noctalia.media-next","Siguiente",false));
-    }
+    void sound(){mediaPanel=new MediaPanel(this);ui.add(body,mediaPanel,UiDesign.SECTION_GAP);}
     void appearance(){
         LinearLayout look=card("Apariencia","Elige el tema que deseas aplicar.");row(look,action("noctalia.theme-light","Claro",false),action("noctalia.theme-dark","Oscuro",false));
         LinearLayout quiet=card("Concentración y reposo","");row(quiet,action("noctalia.dnd-on","No molestar",false),action("noctalia.dnd-off","Permitir avisos",false));row(quiet,action("noctalia.caffeine-enable","Evitar reposo",false),action("noctalia.caffeine-disable","Permitir reposo",false));

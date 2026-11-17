@@ -23,7 +23,8 @@ public class HomeRenderTest {
         @Override void request(String type,JSONObject args,Consumer<JSONObject> callback){
             try {
                 if(type.equals("wallpapers")){JSONArray items=new JSONArray();for(int i=0;i<4;i++)items.put(new JSONObject().put("id","sample-"+i).put("name",new String[]{"Lago al anochecer","Montañas al amanecer","Bosque tranquilo","Cielo de verano"}[i]).put("kind","static").put("hasPreview",true));callback.accept(new JSONObject().put("ok",true).put("value",new JSONObject().put("total",4).put("items",items).put("folders",new JSONArray())));return;}
-                if(type.equals("wallpaper-thumb")){Bitmap b=Bitmap.createBitmap(160,100,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(b);Paint p=new Paint();p.setShader(new LinearGradient(0,0,160,100,Color.rgb(70,105,136),Color.rgb(187,150,135),Shader.TileMode.CLAMP));c.drawRect(0,0,160,100,p);p.setShader(null);p.setColor(Color.rgb(35,65,72));Path mountain=new Path();mountain.moveTo(0,100);mountain.lineTo(55,32);mountain.lineTo(105,100);mountain.close();c.drawPath(mountain,p);ByteArrayOutputStream bytes=new ByteArrayOutputStream();b.compress(Bitmap.CompressFormat.JPEG,80,bytes);b.recycle();callback.accept(new JSONObject().put("ok",true).put("value",new JSONObject().put("jpeg",android.util.Base64.encodeToString(bytes.toByteArray(),android.util.Base64.NO_WRAP))));return;}
+                if(type.equals("media-state")){JSONArray tracks=new JSONArray().put(new JSONObject().put("id","org.mpris.MediaPlayer2.example").put("title","Un viaje tranquilo").put("artist","Artista de ejemplo").put("source","Reproductor de ejemplo").put("origin","Archivo local").put("artKey","synthetic-cover").put("status",phase==ConnectionUi.Phase.CONNECTED_LOCAL?"Playing":"Paused").put("canPlay",true).put("canPause",true).put("canNext",true).put("canPrevious",true));callback.accept(new JSONObject().put("ok",true).put("value",new JSONObject().put("players",tracks)));return;}
+                if(type.equals("wallpaper-thumb")||type.equals("media-art")){Bitmap b=Bitmap.createBitmap(160,100,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(b);Paint p=new Paint();p.setShader(new LinearGradient(0,0,160,100,Color.rgb(70,105,136),Color.rgb(187,150,135),Shader.TileMode.CLAMP));c.drawRect(0,0,160,100,p);p.setShader(null);p.setColor(Color.rgb(35,65,72));Path mountain=new Path();mountain.moveTo(0,100);mountain.lineTo(55,32);mountain.lineTo(105,100);mountain.close();c.drawPath(mountain,p);ByteArrayOutputStream bytes=new ByteArrayOutputStream();b.compress(Bitmap.CompressFormat.JPEG,80,bytes);b.recycle();callback.accept(new JSONObject().put("ok",true).put("value",new JSONObject().put("jpeg",android.util.Base64.encodeToString(bytes.toByteArray(),android.util.Base64.NO_WRAP))));return;}
             }catch(Exception error){throw new AssertionError(error);}super.request(type,args,callback);
         }
     }
@@ -37,6 +38,9 @@ public class HomeRenderTest {
         ActivityController<MainActivity> screen=Robolectric.buildActivity(MainActivity.class).setup();
         try{
             MainActivity a=screen.get();if(destination==1)a.openControl(control);else if(destination!=0)a.navigate(destination);
+            if(name.equals("mouse-settings")){org.robolectric.util.ReflectionHelpers.setField(a,"settingsPage","mouse");org.robolectric.util.ReflectionHelpers.callInstanceMethod(a,"render");}
+            if(name.contains("expanded"))a.findViewById(android.R.id.content).findViewWithTag("widget-more").performClick();
+            if(name.contains("paused")){computer.phase=ConnectionUi.Phase.REMOTE_REQUIRED;a.mediaChanged(computer);}
             int pixelsWide=Math.round(width*app.getResources().getDisplayMetrics().density),pixelsHigh=Math.round(height*app.getResources().getDisplayMetrics().density);
             Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();View view=a.findViewById(android.R.id.content);
             view.measure(View.MeasureSpec.makeMeasureSpec(pixelsWide,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(pixelsHigh,View.MeasureSpec.EXACTLY));view.layout(0,0,pixelsWide,pixelsHigh);view.getViewTreeObserver().dispatchOnGlobalLayout();
@@ -56,11 +60,14 @@ public class HomeRenderTest {
         capture("sound-dark",true,412,892,1,2,true,true);
         capture("wallpapers-dark",true,412,892,1,3,true,true);
         capture("widgets-dark",true,412,892,1,7,true,true);
+        capture("widgets-expanded",true,412,892,1,7,true,true);
+        capture("sound-paused",true,412,892,1,2,true,true);
         capture("mouse-hdpi",true,393,853,1,1,true,true);
         capture("mouse-large-text",true,393,853,1,1,true,true);
         capture("appearance-dark",true,412,892,1,6,true,true);
         capture("files-dark",true,412,892,2,4,true,true);
         capture("settings-dark",true,412,892,3,0,true,true);
+        capture("mouse-settings",true,412,892,3,0,true,true);
         capture("remote-locked",true,412,892,0,0,false,true);
         capture("first-run",true,412,892,0,0,false,false);
         capture("home-compact",true,320,740,0,0,true,true);

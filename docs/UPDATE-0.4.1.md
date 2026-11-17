@@ -25,7 +25,7 @@
 ## Cómo actualizar
 
 1. Actualizar el receptor de escritorio y los servicios desde las fuentes 0.4.1.
-2. Instalar [APK actual](../downloads/UmbrielConnect-0.6.1.apk) encima
+2. Instalar [APK actual](../downloads/UmbrielConnect-0.7.0.apk) encima
    de la app anterior. **No desinstalar ni borrar datos.** Conserva paquete y firmante.
 3. Abrir la app, permitir notificaciones y presionar Conectar. Un registro antiguo
    puede necesitar una última huella para migrar la clave limitada a biometría.

@@ -65,6 +65,7 @@ public:
     QByteArray buffer, publicKey, proof;
     QString keyId,deviceName,groupId,authMode;
     QByteArray lanKey,remoteKey;
+    bool mediaWatching=false;int mediaRequests=0;
     bool localAuto=false;
     QString pairingId;
     QByteArray pairingMessage;
@@ -270,7 +271,18 @@ public:
             }
             fileDeadline.start(30000);pumpFile();return;
         }
-        if(type=="features"){respond({true,{},QVariantMap{{"pointer",Pointer::available()},{"pointerStreaming",true},{"files",true},{"maxFileBytes",FileTransfer::Limit},{"fileContinuation",true},{"wallpapers",Wallpapers::available()},{"version","0.3.1"}}});return;}
+        if(type=="features"){respond({true,{},QVariantMap{{"pointer",Pointer::available()},{"pointerStreaming",true},{"files",true},{"maxFileBytes",FileTransfer::Limit},{"fileContinuation",true},{"wallpapers",Wallpapers::available()},{"version","0.7.0"},{"media",true},{"audioOutputs",AudioRoutes::available()}}});return;}
+        if(type=="media-watch"){mediaWatching=message["enabled"].toBool();respond({true,{},{}});return;}
+        if(QStringList{"media-state","media-art","media-action","audio-outputs","audio-output-set"}.contains(type)){
+            if(mediaRequests>=3){respond({false,"Hay una consulta multimedia en curso",{}});return;}++mediaRequests;
+            auto complete=[guard=QPointer<RemotePeer>(this),respond](Reply r){if(!guard)return;--guard->mediaRequests;if(guard->controlsExpired||(!guard->localAuto&&guard->leaseTime.elapsed()>=guard->controlMillis)||!guard->stillTrusted(true)){respond({false,"El permiso multimedia venció",{}});return;}respond(r);};
+            if(type=="media-state")server->media.state(complete);
+            else if(type=="media-art")server->media.artwork(message["player"].toString(),message["key"].toString(),complete);
+            else if(type=="media-action")server->media.action(message["player"].toString(),message["action"].toString(),complete);
+            else if(type=="audio-outputs")server->audio.outputs(complete);
+            else server->audio.select(message["id"].toString(),complete);
+            return;
+        }
         if(type=="pointer"){
             auto op=message["op"].toString();
             if(op=="stop"){++pointerGeneration;pointer.stop();if(server->m_pointerOwner==this)server->m_pointerOwner.clear();respond({true,{}, {}});return;}
@@ -325,7 +337,10 @@ public:
         respond({false, "Solicitud desconocida", {}});
     }
 };
-RemoteServer::RemoteServer(QString directory, QObject *parent) : QTcpServer(parent), integration(this), wallpapers(this), m_directory(std::move(directory)) {
+RemoteServer::RemoteServer(QString directory, QObject *parent) : QTcpServer(parent), integration(this), wallpapers(this), media(this), audio(this), m_directory(std::move(directory)) {
+    mediaEvents.setSingleShot(true);mediaEvents.setInterval(250);
+    auto update=[this]{mediaEvents.start();};connect(&media,&MediaHub::changed,this,update);connect(&audio,&AudioRoutes::changed,this,update);
+    connect(&mediaEvents,&QTimer::timeout,this,[this]{for(auto *peer:m_peers)if(peer->ready&&peer->mediaWatching&&!peer->controlsExpired&&(peer->localAuto||peer->leaseTime.elapsed()<peer->controlMillis)&&peer->stillTrusted())peer->send({{"type","media-changed"}});});
     connect(&m_files, &QFileSystemWatcher::directoryChanged, this, [this] {
         const auto peers = m_peers;
         for (auto *peer : peers) if (peer->ready && !peer->stillTrusted(true)) peer->wire->abort();
