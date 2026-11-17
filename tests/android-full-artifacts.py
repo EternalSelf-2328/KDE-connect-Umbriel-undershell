@@ -14,11 +14,11 @@ cache = Path(os.environ.get('UMBRIEL_ANDROID_TOOLS', Path.home()/'.cache/umbriel
 jdk = Path(os.environ.get('UMBRIEL_JDK', cache/'jdk-21.0.13+9'))
 tools = cache/'full-sdk/build-tools/37.0.0'
 env = dict(os.environ, JAVA_HOME=str(jdk), PATH=str(jdk/'bin')+os.pathsep+os.environ['PATH'])
-apk = root/'downloads/UmbrielConnect-0.4.1.apk'
+apk = root/'downloads/UmbrielConnect-0.4.2.apk'
 def run(*args):
     return subprocess.check_output([str(a) for a in args], env=env, text=True, stderr=subprocess.STDOUT)
 manifest = run(tools/'aapt2', 'dump', 'xmltree', apk, '--file', 'AndroidManifest.xml')
-for value in ['versionCode(0x0101021b)=7', '"0.4.1-experimental"',
+for value in ['versionCode(0x0101021b)=8', '"0.4.2-experimental"',
               'minSdkVersion(0x0101020c)=30', 'targetSdkVersion(0x01010270)=37',
               '"org.eternalself.umbrielremote"', 'android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE',
               'android.permission.CHANGE_NETWORK_STATE', 'android.permission.ACCESS_NETWORK_STATE',
@@ -40,6 +40,13 @@ with zipfile.ZipFile(apk) as archive:
     dex = b''.join(archive.read(n) for n in archive.namelist() if n.endswith('.dex'))
     for value in [b'umbriel-connect-auth-v2', b'umbriel-remote-credential-v2', b'umbriel-lan-device-v2', b'last-crash.txt']:
         assert value in dex, value
+# Inspect optimized release instructions, not just the unminified unit-test classes.
+network_code = run(cache/'full-sdk/cmdline-tools/latest/bin/apkanalyzer', 'dex', 'code',
+                   '--class', 'org.eternalself.umbrielremote.LocalNetworks', '--method',
+                   'network(Landroid/content/Context;Ljava/net/InetAddress;Ljava/net/InetAddress;)Landroid/net/Network;', apk)
+assert 'Landroid/net/LinkAddress;->getAddress()Ljava/net/InetAddress;' in network_code
+assert 'Landroid/net/LinkAddress;->getPrefixLength()I' in network_code
+assert not re.search(r'(?m)^\s*[is]get[^\n]*Landroid/net/(?:LinkAddress|LinkProperties);->', network_code), network_code
 signature = run(tools/'apksigner', 'verify', '--verbose', '--print-certs', apk)
 assert 'Verified using v3 scheme (APK Signature Scheme v3): true' in signature
 certificates = set(re.findall(r'(?m)^(?:Signer #\d+|V\d+(?:\.\d+)* Signer):? certificate SHA-256 digest: ([0-9a-f]{64})$', signature))
@@ -49,9 +56,9 @@ assert certificate == (root/'downloads/SIGNING-CERTIFICATE-SHA256').read_text().
 digest = hashlib.sha256(apk.read_bytes()).hexdigest()
 checksums = {name:sha for sha,name in (line.split() for line in (root/'downloads/SHA256SUMS').read_text().splitlines() if line.strip())}
 assert checksums[apk.name] == digest
-result = dict(version='0.4.1-experimental', versionCode=7, package='org.eternalself.umbrielremote', bytes=apk.stat().st_size,
+result = dict(version='0.4.2-experimental', versionCode=8, package='org.eternalself.umbrielremote', bytes=apk.stat().st_size,
               sha256=digest, signing_certificate_sha256=certificate, foreground_service_type='connectedDevice',
-              debuggable=False, private_boot_receiver=True, phone_validation='pending')
+              debuggable=False, private_boot_receiver=True, optimized_network_public_api=True, phone_validation='pending')
 (root/'build/android-full-artifacts.json').write_text(json.dumps(result, indent=2)+'\n')
 print(json.dumps(result, indent=2))
-print('Signed full APK: merged service/boot manifest, v2 keys, signature and checksum verified')
+print('Signed full APK: optimized public network API, merged manifest, v2 keys, signature and checksum verified')

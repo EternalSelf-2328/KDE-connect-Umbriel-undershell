@@ -24,7 +24,7 @@ ET.register_namespace("android",android[1:-1])
 manifest=ET.parse(source/"AndroidManifest.xml")
 if variant=="phone-control":
     manifest.getroot().find("application").append(ET.parse(source/"variants/phone-control/service.xml").getroot())
-    manifest.getroot().set(android+"versionName","0.4.1-phone-control-experimental")
+    manifest.getroot().set(android+"versionName","0.4.2-phone-control-experimental")
 else:
     (out/"res/xml/accessibility.xml").unlink()
 manifest.write(out/"AndroidManifest.xml",encoding="utf-8",xml_declaration=True)

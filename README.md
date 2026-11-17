@@ -1,13 +1,13 @@
 # Umbriel Connect
 
 Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **0.4.1 experimental** incorpora un motor privado derivado
+y aplicación Android propia. **0.4.2 experimental** incorpora un motor privado derivado
 de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
 Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
 ![Umbriel Connect: datos de ejemplo](docs/screenshots/0.4.0/native-dark.png)
 
-[Descargar Android completo 0.4.1](downloads/UmbrielConnect-0.4.1.apk) ·
+[Descargar Android completo 0.4.2](downloads/UmbrielConnect-0.4.2.apk) ·
 [Instalación y compilación](docs/BUILDING.md) ·
 [Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
 [Seguridad y permisos](SECURITY.md)
@@ -70,7 +70,7 @@ Un registro antiguo puede pedir **una última huella para migrar las claves**: s
 clave original solo aceptaba biometría. Después permite también el bloqueo del teléfono.
 Si esa huella ya no está disponible, se necesita un registro nuevo; no se omite la
 validación de identidad. Los permisos remotos persistentes de 0.4.0 se retiran.
-[Qué corrige 0.4.1 y cómo actualizar](docs/UPDATE-0.4.1.md).
+[Corrección del cierre reportado y estados de conexión](docs/UPDATE-0.4.2.md).
 
 El APK ampliado incluye capacidades sensibles opcionales. Si Play Protect impide
 instalarlo, no desactives esa protección; conserva la edición mínima

@@ -1,3 +1,5 @@
+> Sustituida por [0.4.2](UPDATE-0.4.2.md): un informe del Galaxy identificó otro fallo en el APK optimizado.
+
 # Actualización 0.4.1 — conexión local y autenticación remota
 
 **2026-11-17 · experimental · Android versionCode7.**
@@ -23,7 +25,7 @@
 ## Cómo actualizar
 
 1. Actualizar el receptor de escritorio y los servicios desde las fuentes 0.4.1.
-2. Instalar [UmbrielConnect-0.4.1.apk](../downloads/UmbrielConnect-0.4.1.apk) encima
+2. Instalar [APK actual](../downloads/UmbrielConnect-0.4.2.apk) encima
    de la app anterior. **No desinstalar ni borrar datos.** Conserva paquete y firmante.
 3. Abrir la app, permitir notificaciones y presionar Conectar. Un registro antiguo
    puede necesitar una última huella para migrar la clave limitada a biometría.

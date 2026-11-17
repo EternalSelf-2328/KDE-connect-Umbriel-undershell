@@ -26,11 +26,13 @@ class FakeDevice : public QObject {
     Q_CLASSINFO("D-Bus Interface", "org.kde.kdeconnect.device")
     Q_PROPERTY(QString name READ name)
     Q_PROPERTY(QString type READ type)
+    Q_PROPERTY(QStringList reachableAddresses MEMBER addresses)
     Q_PROPERTY(bool isReachable MEMBER reachable)
     Q_PROPERTY(bool isPaired MEMBER paired)
     Q_PROPERTY(bool isPairRequestedByPeer MEMBER requested)
     Q_PROPERTY(QString verificationKey READ key)
 public:
+    QStringList addresses{"192.0.2.50"};
     bool reachable = true, paired = true, requested = false;
     QString name() const { return "Teléfono de prueba"; }
     QString type() const { return "phone"; }
@@ -88,7 +90,7 @@ private slots:
         QVERIFY(bus.registerObject(path + "/share", &share, flags));
     }
     void cleanupTestCase() { qputenv("XDG_RUNTIME_DIR", oldRuntime); }
-    void init() { device.paired = true; device.reachable = true; device.requested = false; share.url.clear(); share.text.clear(); }
+    void init() { device.addresses = {"192.0.2.50"}; device.paired = true; device.reachable = true; device.requested = false; share.url.clear(); share.text.clear(); }
     void snapshotUsesRealDbusTypes() {
         EngineClient client(nullptr, QDBusConnection::sessionBus(), service);
         QJsonObject state; bool complete = false;
@@ -100,6 +102,18 @@ private slots:
         QCOMPARE(d["name"].toString(), "Teléfono de prueba");
         QCOMPARE(d["battery"].toInt(), 76); QVERIFY(d["charging"].toBool());
         QVERIFY(d["plugins"].toArray().contains("kdeconnect_share"));
+    }
+    void discoveryDoesNotShowAnotherDaemonOnThisComputer() {
+        device.addresses = {"127.0.0.1"}; device.paired = false;
+        EngineClient client(nullptr, QDBusConnection::sessionBus(), service);
+        QJsonObject state; bool complete = false;
+        client.snapshot([&](auto v){state=v;complete=true;});
+        QTRY_VERIFY_WITH_TIMEOUT(complete,4000);
+        QVERIFY(state["available"].toBool());QVERIFY(state["devices"].toArray().isEmpty());
+        // A known identity is retained for explicit review and revocation.
+        device.paired=true;complete=false;
+        client.snapshot([&](auto v){state=v;complete=true;});
+        QTRY_VERIFY_WITH_TIMEOUT(complete,4000);QCOMPARE(state["devices"].toArray().size(),1);
     }
     void unavailableDaemonReportsFailure() {
         EngineClient client(nullptr, QDBusConnection::sessionBus(), "org.example.NoDaemon");

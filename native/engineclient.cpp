@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QUrl>
+#include <QNetworkInterface>
 #include <memory>
 #include <algorithm>
 
@@ -100,6 +101,17 @@ void EngineClient::snapshot(std::function<void(QJsonObject)> done) {
                     return;
                 }
                 const auto p = asMap(props.value);
+                // Another discovery daemon on this host is not an external phone.
+                // Never hide or merge a trusted identity by name or shared peer IP.
+                bool localEndpoint = false;
+                for (const auto &address : asStrings(p.value("reachableAddresses"))) {
+                    const QHostAddress remote(address);
+                    if (remote.isNull()) continue;
+                    for (const auto &local : QNetworkInterface::allAddresses())
+                        if (remote.isEqual(local, QHostAddress::ConvertV4MappedToIPv4)) localEndpoint = true;
+                }
+                if (localEndpoint && !p.value("isPaired").toBool()) { finish(); return; }
+
                 auto device = std::make_shared<QJsonObject>(QJsonObject{
                     {"id", id}, {"name", p.value("name").toString()},
                     {"type", p.value("type").toString()},

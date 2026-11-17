@@ -39,6 +39,10 @@
 #include <QVBoxLayout>
 
 namespace {
+QString connectionState(const QJsonObject &device) {
+    if (!device["paired"].toBool()) return device["reachable"].toBool() ? "Disponible · sin vincular" : "Sin vincular · no disponible";
+    return device["reachable"].toBool() ? "Conectado" : "Sin conexión";
+}
 class FunctionSearchInput:public QLineEdit {
 public:
     QListWidget *results=nullptr;
@@ -264,7 +268,7 @@ void Window::applyState(const QJsonObject &state) {
     m_devices->blockSignals(true); m_devices->clear();
     for (const auto &v : state["devices"].toArray()) {
         const auto d = v.toObject();
-        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + (d["reachable"].toBool() ? "Conectado" : "Sin conexión")+(d["transport"]=="umbriel"?(d["localAuto"].toBool()?" · LAN":" · Umbriel"):" · Funciones"), m_devices);
+        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + connectionState(d)+(d["transport"]=="umbriel"?(d["localAuto"].toBool()?" · LAN":" · Umbriel"):" · Funciones"), m_devices);
         item->setData(Qt::UserRole, d["id"].toString());
         if (d["id"].toString() == id) m_devices->setCurrentItem(item);
     }
@@ -272,7 +276,7 @@ void Window::applyState(const QJsonObject &state) {
     m_devices->blockSignals(false); selection();
     if (!state["available"].toBool()) m_status->setText("El motor de Umbriel Connect no está disponible: " + state["error"].toString());
     else if (state["partial"].toBool()) m_status->setText("Se recibieron datos incompletos. Vuelve a buscar dispositivos.");
-    else m_status->setText(QString::number(m_devices->count()) + " conexiones · Umbriel Remote y motor integrado");
+    else m_status->setText(QString::number(m_devices->count()) + " identidades · solo las vinculadas tienen acceso");
 }
 void Window::selection() {
     const auto d = selectedDevice();
@@ -281,10 +285,10 @@ void Window::selection() {
     const bool native=d["transport"]=="umbriel";
     const auto plugins = d["plugins"].toArray();
     QString summary = d.isEmpty() ? "Selecciona un dispositivo o busca uno en tu red." :
-        d["name"].toString() + " · " + (paired ? "Emparejado" : "Sin emparejar") + " · " + (reachable ? "Conectado" : "Sin conexión");
+        d["name"].toString() + " · " + (paired ? "Emparejado" : "Sin emparejar") + " · " + connectionState(d);
     if (d["battery"].toInt(-1) >= 0) summary += "\nBatería: " + QString::number(d["battery"].toInt()) + "%" + (d["charging"].toBool() ? " · Cargando" : "");
     m_summary->setText(d.isEmpty()?"Tu teléfono, aquí.":d["name"].toString());
-    m_deviceState->setText(d.isEmpty()?"Busca un dispositivo":(reachable?"Conectado":"Sin conexión")+QString(" · ")+(paired?"Emparejado":"Sin emparejar"));
+    m_deviceState->setText(d.isEmpty()?"Busca un dispositivo":connectionState(d)+QString(" · ")+(paired?"Emparejado":"Sin emparejar"));
     m_deviceBattery->setVisible(d["battery"].toInt(-1)>=0);
     m_deviceBattery->setText(QString::number(d["battery"].toInt())+" %"+(d["charging"].toBool()?" · Cargando":""));
     m_key->setVisible(!paired&&!d["verificationKey"].toString().isEmpty());

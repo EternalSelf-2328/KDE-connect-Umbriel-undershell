@@ -1,0 +1,5 @@
+[D-BUS Service]
+# Optional user override when replacing the official daemon with Umbriel.
+# Install as ~/.local/share/dbus-1/services/org.kde.kdeconnect.service.
+Name=org.kde.kdeconnect
+Exec=/usr/bin/false

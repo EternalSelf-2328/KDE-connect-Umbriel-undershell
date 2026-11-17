@@ -1,4 +1,4 @@
-# Compilar Umbriel Connect 0.4.1
+# Compilar Umbriel Connect 0.4.2
 
 El cliente, receptor y motor de escritorio están en C++20/Qt6. El motor se compila desde
 una revisión de KDE Connect vendorizada como submódulo; **no utiliza el programa
@@ -124,3 +124,21 @@ los alcances de las claves LAN. Nunca copiar ese archivo a Git o documentación 
 
 Después de firmar el APK completo, `python3 tests/android-full-artifacts.py` inspecciona
 el manifiesto fusionado y DEX, firma, versión y checksum del artefacto publicado.
+
+
+## Evitar la reactivación del daemon oficial
+
+Si elegiste sustituirlo completamente, respalda primero cualquier anulación de
+usuario existente y espera a que finalicen sus transferencias. Además del XDG
+autostart `Hidden=true`, la activación D-Bus puede volver a iniciarlo. Una anulación
+opcional de usuario se incluye en `data/org.kde.kdeconnect.disabled.service`:
+
+```bash
+install -Dm644 data/org.kde.kdeconnect.disabled.service "$HOME/.local/share/dbus-1/services/org.kde.kdeconnect.service"
+# Detener solo el daemon oficial identificado, sin reiniciar el bus de sesión.
+busctl --user call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus ReloadConfig
+```
+
+No se instala esa anulación automáticamente en otros equipos. No redirige confianza
+a Umbriel y no desinstala las bibliotecas. Para revertir, restaurar la anulación
+anterior o retirar solo este archivo si no existía y recargar la configuración D-Bus.

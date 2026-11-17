@@ -52,6 +52,13 @@ private slots:
         QTRY_COMPARE(QApplication::focusWidget(),static_cast<QWidget*>(list));
         QTest::keyClick(list,Qt::Key_K);QCOMPARE(list->currentRow(),1);QTest::keyClick(list,Qt::Key_I);QCOMPARE(list->currentRow(),0);
     }
+    void discoveryDoesNotClaimAnUnpairedPeerIsConnected(){
+        Window window(true);window.applyState({{"available",true},{"devices",QJsonArray{
+            QJsonObject{{"id","unknown"},{"name","Teléfono detectado"},{"paired",false},{"reachable",true}}}}});
+        auto *list=window.findChild<QListWidget*>("deviceList");QVERIFY(list);QCOMPARE(list->count(),1);
+        QVERIFY(list->item(0)->text().contains("Disponible · sin vincular"));
+        QVERIFY(!list->item(0)->text().contains("Conectado"));
+    }
     void fitsCompactWindows(){
         Window window(true);window.show();
         for(const auto size:{QSize(760,480),QSize(780,600),QSize(900,640),QSize(1100,720)}){

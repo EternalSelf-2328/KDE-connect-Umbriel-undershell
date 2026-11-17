@@ -1,4 +1,4 @@
-# Seguridad de Umbriel Connect 0.4.1 experimental
+# Seguridad de Umbriel Connect 0.4.2 experimental
 
 No hay garantía de ausencia de vulnerabilidades ni auditoría externa. Esta versión
 incorpora una revisión dirigida del código y pruebas de regresión; no certifica el
@@ -94,3 +94,12 @@ No publiques claves APK, Keystore, certificados privados, JSON de registro, toke
 URLs temporales o datos personales. Para un informe, proporciona versión, ruta
 afectada y un caso reproducible con datos ficticios. Los enlaces de contacto público
 se limitan al repositorio; no adjuntes secretos a un issue público.
+
+## Corrección de compatibilidad0.4.2
+
+El informe Galaxy de0.4.1 identificó un NoSuchFieldError de red, causado por R8 al
+usar una clase duplicada de la dependencia MMS. Se conserva la frontera del API
+Android y se verifica el bytecode release; no se debilita la clasificación LAN ni
+la autenticación para ocultar el error. [Diagnóstico](docs/UPDATE-0.4.2.md).
+Los anuncios no vinculados se muestran como disponibles, sin afirmar conexión o
+confianza; no se fusionan identidades solo por nombre o IP.

@@ -1,4 +1,4 @@
-# Funciones y verificación — 0.4.1 experimental
+# Funciones y verificación — 0.4.2 experimental
 
 Actualizado el 2026-11-17. Se reemplaza el daemon y las aplicaciones KDE Connect
 instaladas por motores derivados, compilados y aislados dentro de Umbriel Connect.
@@ -67,3 +67,6 @@ conserva la identidad anterior. El estado de la VPN no se cambia durante las pru
 [Correcciones y verificaciones 0.4.1](UPDATE-0.4.1.md). El cierre del Galaxy aún no
 se ha reproducido con un teléfono conectado: se corrigió una incompatibilidad real
 del servicio y se añadieron pruebas de regresión y un informe privado de errores.
+
+0.4.2 corrige el NoSuchFieldError reportado al vincular y valida el bytecode release.
+Los anuncios sin vínculo se muestran como disponibles. [Detalle](UPDATE-0.4.2.md).
