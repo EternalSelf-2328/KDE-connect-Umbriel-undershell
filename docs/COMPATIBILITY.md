@@ -35,7 +35,9 @@ el Galaxy.** No se promete seguridad absoluta ni paridad física completa.
 
 En la misma LAN **no hace falta Tailscale**. El canal firmado propio usa TLS31594 y
 anuncios UDP31595. El motor compatible usa su descubrimiento y conexiones privadas
-1714–1764 TCP/UDP y mDNS. No se abren puertos del router ni reglas de firewall.
+1714–1764 TCP/UDP y mDNS. El instalador no abre puertos del router ni modifica el firewall. Si este bloquea
+entradas, requiere permitir los puertos anteriores desde la LAN; la regla antigua
+1714–1764 no incluye31594/31595. [Comprobar y corregir](FIREWALL.md).
 
 El Tailscale de usuario instalado aquí funciona en **userspace**: su proxy Serve ya
 permite el canal propio de controles/archivos, pero **no transporta automáticamente

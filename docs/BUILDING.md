@@ -153,3 +153,9 @@ busctl --user call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DB
 No se instala esa anulación automáticamente en otros equipos. No redirige confianza
 a Umbriel y no desinstala las bibliotecas. Para revertir, restaurar la anulación
 anterior o retirar solo este archivo si no existía y recargar la configuración D-Bus.
+
+## Firewall local
+
+El instalador no abre puertos. Si usas UFW u otro firewall con entrada bloqueada,
+permite UDP31595/TCP31594 únicamente desde tu LAN; el permiso del motor1714–1764
+es independiente. [Diagnóstico, perfiles opcionales y reversión](FIREWALL.md).

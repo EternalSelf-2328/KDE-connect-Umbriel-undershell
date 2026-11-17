@@ -1,0 +1,9 @@
+[Umbriel Connect]
+title=Umbriel Connect local controls and files
+description=TLS connection and UDP discovery for paired Umbriel Connect devices
+ports=31594/tcp|31595/udp
+
+[Umbriel Connect Features]
+title=Umbriel Connect compatible device features
+description=Private device engine discovery and TLS payload connections
+ports=1714:1764/tcp|1714:1764/udp

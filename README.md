@@ -103,7 +103,9 @@ sin animaciones permanentes. [Diseño](docs/DESIGN.md).
 
 ## LAN, Tailscale y archivos
 
-En la misma red no necesitas Tailscale. El canal propio descubre la computadora en
+En la misma red no necesitas Tailscale. Si no aparece la computadora, revisa
+[los puertos propios en el firewall](docs/FIREWALL.md): permitir solo KDE Connect
+no cubre UDP31595/TCP31594. El canal propio descubre la computadora en
 LAN y mantiene la misma verificación TLS. Fuera de casa puedes usar el proxy privado
 Tailscale Serve ya configurado para controles y archivos. El modo **userspace** no
 transporta automáticamente todos los plugins, SFTP, ADB ni multicast del motor.
