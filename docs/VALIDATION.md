@@ -288,3 +288,25 @@ almacenado; identidad conservada. Daemon oficial sin propietario D-Bus. Sin camb
 VPN/rutas/DNS/firewall/compositor, sin mover puntero/aplicar fondos y sin capturas privadas.
 No había Galaxy conectado por ADB: huella/PIN, teclado Samsung, cámara que abre URI y
 funciones físicas se mantienen pendientes. No se afirma aprobación de Play Protect.
+
+
+## Vinculación local y escritorio —0.6.0 / 2026-11-17
+
+33pruebas Android únicas aprobadas (31de UI/conexión/URI/render +2de comparación de
+claves/TLS/nonce y rechazo de descubrimiento ajeno/público). 31casos TLS reales en
+directorios temporales: consentimiento PC requerido, código ligado a claves/TLS,
+rechazo/cancelación sin confianza y revocación de grupo conservando otro dispositivo.
+Diez suites nativas verificadas: ocho pasaron en primera ejecución; seguridad y
+diseño se corrigieron/repetieron2/2 en28.80s y Qt se repitió1/1 tras las últimas etiquetas.
+El archivo clients.json es vacío tras init: la prueba exige contenido vacío antes
+de aprobar.101checks Java y variantes mínimas también aprobados.
+
+Renders Qt sintéticos claros/oscuros1100×720 y compacto760×480, sin captura privada;
+sidebar corregida tras ver filas solapadas. Contraste texto/surface13.84/14.87,
+muted8.80/6.57 y acción7.22/6.24, con script canónico y paletas Qt.
+APK versionCode10/min30/target37, 11531919bytes, SHA256
+`19d2823f4a1a4802fe9c562d22c65c7af07d92a9d035a493745b385da1bdfb1a`, mismo firmante, no debuggable, manifiesto/DEX/bytecode R8
+y checksum verificados. Mapas conservados privadamente; no se incluye ningún registro
+real ni clave de usuario. Escritorio instalado, servicios activos/habilitados,
+TLS1.3/pin almacenado y respuesta UDP nueva comprobados; cero sesiones al reiniciar.
+No se modificó red/VPN/DNS/firewall/compositor. Samsung físico pendiente.

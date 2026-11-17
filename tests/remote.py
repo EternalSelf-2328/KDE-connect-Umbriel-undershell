@@ -188,6 +188,57 @@ class RemoteTests(unittest.TestCase):
         (self.directory/"clients.json").write_text(json.dumps(known));time.sleep(.3)
         self.assertEqual(local.receive()["type"],"error")
 
+    def lan_receiver(self):
+        import ipaddress
+        hosts=[a["local"] for iface in json.loads(subprocess.check_output(["ip","-j","-4","addr"],text=True)) if Path("/sys/class/net",iface["ifname"],"device").exists() for a in iface.get("addr_info",[]) if ipaddress.ip_address(a["local"]).is_private and not ipaddress.ip_address(a["local"]).is_loopback]
+        if not hosts:self.skipTest("Physical LAN needed for isolated local pairing")
+        self.server.terminate();self.server.communicate(timeout=5)
+        self.server=subprocess.Popen([BINARY,"serve",hosts[0],str(self.port)],env=self.env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        self.assertTrue(select.select([self.server.stdout],[],[],4)[0]);self.assertIn("Canal TLS activo",self.server.stdout.readline());return hosts[0]
+
+    def pairing_request(self,host,alter=False):
+        peer=self.peer(host=host);remote=ec.generate_private_key(ec.SECP256R1())
+        public=remote.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)
+        peer.send({"type":"pair-hello","lanKey":encode(peer.public),"remoteKey":encode(public),"name":"Synthetic phone"})
+        challenge=peer.receive();self.assertEqual(challenge["type"],"pair-challenge")
+        payload=("umbriel-lan-pair-v1\n"+("f"*64 if alter else self.pin)+"\n"+encode(peer.public)+"\n"+encode(public)+"\n"+challenge["nonce"]).encode()
+        peer.send({"type":"pair-proof","signature":encode(peer.key.sign(payload,ec.ECDSA(hashes.SHA256())))})
+        return peer,remote,payload,peer.receive()
+
+    def test_pairing_refuses_loopback_or_proxy_and_unknown_approval(self):
+        peer=self.peer();peer.send({"type":"pair-hello"});self.assertEqual(peer.receive()["type"],"error")
+        with self.local({"action":"pair-accept","id":"a"*64}) as wire:self.assertFalse(json.loads(wire.recv(8192))["ok"])
+        self.assertEqual(json.loads((self.directory/"clients.json").read_text()),{})
+
+    def test_pairing_requires_pc_approval_and_binds_code_to_both_keys_and_tls(self):
+        host=self.lan_receiver();peer,remote,payload,answer=self.pairing_request(host)
+        self.assertEqual(answer["type"],"pair-wait")
+        self.assertEqual(json.loads((self.directory/"clients.json").read_text()),{})
+        with self.local({"action":"pairings"}) as wire:pending=json.loads(wire.recv(8192))["value"]
+        self.assertEqual(len(pending),1);expected=hashlib.sha256(payload).hexdigest()[:12].upper()
+        self.assertEqual(pending[0]["code"]," · ".join(expected[i:i+4] for i in range(0,12,4)))
+        with self.local({"action":"pair-accept","id":pending[0]["id"]}) as wire:self.assertTrue(json.loads(wire.recv(8192))["ok"])
+        self.assertEqual(peer.receive()["type"],"paired")
+        local=self.peer(key=peer.key,host=host);authorized,_,_=self.v2(local,"lan-auto",peer.key,remote)
+        self.assertEqual(authorized["type"],"authorized");self.assertTrue(authorized["localAuto"])
+        known=json.loads((self.directory/"clients.json").read_text());self.assertEqual(len(known),2)
+
+    def test_pairing_rejects_changed_tls_proof_and_cancel_does_not_create_trust(self):
+        host=self.lan_receiver();peer,remote,payload,answer=self.pairing_request(host,True);self.assertEqual(answer["type"],"error")
+        peer,remote,payload,answer=self.pairing_request(host);self.assertEqual(answer["type"],"pair-wait")
+        with self.local({"action":"pairings"}) as wire:pending=json.loads(wire.recv(8192))["value"]
+        with self.local({"action":"pair-reject","id":pending[0]["id"]}) as wire:self.assertTrue(json.loads(wire.recv(8192))["ok"])
+        self.assertEqual(peer.receive()["type"],"error");self.assertEqual(json.loads((self.directory/"clients.json").read_text()),{})
+
+    def test_forget_revokes_an_entire_key_group_but_preserves_another_device(self):
+        owner=self.peer();answer,lan,remote=self.v2(owner,token=self.token);self.assertEqual(answer["type"],"authorized")
+        other=self.peer();self.cli("pair","127.0.0.1",str(self.port));token=json.loads((self.directory/"pairing.json").read_text())["token"];self.assertEqual(other.authenticate(token)["type"],"authorized")
+        remote_id=hashlib.sha256(remote.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)).hexdigest()
+        with self.local({"action":"forget","id":"remote:"+remote_id}) as wire:self.assertTrue(json.loads(wire.recv(8192))["ok"])
+        remaining=json.loads((self.directory/"clients.json").read_text());self.assertEqual(set(remaining),{other.id})
+        self.assertIsNone(owner.receive())
+        replay=self.peer(key=remote);self.assertEqual(self.v2(replay,lan=lan,remote=remote)[0]["type"],"error")
+
     def test_shutdown_is_only_available_on_the_private_local_socket(self):
         peer=self.peer();self.assertEqual(peer.authenticate(self.token)["type"],"authorized")
         peer.send({"type":"shutdown"},True);self.assertFalse(peer.receive()["ok"])

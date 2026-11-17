@@ -20,10 +20,10 @@ results={}
 for variant in ["desktop","phone-control"]:
     apk=root/"build/android"/variant/"UmbrielRemote.apk"
     manifest=run([tools/"aapt2","dump","xmltree",apk,"--file","AndroidManifest.xml"])
-    expected={"INTERNET","ACCESS_NETWORK_STATE","RECEIVE_BOOT_COMPLETED","USE_BIOMETRIC","POST_NOTIFICATIONS","FOREGROUND_SERVICE","FOREGROUND_SERVICE_CONNECTED_DEVICE","CHANGE_NETWORK_STATE"}
+    expected={"INTERNET","ACCESS_LOCAL_NETWORK","ACCESS_NETWORK_STATE","RECEIVE_BOOT_COMPLETED","USE_BIOMETRIC","POST_NOTIFICATIONS","FOREGROUND_SERVICE","FOREGROUND_SERVICE_CONNECTED_DEVICE","CHANGE_NETWORK_STATE"}
     permissions=set(re.findall(r'android\.permission\.([A-Z_]+)',manifest))
     assert permissions==expected|({"BIND_ACCESSIBILITY_SERVICE"} if variant=="phone-control" else set()),permissions
-    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=9']:
+    for role in ['.RemoteService','android.permission.USE_BIOMETRIC','org.eternalself.umbrielremote','versionCode(0x0101021b)=10']:
         assert role in manifest,(variant,role)
     full=variant=="phone-control"
     assert ('.PhoneAccessibility' in manifest)==full

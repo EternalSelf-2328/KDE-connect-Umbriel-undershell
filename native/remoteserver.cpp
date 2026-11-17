@@ -8,6 +8,8 @@
 #include <QUuid>
 #include <QDateTime>
 #include <QCoreApplication>
+#include <QSysInfo>
+#include <QRegularExpression>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonDocument>
@@ -64,6 +66,9 @@ public:
     QString keyId,deviceName,groupId,authMode;
     QByteArray lanKey,remoteKey;
     bool localAuto=false;
+    QString pairingId;
+    QByteArray pairingMessage;
+    bool pairingWaiting=false;
     QString identity() const { return groupId.isEmpty() ? keyId : groupId; }
     bool directLan() const { return RemoteServer::directLanPeer(wire->localAddress(), wire->peerAddress()); }
     FileTransfer upload;
@@ -131,6 +136,22 @@ public:
     }
     void handle(const QJsonObject &message) {
         const auto type = message["type"].toString();
+        if (!hello && type=="pair-hello") {
+            if(!directLan()){fail("La vinculación por código requiere una LAN directa");return;}
+            if(!server->m_pairWindow.isValid()||server->m_pairWindow.elapsed()>60000){server->m_pairWindow.start();server->m_pairStarts=0;}
+            if(++server->m_pairStarts>6||server->pendingPairings().size()>=3){fail("Demasiadas solicitudes. Espera un minuto");return;}
+            lanKey=base64(message["lanKey"],256);remoteKey=base64(message["remoteKey"],256);
+            if(!RemoteAuth::validKey(lanKey)||!RemoteAuth::validKey(remoteKey)||lanKey==remoteKey){fail("Identidades inválidas");return;}
+            const auto nonce=RemoteAuth::random();if(nonce.size()!=32){fail("No se pudo generar el código");return;}
+            hello=true;pairingId=RemoteAuth::digest(nonce);pairingMessage=RemoteAuth::pairingProof(server->pin(),lanKey,remoteKey,nonce);
+            deviceName=message["name"].toString().left(80);if(!FileTransfer::validName(deviceName))deviceName="Teléfono Umbriel";
+            challengeTime.start();expiry.start(120000);
+            send({{"type","pair-challenge"},{"nonce",QString::fromLatin1(nonce.toBase64())}});return;
+        }
+        if(!pairingId.isEmpty()) {
+            if(type!="pair-proof"||pairingWaiting||challengeTime.elapsed()>120000||!directLan()||!RemoteAuth::verify(lanKey,pairingMessage,base64(message["signature"],80))){fail("Prueba de vínculo inválida");return;}
+            pairingWaiting=true;send({{"type","pair-wait"}});server->notifyClients();return;
+        }
         if (!hello) {
             if (type != "hello") { fail("Falta identificación"); return; }
             hello = true;
@@ -367,7 +388,7 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
                     auto query=QJsonDocument::fromJson(QByteArray(data,n)).object();
                     if(query["type"]!="umbriel-discover"||query["nonce"].toString().size()!=32)continue;
                     refreshLan();QJsonArray hosts;for(auto *listener:m_lan)hosts.append(listener->serverAddress().toString());
-                    auto answer=QJsonDocument(QJsonObject{{"type","umbriel-discovery"},{"nonce",query["nonce"]},{"pin",m_pin},{"hosts",hosts},{"port",serverPort()}}).toJson(QJsonDocument::Compact);
+                    auto answer=QJsonDocument(QJsonObject{{"type","umbriel-discovery"},{"nonce",query["nonce"]},{"pin",m_pin},{"name",QSysInfo::machineHostName().left(80)},{"pairing",true},{"hosts",hosts},{"port",serverPort()}}).toJson(QJsonDocument::Compact);
                     m_discovery.writeDatagram(answer,sender,port);
                 }
             });
@@ -418,6 +439,10 @@ bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *err
                 if(action=="network"){
                     refreshLan();QJsonArray hosts;for(auto *listener:m_lan)hosts.append(listener->serverAddress().toString());
                     socket->write(QJsonDocument(QJsonObject{{"ok",true},{"value",QJsonObject{{"hosts",hosts},{"port",serverPort()},{"discovery",m_discovery.state()==QAbstractSocket::BoundState}}}}).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();return;
+                }
+                if(action=="pairings"||action=="pair-accept"||action=="pair-reject"||action=="forget"){
+                    Reply reply=action=="pairings"?Reply{true,{},pendingPairings().toVariantList()}:action=="forget"?forgetDevice(request["id"].toString()):decidePairing(request["id"].toString(),action=="pair-accept");
+                    socket->write(QJsonDocument(QJsonObject{{"ok",reply.ok},{"error",reply.error},{"value",QJsonValue::fromVariant(reply.value)}}).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();return;
                 }
                 if(action=="share"){
                     deadline->start(RemotePeer::TransferMillis+15000);
@@ -504,4 +529,36 @@ void RemoteServer::refreshLan(){
     for(auto ip:addresses){bool present=false;for(auto *listener:m_lan)if(listener->serverAddress()==ip)present=true;if(present)continue;
         auto *listener=new LanListener(this);listener->accept=[this](qintptr fd){incomingConnection(fd);};if(listener->listen(ip,serverPort()))m_lan.append(listener);else listener->deleteLater();
     }
+}
+
+QJsonArray RemoteServer::pendingPairings() const {
+    QJsonArray list;for(auto *peer:m_peers)if(peer->pairingWaiting&&peer->wire->state()==QAbstractSocket::ConnectedState&&peer->directLan()&&peer->challengeTime.elapsed()<120000)
+        list.append(QJsonObject{{"id",peer->pairingId},{"name",peer->deviceName},{"deviceId",RemoteAuth::digest(peer->remoteKey)},{"code",RemoteAuth::pairingCode(peer->pairingMessage)}});
+    return list;
+}
+Reply RemoteServer::decidePairing(const QString &id,bool accept) {
+    RemotePeer *chosen=nullptr;for(auto *peer:m_peers)if(peer->pairingWaiting&&peer->pairingId==id)chosen=peer;
+    if(!chosen||!chosen->directLan()||chosen->wire->state()!=QAbstractSocket::ConnectedState||chosen->challengeTime.elapsed()>=120000)return {false,"La solicitud caducó o el teléfono se desconectó",{}};
+    if(!accept){chosen->fail("Vínculo rechazado en la computadora");return {true,{},{}};}
+    QLockFile lock(m_directory+"/enrollment.lock");if(!lock.tryLock(0))return {false,"Hay otro registro en curso",{}};
+    QString error;auto known=RemoteAuth::readJson(m_directory+"/clients.json",&error);if(!error.isEmpty())return {false,error,{}};
+    const auto remote=RemoteAuth::digest(chosen->remoteKey),lan=RemoteAuth::digest(chosen->lanKey);
+    if(known.contains(remote)||known.contains(lan))return {false,"Estas claves ya están vinculadas; utiliza su conexión existente",{}};
+    const auto created=QDateTime::currentSecsSinceEpoch();
+    known[remote]=QJsonObject{{"key",QString::fromLatin1(chosen->remoteKey.toBase64())},{"created",created},{"name",chosen->deviceName},{"scope","interactive"}};
+    known[lan]=QJsonObject{{"key",QString::fromLatin1(chosen->lanKey.toBase64())},{"created",created},{"name",chosen->deviceName},{"scope","lan"},{"parent",remote}};
+    if(!RemoteAuth::writeJson(m_directory+"/clients.json",known,&error))return {false,error,{}};
+    chosen->pairingWaiting=false;chosen->send({{"type","paired"}});chosen->wire->disconnectFromHost();notifyClients();return {true,{},{}};
+}
+Reply RemoteServer::forgetDevice(QString id) {
+    if(id.startsWith("remote:"))id.remove(0,7);
+    if(!QRegularExpression("^[a-f0-9]{64}$").match(id).hasMatch())return {false,"Identidad inválida",{}};
+    QLockFile lock(m_directory+"/enrollment.lock");if(!lock.tryLock(0))return {false,"Registro ocupado",{}};
+    QString error;auto known=RemoteAuth::readJson(m_directory+"/clients.json",&error);if(!error.isEmpty())return {false,error,{}};
+    if(!known.contains(id)||known[id].toObject()["scope"]=="lan")return {false,"No existe ese vínculo principal",{}};
+    QStringList remove{id};for(auto it=known.begin();it!=known.end();++it){const auto entry=it.value().toObject();if(entry["parent"]==id||entry["successor"]==id)remove.append(it.key());}
+    for(const auto &key:remove)known.remove(key);
+    if(!RemoteAuth::writeJson(m_directory+"/clients.json",known,&error))return {false,error,{}};
+    const auto peers=m_peers;for(auto *peer:peers)if(remove.contains(peer->identity())||remove.contains(peer->keyId))peer->wire->abort();
+    notifyClients();return {true,{},"Vínculo retirado"};
 }

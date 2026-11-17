@@ -21,7 +21,7 @@ void printJson(const QJsonObject &value) {
     QTextStream(stdout) << QJsonDocument(value).toJson(QJsonDocument::Compact) << Qt::endl;
 }
 void help() {
-    QTextStream(stdout) << "Umbriel Connect 0.4.0 — C++ / Qt6\n"
+    QTextStream(stdout) << "Umbriel Connect 0.6.0 — C++ / Qt6\n"
         "  umbriel-connect                         Abrir aplicación\n"
         "  umbriel-connect --send ARCHIVO...       Enviar con Umbriel Remote, sin KDE Connect\n"
         "  umbriel-connect list                    Estado JSON\n"
@@ -64,7 +64,9 @@ int main(int argc, char **argv) {
                                                         "org.eternalself.UmbrielConnect", "Activate");
             return bus.call(message, QDBus::Block, 1500).type() == QDBusMessage::ErrorMessage ? 1 : 0;
         }
-        Window window(!args.isEmpty()); window.show();
+        Window window(!args.isEmpty());
+        if(!args.isEmpty()) {const auto size=qEnvironmentVariable("UMBRIEL_CONNECT_PREVIEW_SIZE").split('x');if(size.size()==2){bool okW=false,okH=false;int w=size[0].toInt(&okW),h=size[1].toInt(&okH);if(okW&&okH&&w>=760&&h>=480&&w<=4096&&h<=4096)window.resize(w,h);}}
+        window.show();
         if (args.isEmpty() && bus.isConnected()) bus.registerObject("/org/eternalself/UmbrielConnect", &window, QDBusConnection::ExportAllSlots);
         if (!args.isEmpty()) QTimer::singleShot(100, &window, [&window, &app, args] {
             app->exit(window.grab().save(args[1]) ? 0 : 1);
@@ -73,7 +75,7 @@ int main(int argc, char **argv) {
     }
     const auto command = args.value(0);
     if (command == "--help" || command == "-h") { help(); return 0; }
-    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.5.0\n"; return 0; }
+    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.6.0\n"; return 0; }
     EngineClient client;
     Integration integration;
     LocalRemote remote;

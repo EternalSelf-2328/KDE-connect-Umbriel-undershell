@@ -1,4 +1,4 @@
-# Compilar Umbriel Connect 0.5.0
+# Compilar Umbriel Connect 0.6.0
 
 El cliente, receptor y motor de escritorio están en C++20/Qt6. El motor se compila desde
 una revisión de KDE Connect vendorizada como submódulo; **no utiliza el programa
@@ -68,7 +68,7 @@ python3 scripts/android-full/sdk.py
 scripts/android-full/build.sh
 # Pruebas Android con recursos (Robolectric):
 scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.IncomingShareTest --tests org.eternalself.umbrielremote.ConnectionRegressionTest
-bash scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.HomeNavigationTest --tests org.eternalself.umbrielremote.HomeRenderTest --tests org.eternalself.umbrielremote.RegistrationUiTest --tests org.eternalself.umbrielremote.AuthenticatedUiTest
+bash scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.HomeNavigationTest --tests org.eternalself.umbrielremote.HomeRenderTest --tests org.eternalself.umbrielremote.RegistrationUiTest --tests org.eternalself.umbrielremote.AuthenticatedUiTest --tests org.eternalself.umbrielremote.LanPairingTest
 bash tests/android-guard.sh
 ```
 

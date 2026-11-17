@@ -4,7 +4,7 @@
 
 ## Actualizar
 
-Instala [UmbrielConnect-0.5.0.apk](../downloads/UmbrielConnect-0.5.0.apk) sobre la
+Instala [la actualización vigente](UPDATE-0.6.0.md) sobre la
 versión actual. Conserva vínculos, preferencias y claves; no requiere desinstalar.
 Cierra y vuelve a abrir la ventana de escritorio después de actualizar sus binarios.
 La prueba física del APK en el Galaxy A24 sigue pendiente.

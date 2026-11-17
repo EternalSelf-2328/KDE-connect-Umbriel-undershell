@@ -25,6 +25,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QTabWidget>
+#include <QTabBar>
 #include <QTemporaryDir>
 #include <QtTest>
 #include <cmath>
@@ -58,6 +59,12 @@ private slots:
         }
         qunsetenv("UMBRIEL_CONNECT_THEME");
     }
+    void sidebarIsPersistentAndForgetIsAvailableForDisconnectedTrust(){
+        Window window(true);window.show();auto *nav=window.findChild<QListWidget*>("navigation");auto *tabs=window.findChild<QTabWidget*>("mainTabs");QVERIFY(nav&&tabs);QCOMPARE(nav->count(),5);QVERIFY(tabs->tabBar()->isHidden());
+        nav->setCurrentRow(4);QCOMPARE(tabs->currentIndex(),4);nav->setCurrentRow(0);
+        window.applyState({{"available",true},{"devices",QJsonArray{QJsonObject{{"id","remote:old"},{"name","Anterior"},{"paired",true},{"reachable",false},{"transport","umbriel"}}}}});
+        auto *forget=window.findChild<QPushButton*>("forgetDevice");QVERIFY(forget&&!forget->isHidden());
+    }
     void typingPreservesNavigationLetters(){
         Window window(true);window.show();auto *field=window.findChild<QLineEdit*>("shareUrl");QVERIFY(field);
         field->setFocus();field->clear();QTest::keyClicks(field,"ijklq");QCOMPARE(field->text(),"ijklq");QVERIFY(window.isVisible());
@@ -86,7 +93,7 @@ private slots:
                 tabs->setCurrentIndex(tab);QTest::qWait(20);
                 auto areas=tabs->currentWidget()->findChildren<QScrollArea*>();
                 if(auto *area=qobject_cast<QScrollArea*>(tabs->currentWidget()))areas.prepend(area);
-                for(auto *area:areas)QCOMPARE(area->horizontalScrollBar()->maximum(),0);
+                for(auto *area:areas){if(area->horizontalScrollBar()->maximum())qInfo()<<"Overflow"<<size<<tab<<area->horizontalScrollBar()->maximum();QCOMPARE(area->horizontalScrollBar()->maximum(),0);}
             }
         }
     }

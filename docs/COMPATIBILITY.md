@@ -1,11 +1,11 @@
-# Funciones y verificación — 0.5.0 experimental
+# Funciones y verificación — 0.6.0 experimental
 
 Actualizado el 2026-11-17. Se reemplaza el daemon y las aplicaciones KDE Connect
 instaladas por motores derivados, compilados y aislados dentro de Umbriel Connect.
 **Compartir su código/protocolo no significa haber validado cada función en Umbriel o
 el Galaxy.** No se promete seguridad absoluta ni paridad física completa.
 
-| Función | Implementación 0.5.0 | Límite / verificación pendiente |
+| Función | Implementación 0.6.0 | Límite / verificación pendiente |
 |---|---|---|
 | Descubrimiento LAN/mDNS/Bluetooth, emparejamiento y certificados | Motor privado C++ y app Android completa | Nueva confianza, no importa claves KDE; router/Bluetooth físicos pendientes |
 | Batería y señal móvil | Plugins incluidos, ventana de funciones | Android real pendiente |
@@ -81,3 +81,12 @@ plugins siguen derivando del motor; no todas se han rediseñado. El registro ini
 admite QR/archivo privado y confirmación; no fusiona las dos identidades de protocolo.
 31 pruebas Android y10 suites C++ aprobadas; renders nativos sintéticos en claro/
 oscuro,320/412/840 dp y texto 130%. Samsung físico pendiente. [Actualización](UPDATE-0.5.0.md).
+
+
+## Conexión y escritorio0.6.0
+
+Primera vinculación LAN por descubrimiento y comparación de código, sin importarJSON;
+requiere confirmación una vez en la PC y prueba de posesión de claves. Después conserva
+la LAN automática y autorización remota. Olvidar revoca el grupo exacto, no otros
+dispositivos. Anuncios sin vínculo pueden ocultarse y restaurarse. Nuevo menú lateral
+y configurador de funciones propio Qt. [Uso y límites](UPDATE-0.6.0.md).

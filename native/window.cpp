@@ -3,6 +3,9 @@
 #include "pairingdialog.h"
 #include "androidpanel.h"
 #include <QShortcut>
+#include <QTabBar>
+#include <QSettings>
+#include <QCheckBox>
 #include <QDialog>
 #include <QKeyEvent>
 #include <QPointer>
@@ -44,6 +47,13 @@ QString connectionState(const QJsonObject &device) {
     if (!device["paired"].toBool()) return device["reachable"].toBool() ? "Disponible · sin vincular" : "Sin vincular · no disponible";
     return device["reachable"].toBool() ? "Conectado" : "Sin conexión";
 }
+class DeviceChoices:public QListWidget {
+protected:
+    void keyPressEvent(QKeyEvent *event) override {
+        if(event->modifiers()==Qt::NoModifier&&(event->key()==Qt::Key_Up||event->key()==Qt::Key_Down)){setCurrentRow(qBound(0,currentRow()+(event->key()==Qt::Key_Down?1:-1),count()-1));return;}
+        QListWidget::keyPressEvent(event);
+    }
+};
 class FunctionSearchInput:public QLineEdit {
 public:
     QListWidget *results=nullptr;
@@ -71,11 +81,16 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     resize(std::min(1040, int(available.width()*.88)),std::min(760,int(available.height()*.91)));
     setMinimumSize(760,480);
     auto *central = new QWidget;
-    auto *layout = new QVBoxLayout(central);
-    layout->setContentsMargins(24, 20, 24, 12);
+    auto *shell=new QHBoxLayout(central);shell->setContentsMargins(0,0,0,0);shell->setSpacing(0);
+    auto *rail=new QFrame;rail->setObjectName("sidebar");rail->setFixedWidth(174);auto *railLayout=new QVBoxLayout(rail);railLayout->setContentsMargins(12,24,12,16);railLayout->setSpacing(20);
+    auto *brand=plainLabel("Umbriel\nConnect");brand->setProperty("role","title");brand->setContentsMargins(12,0,0,0);railLayout->addWidget(brand);
+    auto *navigation=new QListWidget;navigation->setObjectName("navigation");navigation->setIconSize(QSize(20,20));navigation->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);railLayout->addWidget(navigation,1);
+    auto *localHint=plainLabel("Tu escritorio,\ncontigo.");localHint->setProperty("role","muted");localHint->setContentsMargins(12,0,0,0);railLayout->addWidget(localHint);shell->addWidget(rail);
+    auto *body=new QWidget;auto *layout = new QVBoxLayout(body);shell->addWidget(body,1);
+    layout->setContentsMargins(20, 20, 20, 12);
     layout->setSpacing(14);
     auto *header = new QHBoxLayout;
-    auto *title = plainLabel("Umbriel Connect");
+    auto *title = plainLabel("Inicio");
     title->setProperty("role","title");
     header->addWidget(title); header->addStretch();
     auto *search = button("Buscar función",header);search->setProperty("kind","ghost");search->setToolTip("Ctrl+K · buscar una función. F1 · ayuda de teclado");
@@ -83,20 +98,21 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     discover->setIcon(Design::icon("phone"));
     discover->setProperty("glyph","phone");
     layout->addLayout(header);
-    auto *subtitle=plainLabel("Tus dispositivos, en un mismo lugar.");subtitle->setProperty("role","muted");layout->addWidget(subtitle);
+    auto *subtitle=plainLabel("Tu teléfono y tus controles, al alcance.");subtitle->setProperty("role","muted");layout->addWidget(subtitle);
     auto *tabs = new QTabWidget;tabs->setObjectName("mainTabs");
-    layout->addWidget(tabs);
+    layout->addWidget(tabs,1);tabs->tabBar()->hide();
     auto *phone = new QWidget;
-    auto *phoneLayout = new QHBoxLayout(phone);
+    auto *phoneLayout = new QVBoxLayout(phone);
     phoneLayout->setContentsMargins(0,0,0,0);phoneLayout->setSpacing(20);
-    m_devices = new QListWidget;m_devices->setObjectName("deviceList");
-    m_devices->setMinimumWidth(170); m_devices->setMaximumWidth(240);
-    m_devices->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);m_devices->setTextElideMode(Qt::ElideRight);
+    m_devices = new DeviceChoices;m_devices->setObjectName("deviceList");
+    m_devices->setFlow(QListView::LeftToRight);m_devices->setWrapping(false);m_devices->setMovement(QListView::Static);m_devices->setGridSize(QSize(220,76));m_devices->setMaximumHeight(118);m_devices->setMinimumHeight(118);m_devices->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_devices->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);m_devices->setTextElideMode(Qt::ElideRight);
     m_devices->setProperty("glyph","phone");
-    phoneLayout->addWidget(m_devices, 1);
+    phoneLayout->addWidget(m_devices);
+    m_pending=new QWidget;m_pending->setObjectName("pairingRequests");auto *pendingLayout=new QVBoxLayout(m_pending);pendingLayout->setContentsMargins(0,0,0,0);m_pending->hide();
     auto *detail = new QWidget;
     auto *details = new QVBoxLayout(detail);
-    details->setContentsMargins(0,0,0,0);details->setSpacing(12);
+    details->setContentsMargins(0,0,0,0);details->setSpacing(12);details->addWidget(m_pending);
     auto *hero=new QFrame;hero->setObjectName("card");auto *heroLayout=new QHBoxLayout(hero);heroLayout->setContentsMargins(20,16,20,16);heroLayout->setSpacing(20);
     auto *deviceIcon=plainLabel("");deviceIcon->setProperty("role","logo");deviceIcon->setPixmap(Design::icon("phone").pixmap(44,44));deviceIcon->setAlignment(Qt::AlignCenter);deviceIcon->setFixedSize(64,64);heroLayout->addWidget(deviceIcon);
     deviceIcon->setProperty("glyph","phone");deviceIcon->setProperty("glyphSize",44);
@@ -115,12 +131,15 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     details->addWidget(m_key);
     auto *pairRow = new QHBoxLayout;
     m_pair = button("Emparejar", pairRow); m_accept = button("Aceptar solicitud", pairRow);
-    m_unpair = button("Desvincular", pairRow); details->addLayout(pairRow);
+    m_unpair = button("Desvincular", pairRow);
+    m_features=button("Funciones del teléfono…",pairRow);m_features->setObjectName("deviceFeatures");connect(m_features,&QPushButton::clicked,this,&Window::featureSettings);
+    m_forget=button("Olvidar dispositivo…",pairRow);m_forget->setObjectName("forgetDevice");m_forget->setProperty("kind","danger");connect(m_forget,&QPushButton::clicked,this,&Window::forgetSelected);
+    details->addLayout(pairRow);
     pairRow->addStretch();
     m_unpair->setProperty("kind","danger");m_pair->setProperty("kind","primary");
     auto *actionRow = new QHBoxLayout;
-    m_ring = button("Encontrar\nteléfono", actionRow); m_ping = button("Enviar\nun aviso", actionRow);
-    m_files = button("Explorar\narchivos", actionRow); details->addLayout(actionRow);
+    m_ring = button("Encontrar teléfono", actionRow); m_ping = button("Enviar aviso", actionRow);
+    m_files = button("Explorar archivos", actionRow); details->addLayout(actionRow);
     for(auto *b:{m_ring,m_ping,m_files}){b->setProperty("kind","tile");b->setIconSize(QSize(24,24));}
     m_ring->setIcon(Design::icon("ring"));m_ping->setIcon(Design::icon("send"));m_files->setIcon(Design::icon("folder"));
     m_ring->setProperty("glyph","ring");m_ping->setProperty("glyph","send");m_files->setProperty("glyph","folder");
@@ -142,7 +161,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     m_legacyCommandsHint=plainLabel("Disponibles en las funciones ampliadas del teléfono.");m_legacyCommandsHint->setProperty("role","muted");details->addWidget(m_legacyCommandsHint);
     details->addStretch();
     auto *detailScroll=new QScrollArea;detailScroll->setWidgetResizable(true);detailScroll->setWidget(detail);phoneLayout->addWidget(detailScroll,3);
-    tabs->addTab(phone, "Dispositivos");
+    tabs->addTab(phone, "Inicio");
     auto *desktopScroll = new QScrollArea;
     desktopScroll->setWidgetResizable(true);
     auto *desktop = new QWidget;
@@ -167,10 +186,10 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     auto *secureTitle=plainLabel("El acceso, en tus manos.");secureTitle->setProperty("role","hero");secureLayout->addWidget(secureTitle);
     secureLayout->addWidget(plainLabel("Vincula una vez. En la red local se conecta automáticamente; fuera de ella autoriza desde tu teléfono."));
     auto *secureInfo=plainLabel("1 · Vincular una vez     2 · LAN automática     3 · Fuera de LAN: huella o bloqueo del teléfono");secureInfo->setProperty("role","muted");secureLayout->addWidget(secureInfo);moreLayout->addWidget(secureHero);
-    auto *bindPhone=button("Vincular teléfono…",moreLayout);bindPhone->setObjectName("bindPhone");bindPhone->setProperty("kind","primary");bindPhone->setEnabled(!preview);
+    auto *bindPhone=button("Vincular con QR…",moreLayout);bindPhone->setObjectName("bindPhone");bindPhone->setProperty("kind","primary");bindPhone->setEnabled(!preview);
     connect(bindPhone,&QPushButton::clicked,this,[this]{m_remote.call({{"action","network"}},[this](Reply reply){if(!reply.ok){result(reply);return;}const auto info=reply.value.toMap();QStringList hosts;for(const auto &host:info["hosts"].toList())hosts.append(host.toString());PairingUi::open(this,hosts,quint16(info["port"].toUInt()),Integration::executable("umbriel-connect-remote"));});});
     auto *lanInfo=button("Ver conexión local…",moreLayout);connect(lanInfo,&QPushButton::clicked,this,[this]{m_remote.call({{"action","network"}},[this](Reply r){if(!r.ok){result(r);return;}auto info=r.value.toMap();QStringList addresses;for(auto host:info["hosts"].toList())addresses.append(host.toString()+":"+info["port"].toString());QMessageBox::information(this,"Red local",addresses.isEmpty()?"No hay una interfaz IPv4 privada disponible. Conecta la computadora a tu red y vuelve a iniciar el receptor.":"No necesitas Tailscale en la misma red. El teléfono detecta esta computadora por su identidad registrada.\n\n"+addresses.join("\n")+"\n\nSi tu red bloquea la detección, introduce esta IP en Ajustes → Mi computadora → Dirección local del teléfono.");});});
-    auto *securePhone = button("Controlar teléfono…", moreLayout);
+    auto *securePhone = button("Controlar teléfono desde Umbriel…", qobject_cast<QVBoxLayout*>(androidScroll->widget()->layout()));
     securePhone->setProperty("kind","primary");securePhone->setIcon(Design::icon("shield",Design::palette().onAccent));
     securePhone->setProperty("glyph","shield");securePhone->setProperty("glyphPrimary",true);
     securePhone->setEnabled(!preview && !Integration::executable("umbriel-connect-remote").isEmpty());
@@ -178,17 +197,16 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
         if (!QProcess::startDetached(Integration::executable("umbriel-connect-remote"), {"--phone"}))
             result({false, "No se pudo abrir el control del teléfono", {}});
     });
-    moreLayout->addWidget(plainLabel("El canal biométrico es experimental y requiere Umbriel Remote en Android, registro previo y una sesión aprobada. Las funciones ampliadas tienen permisos independientes en el teléfono."));
-    for (const auto &entry : QList<QPair<QString, QString>>{{"umbriel-connect-features", "Funciones y permisos del teléfono"}, {"umbriel-connect-messages", "Conversaciones SMS y MMS"}}) {
-        auto *b = button(entry.second, moreLayout);
-        b->setEnabled(!Integration::executable(entry.first).isEmpty() && !preview);
-        connect(b, &QPushButton::clicked, this, [this, entry] {
-            if (!QProcess::startDetached(Integration::executable(entry.first), {})) result({false, "No se pudo abrir la aplicación", {}});
-        });
-    }
-    moreLayout->addWidget(plainLabel("Pantalla y cámara están en la pestaña Teléfono. Multimedia, notificaciones, teclado, presentaciones y monitor virtual se administran en las funciones ampliadas del motor integrado."));
+    moreLayout->addWidget(plainLabel("En LAN, tu teléfono vinculado se conecta automáticamente. Fuera de ella, autoriza con la huella o el bloqueo de Android. Puedes pausar o retirar el vínculo en cualquier momento."));
+    auto *deviceSettings=button("Administrar dispositivos",moreLayout);connect(deviceSettings,&QPushButton::clicked,tabs,[tabs,this]{tabs->setCurrentIndex(0);m_devices->setFocus();});
+    auto *restore=button("Mostrar dispositivos ocultos",moreLayout);connect(restore,&QPushButton::clicked,this,[this]{QSettings settings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)+"/umbriel-connect/ui.ini",QSettings::IniFormat);settings.remove("hiddenDevices");refresh();});
+    moreLayout->addWidget(plainLabel("Los controles diarios están en Inicio y Teléfono. Aquí administras la conexión, los vínculos y los permisos. El QR es una alternativa; la vinculación local también puede iniciarse desde la computadora detectada en Android."));
     moreLayout->addStretch();
-    auto *moreScroll=new QScrollArea;moreScroll->setWidgetResizable(true);moreScroll->setWidget(more);tabs->addTab(moreScroll, "Acceso protegido");
+    auto *moreScroll=new QScrollArea;moreScroll->setWidgetResizable(true);moreScroll->setWidget(more);tabs->addTab(moreScroll, "Ajustes");
+    const QStringList names{"Inicio","Mi escritorio","Fondos","Teléfono","Ajustes"},glyphs{"home","desktop","image","phone","settings"};
+    for(int i=0;i<names.size();++i){auto *item=new QListWidgetItem(Design::icon(glyphs[i]),names[i],navigation);item->setToolTip(names[i]);item->setSizeHint(QSize(140,qMax(48,fontMetrics().height()+24)));}
+    navigation->setCurrentRow(0);connect(navigation,&QListWidget::currentRowChanged,tabs,&QTabWidget::setCurrentIndex);
+    connect(tabs,&QTabWidget::currentChanged,this,[navigation,title,names](int index){navigation->setCurrentRow(index);title->setText(names.value(index));});
     m_status = plainLabel("Conectando con Umbriel Connect…");
     m_status->setProperty("role","muted");
     layout->addWidget(m_status);
@@ -207,7 +225,12 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     });
     auto *help=new QShortcut(QKeySequence(Qt::Key_F1),this);connect(help,&QShortcut::activated,this,[this]{QMessageBox::information(this,"Navegar con teclado","Ctrl+K: buscar una función\nTab / Mayús+Tab: siguiente / anterior control\nIJKL y flechas: navegar por controles y listas\nAlt+1…5: cambiar de sección\nCtrl+Tab: siguiente sección\nEnter o Espacio: activar el control\nEsc / Q: cerrar fuera de campos de texto\n\nPuedes escribir IJKL y Q normalmente en los campos de texto.");});
     connect(m_devices, &QListWidget::currentRowChanged, this, &Window::selection);
-    connect(discover, &QPushButton::clicked, this, [this] { m_remote.call({{"action","network"}},[this](Reply){refresh();});if(m_state["engineAvailable"].toBool())m_client.refresh([this](Reply r) { result(r); refresh(); }); });
+    connect(discover, &QPushButton::clicked, this, [this,discover] {
+        discover->setEnabled(false);discover->setText("Buscando…");m_status->setText("Abre Inicio en el teléfono y conecta ambos equipos a la misma red.");
+        m_client.refresh([this](Reply r){if(!r.ok)result(r);refresh();});
+        m_remote.call({{"action","network"}},[this](Reply r){if(!r.ok)result(r);else if(!r.value.toMap()["discovery"].toBool())result({false,"La detección local no está escuchando. Revisa el receptor antes de reintentar",{}});refreshPairings();});
+        QTimer::singleShot(2500,this,[this,discover]{discover->setEnabled(true);discover->setText("Buscar dispositivos");refresh();});
+    });
     connect(m_pair, &QPushButton::clicked, this, [this] { phoneAction("pair"); });
     connect(m_accept, &QPushButton::clicked, this, [this] { phoneAction("accept"); });
     connect(m_unpair, &QPushButton::clicked, this, [this] {
@@ -256,6 +279,7 @@ QJsonObject Window::selectedDevice() const {
     return {};
 }
 void Window::refresh() {
+    refreshPairings();
     if (m_loading) { m_again = true; return; }
     m_loading = true;
     m_client.snapshot([this](QJsonObject engine) {
@@ -266,20 +290,24 @@ void Window::refresh() {
     });
 }
 void Window::applyState(const QJsonObject &state) {
-    const auto id = selectedId();
+    const auto id = m_preferredDevice.isEmpty()?selectedId():m_preferredDevice;
     m_state = state;
     m_devices->blockSignals(true); m_devices->clear();
+    QSettings settings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)+"/umbriel-connect/ui.ini",QSettings::IniFormat);
+    const auto hidden=settings.value("hiddenDevices").toStringList();
     for (const auto &v : state["devices"].toArray()) {
-        const auto d = v.toObject();
-        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + connectionState(d)+(d["transport"]=="umbriel"?(d["localAuto"].toBool()?" · LAN":" · Umbriel"):" · Funciones"), m_devices);
+        const auto d = v.toObject();if(hidden.contains(d["id"].toString()))continue;
+        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + connectionState(d)+(d["transport"]=="umbriel"?(d["localAuto"].toBool()?" · Control local":" · Control y archivos"):" · Compartir"), m_devices);
         item->setData(Qt::UserRole, d["id"].toString());
-        if (d["id"].toString() == id) m_devices->setCurrentItem(item);
+        if (d["id"].toString() == id) {m_devices->setCurrentItem(item);m_preferredDevice.clear();}
     }
-    if (!m_devices->currentItem() && m_devices->count()) m_devices->setCurrentRow(0);
+    if (!m_devices->currentItem() && m_devices->count()) {
+        m_devices->setCurrentRow(0);for(int row=0;row<m_devices->count();++row){const auto id=m_devices->item(row)->data(Qt::UserRole).toString();for(const auto &entry:state["devices"].toArray())if(entry.toObject()["id"]==id&&entry.toObject()["paired"].toBool()&&entry.toObject()["reachable"].toBool()){m_devices->setCurrentRow(row);break;}}
+    }
     m_devices->blockSignals(false); selection();
     if (!state["available"].toBool()) m_status->setText("El motor de Umbriel Connect no está disponible: " + state["error"].toString());
     else if (state["partial"].toBool()) m_status->setText("Se recibieron datos incompletos. Vuelve a buscar dispositivos.");
-    else m_status->setText(QString::number(m_devices->count()) + " identidades · solo las vinculadas tienen acceso");
+    else m_status->setText(QString::number(m_devices->count()) + " vínculos y anuncios · puedes retirar los antiguos con Olvidar dispositivo");
 }
 void Window::selection() {
     const auto d = selectedDevice();
@@ -296,13 +324,15 @@ void Window::selection() {
     m_deviceBattery->setText(QString::number(d["battery"].toInt())+" %"+(d["charging"].toBool()?" · Cargando":""));
     m_key->setVisible(!paired&&!d["verificationKey"].toString().isEmpty());
     m_key->setText(d["verificationKey"].toString().isEmpty() ? "" : "Comprueba esta clave en ambos dispositivos:\n" + d["verificationKey"].toString());
+    m_forget->setEnabled(!d.isEmpty()&&!m_preview);m_forget->setVisible(!d.isEmpty());
+    m_features->setVisible(!native&&paired);m_features->setEnabled(ready);
     m_pair->setEnabled(reachable && !paired && !m_preview);
-    m_pair->setVisible(!paired&&!native);m_unpair->setVisible(paired&&!native);
+    m_pair->setVisible(!paired&&!native);m_unpair->hide();
     m_accept->setVisible(d["pairRequested"].toBool()); m_accept->setEnabled(!m_preview);
     m_unpair->setEnabled(paired && !m_preview&&!native);
     m_legacyShare->setVisible(!native);m_legacyCommandsHint->setVisible(!native);
     for(auto *b:{m_ring,m_ping,m_files,m_publish,m_remove})b->setVisible(!native);
-    m_connectionHint->setText(native?(reachable?(d["localAuto"].toBool()?"Conexión local automática con identidad verificada. Los archivos se reciben en Descargas/Umbriel Connect.":"Acceso remoto autorizado con huella o bloqueo del teléfono. Acepta cada descarga en Android."):"Abre Umbriel Connect en el teléfono: en LAN se reconecta automáticamente tras vincular; fuera de ella usa huella o bloqueo."):(d.isEmpty()?"Busca un teléfono o conecta desde Umbriel Remote.":"Motor integrado de Umbriel Connect. Revisa los permisos de cada función en el teléfono."));
+    m_connectionHint->setText(native?(reachable?(d["localAuto"].toBool()?"Conexión local automática con identidad verificada. Los archivos se reciben en Descargas/Umbriel Connect.":"Acceso remoto autorizado con huella o bloqueo del teléfono. Acepta cada descarga en Android."):"Abre Umbriel Connect en el teléfono: en LAN se reconecta automáticamente tras vincular; fuera de ella usa huella o bloqueo."):(d.isEmpty()?"Abre Inicio en Umbriel Connect para Android. La computadora aparecerá en Buscar mi computadora; compara el código una sola vez.":"Comparte archivos, avisos y medios. Tú eliges las funciones y sus permisos."));
     m_ring->setEnabled(ready && plugins.contains("kdeconnect_findmyphone"));
     m_ping->setEnabled(ready && plugins.contains("kdeconnect_ping"));
     m_files->setEnabled(ready && plugins.contains("kdeconnect_sftp"));
@@ -356,4 +386,41 @@ void Window::publish(bool remove) {
         const auto json = QJsonValue::fromVariant(r.value);
         preview(json.isArray() ? json.toArray() : json.toObject()["saves"].toArray());
     });
+}
+
+void Window::forgetSelected(){
+    const auto d=selectedDevice();const auto id=d["id"].toString();if(id.isEmpty())return;
+    if(QMessageBox::question(this,"Olvidar dispositivo","Se retirará el acceso de «"+d["name"].toString()+"». Si es un anuncio sin vínculo, se ocultará hasta que lo restaures en Ajustes. No se borrarán archivos del teléfono.",QMessageBox::Yes|QMessageBox::Cancel,QMessageBox::Cancel)!=QMessageBox::Yes)return;
+    if(d["transport"]=="umbriel")m_remote.call({{"action","forget"},{"id",id}},[this](Reply reply){result(reply);if(reply.ok)refresh();});
+    else {
+        auto hide=[this,id](Reply reply){if(!reply.ok){result(reply);return;}QSettings settings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)+"/umbriel-connect/ui.ini",QSettings::IniFormat);auto hidden=settings.value("hiddenDevices").toStringList();if(!hidden.contains(id))hidden.append(id);settings.setValue("hiddenDevices",hidden);refresh();};
+        if(d["paired"].toBool())m_client.operation(id,"unpair",{},hide);else hide({true,{},{}});
+    }
+}
+void Window::refreshPairings(){
+    if(m_preview)return;
+    m_remote.call({{"action","pairings"}},[this](Reply reply){
+        if(!reply.ok)return;auto *layout=qobject_cast<QVBoxLayout*>(m_pending->layout());
+        while(auto *item=layout->takeAt(0)){delete item->widget();delete item;}
+        const auto list=reply.value.toList();m_pending->setVisible(!list.isEmpty());
+        for(const auto &value:list){const auto request=value.toMap();auto *card=new QFrame;card->setObjectName("card");auto *row=new QVBoxLayout(card);row->setContentsMargins(20,16,20,16);
+            auto *heading=plainLabel("Vincular con "+request["name"].toString());heading->setProperty("role","section");row->addWidget(heading);
+            auto *code=plainLabel(request["code"].toString());code->setProperty("role","hero");row->addWidget(code);row->addWidget(plainLabel("Compara el código con tu teléfono. Confirma solo si coinciden."));
+            auto *actions=new QHBoxLayout;row->addLayout(actions);auto *accept=button("Coinciden · vincular",actions);accept->setProperty("kind","primary");auto *reject=button("Rechazar",actions);
+            for(auto *b:{accept,reject})connect(b,&QPushButton::clicked,this,[this,request,b,accept]{m_remote.call({{"action",b==accept?"pair-accept":"pair-reject"},{"id",request["id"].toString()}},[this,request,b,accept](Reply r){if(r.ok&&b==accept)m_preferredDevice="remote:"+request["deviceId"].toString();result(r);refresh();});});
+            layout->addWidget(card);
+        }
+    });
+}
+void Window::featureSettings(){
+    const auto d=selectedDevice();if(d["transport"]=="umbriel"||!d["paired"].toBool())return;
+    auto *dialog=new QDialog(this);dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Funciones · "+d["name"].toString());auto *layout=new QVBoxLayout(dialog);auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);auto *body=new QWidget;auto *items=new QVBoxLayout(body);items->addWidget(plainLabel("Comparte solo lo que necesitas. Los permisos del teléfono se conceden desde Android."));scroll->setWidget(body);layout->addWidget(scroll);
+    const QList<QPair<QString,QString>> functions{{"share","Archivos y enlaces"},{"battery","Batería"},{"connectivity_report","Señal móvil"},{"notifications","Notificaciones"},{"clipboard","Portapapeles"},{"mpriscontrol","Reproducción"},{"systemvolume","Sonido"},{"findmyphone","Encontrar teléfono"},{"sftp","Carpetas del teléfono"},{"sms","Mensajes"},{"contacts","Contactos"},{"telephony","Llamadas"},{"mousepad","Entrada remota"},{"runcommand","Órdenes remotas"}};
+    const auto id=d["id"].toString(),path=EngineClient::devicePath(id);QPointer<QDialog> guard=dialog;
+    for(const auto &entry:functions){auto *toggle=new QCheckBox(entry.second);toggle->setEnabled(false);items->addWidget(toggle);QPointer<QCheckBox> safe=toggle;
+        m_client.call(path,"org.kde.kdeconnect.device","isPluginEnabled",{"kdeconnect_"+entry.first},[guard,safe](Reply r){if(!guard||!safe)return;safe->setChecked(r.ok&&r.value.toBool());safe->setEnabled(r.ok);});
+        connect(toggle,&QCheckBox::clicked,this,[this,guard,path,name=entry.first,safe](bool enabled){m_client.call(path,"org.kde.kdeconnect.device","setPluginEnabled",{"kdeconnect_"+name,enabled},[this,guard,safe,enabled](Reply r){if(!guard||!safe)return;if(!r.ok)safe->setChecked(!enabled);result(r);});});
+    }
+    auto *messages=button("Abrir conversaciones…",items);connect(messages,&QPushButton::clicked,this,[]{QProcess::startDetached(Integration::executable("umbriel-connect-messages"),{});});
+    auto *close=button("Volver",layout);connect(close,&QPushButton::clicked,dialog,&QDialog::close);dialog->resize(qMin(520,width()-48),qMin(620,height()-48));dialog->show();
 }

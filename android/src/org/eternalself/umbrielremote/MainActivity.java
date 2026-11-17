@@ -32,6 +32,10 @@ public class MainActivity extends Activity {
     private String settingsPage="",lastStatus="";
     private ConnectionUi.Phase renderedPhase;
     Uri pendingFile;
+    private boolean scanning,scanAttempted;
+    private java.util.List<JSONObject> nearby=new java.util.ArrayList<>();
+    private LanPairing pairing;
+    private AlertDialog pairingDialog;
 
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);CrashReports.install(this);design=new UiDesign(this);
@@ -57,9 +61,9 @@ public class MainActivity extends Activity {
     private JSONObject configuration(){try{return new JSONObject(preferences().getString("server",""));}catch(JSONException e){return new JSONObject();}}
     boolean registered(){return configuration().optString("pin").matches("[0-9a-f]{64}");}
     boolean paused(){return preferences().getBoolean("autoPaused",false);}
-    @Override protected void onStart(){super.onStart();visible=true;current=new WeakReference<>(this);EngineBridge.observe(this,()->{if(destination==3&&settingsPage.equals("devices"))render();});ConnectionStartup.start(this);EngineBridge.startup(this);RemoteService owner=RemoteService.instance;if(owner!=null&&owner.isAuthorized())authorized(owner);else render();}
+    @Override protected void onStart(){super.onStart();visible=true;current=new WeakReference<>(this);EngineBridge.observe(this,()->{if(destination==3&&settingsPage.equals("devices"))render();});ConnectionStartup.start(this);EngineBridge.startup(this);if(!registered()&&!scanAttempted){scanAttempted=true;scanNearby();}RemoteService owner=RemoteService.instance;if(owner!=null&&owner.isAuthorized())authorized(owner);else render();}
     @Override protected void onStop(){if(dashboard!=null)dashboard.stopPointer();EngineBridge.stopObserving(this);transferRunning(false);visible=false;super.onStop();}
-    @Override protected void onDestroy(){if(biometric!=null)biometric.cancel();if(dashboard!=null)dashboard.dispose();if(current.get()==this)current.clear();super.onDestroy();}
+    @Override protected void onDestroy(){if(pairing!=null)pairing.close();if(biometric!=null)biometric.cancel();if(dashboard!=null)dashboard.dispose();if(current.get()==this)current.clear();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle state){state.putInt("destination",destination);state.putInt("controlPage",controlPage);state.putString("settingsPage",settingsPage);super.onSaveInstanceState(state);}
     @Override public void onBackPressed(){back();}
     private void back(){if(destination==3&&!settingsPage.isEmpty()){settingsPage="";render();}else if(destination!=0)navigate(0);else moveTaskToBack(true);}
@@ -87,7 +91,12 @@ public class MainActivity extends Activity {
         RemoteService service=RemoteService.instance;boolean ready=service!=null&&service.isAuthorized();ConnectionUi.Phase phase=service==null?null:service.phase;
         String line=ready?(service.automaticLocal()?"Red local · conexión automática":"Acceso remoto autorizado"):!registered()?"Vincula una vez y empieza a controlar":paused()?"Conexión en pausa":phase==ConnectionUi.Phase.AUTHENTICATING?"Confirma tu identidad en Android":phase==ConnectionUi.Phase.REMOTE_REQUIRED?"No encuentro la computadora en tu red local":"Buscando en la red local…";
         LinearLayout c=design.card();LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.addView(design.glyph(ready?"wifi":"computer"),new LinearLayout.LayoutParams(design.dp(52),design.dp(52)));LinearLayout names=design.column();names.setPadding(design.dp(14),0,0,0);names.addView(design.label(configuration().optString("label","Mi computadora"),20,design.text,true));names.addView(design.label(line,13,design.muted,false));row.addView(names,new LinearLayout.LayoutParams(0,-2,1));design.add(c,row,ready?0:12);
-        if(!registered())action(c,"Vincular computadora…","link",true,this::chooseRegistration);
+        if(!registered()){
+            design.add(c,design.label(scanning?"Buscando computadoras cercanas…":"Encuentra tu computadora y compara el código una sola vez.",14,design.muted,false),8);
+            for(JSONObject candidate:nearby)action(c,"Vincular · "+candidate.optString("name","Mi computadora"),"computer",true,()->pairNearby(candidate));
+            action(c,scanning?"Buscando…":"Buscar mi computadora","wifi",true,this::scanNearby).setEnabled(!scanning);
+            action(c,"Usar QR o archivo…","link",false,this::chooseRegistration);
+        }
         else if(paused())action(c,"Reanudar conexión local","wifi",true,()->{preferences().edit().putBoolean("autoPaused",false).apply();ConnectionStartup.start(this);EngineBridge.startup(this);render();});
         else if(!getSystemService(NotificationManager.class).areNotificationsEnabled()){design.add(c,design.label("Permite mostrar la conexión para mantenerla activa en segundo plano.",14,design.muted,false),12);action(c,"Permitir notificaciones","shield",true,()->{if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},42);else startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName()));});}
         else if(phase==ConnectionUi.Phase.REMOTE_REQUIRED){design.add(c,design.label("Si estás fuera de casa, autoriza el acceso con la huella o el bloqueo de tu teléfono.",14,design.muted,false),12);Button connect=action(c,"Autorizar acceso remoto","lock",true,()->connect(false));connect.setTag("remote-connect");}
@@ -112,7 +121,7 @@ public class MainActivity extends Activity {
         setting(connection,"Dispositivos y funciones","Archivos, multimedia y sincronización","link",()->{settingsPage="devices";render();});
         LinearLayout privacy=section("Privacidad y permisos","");setting(privacy,"Permisos del teléfono","Tú decides qué compartir","shield",()->{settingsPage="permissions";render();});
         setting(privacy,paused()?"Reanudar conexión":"Pausar conexión automática",paused()?"Volver a buscar la computadora":"Se mantiene pausada hasta que la reanudes","pause",()->{if(paused()){preferences().edit().putBoolean("autoPaused",false).apply();ConnectionStartup.start(this);EngineBridge.startup(this);}else{preferences().edit().putBoolean("autoPaused",true).apply();EngineBridge.pause();stopService(new Intent(this,RemoteService.class));clearActions();}render();});
-        LinearLayout about=section("Acerca de","");design.add(about,design.label("Umbriel Connect · 0.5.0\nUmbriel, Noctalia y undershell",14,design.muted,false),12);
+        LinearLayout about=section("Acerca de","");design.add(about,design.label("Umbriel Connect · 0.6.0\nUmbriel, Noctalia y undershell",14,design.muted,false),12);
         if(!CrashReports.read(this).isEmpty())setting(about,"Copiar informe del último error","Solo información técnica del cierre","file",()->{getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("Informe de Umbriel Connect",CrashReports.read(this)));showStatus("Informe técnico copiado");});
 
     }
@@ -121,7 +130,7 @@ public class MainActivity extends Activity {
         action(c,registered()?"Cambiar computadora…":"Vincular computadora…","link",true,this::chooseRegistration);
         action(c,"Pegar registro…","file",false,()->{EditText input=new EditText(this);input.setMinLines(3);input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);new AlertDialog.Builder(this).setTitle("Registro privado").setView(input).setNegativeButton("Cancelar",null).setPositiveButton("Vincular",(d,w)->importRegistration(input.getText().toString())).show();});
         if(registered())setting(c,"Dirección local","Automática · editar solo si tu red lo necesita","wifi",()->{EditText input=new EditText(this);input.setSingleLine(true);input.setText(configuration().optString("lanHost"));new AlertDialog.Builder(this).setTitle("Dirección de red local").setMessage("Introduce la IP que muestra «Ver conexión local» en la computadora.").setView(input).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{String host=input.getText().toString().trim();if(!host.isEmpty()&&!LanDiscovery.privateHost(host)){showStatus("Escribe una dirección local privada válida");return;}try{JSONObject config=configuration().put("lanHost",host);preferences().edit().putString("server",config.toString()).apply();showStatus("Dirección local guardada");}catch(JSONException ignored){}}).show();});
-        LinearLayout help=section("Primera vinculación","En la computadora abre Acceso protegido y genera un registro privado. Impórtalo aquí y confirma el vínculo una sola vez.");design.add(help,design.label("Solo vincula computadoras que controlas. El registro es privado y caduca; la conexión local posterior no pide huella.",14,design.muted,false),0);
+        LinearLayout help=section("Primera vinculación","En la computadora abre Ajustes y genera un registro privado. Impórtalo aquí y confirma el vínculo una sola vez.");design.add(help,design.label("Solo vincula computadoras que controlas. El registro es privado y caduca; la conexión local posterior no pide huella.",14,design.muted,false),0);
     }
     private void permissions(){
         LinearLayout c=section("Permisos del teléfono","Controlar la computadora no requiere accesibilidad del teléfono.");
@@ -133,7 +142,21 @@ public class MainActivity extends Activity {
         }
         setting(c,"Otros permisos de Android","Contactos, mensajes y dispositivos cercanos","settings",()->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()))));
     }
-    private void chooseRegistration(){new AlertDialog.Builder(this).setTitle("Vincular tu computadora").setMessage("Genera el registro privado desde Acceso protegido en tu computadora y elige ese archivo aquí. Esta vinculación solo se hace una vez.").setNegativeButton("Cancelar",null).setPositiveButton("Elegir registro",(d,w)->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE),41)).show();}
+    void scanNearby(){
+        if(scanning)return;
+        if(Build.VERSION.SDK_INT>=37&&checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"android.permission.ACCESS_LOCAL_NETWORK"},44);return;}
+        scanning=true;render();new Thread(()->{java.util.List<JSONObject> result=LanDiscovery.search(getApplicationContext(),"",31594);runOnUiThread(()->{if(isDestroyed())return;scanning=false;nearby=result;render();if(result.isEmpty())showStatus("No encontré la computadora. Abre Umbriel Connect en ella y conecta ambos equipos a la misma red.");});},"umbriel-find-pc").start();
+    }
+    private void pairNearby(JSONObject candidate){
+        if(pairing!=null)pairing.close();LanPairing request=new LanPairing();pairing=request;
+        pairingDialog=new AlertDialog.Builder(this).setTitle("Vincular con "+candidate.optString("name","Mi computadora")).setMessage("Solicitando un código a tu computadora…").setNegativeButton("Cancelar",(d,w)->request.close()).setOnCancelListener(d->request.close()).create();pairingDialog.show();
+        request.start(this,candidate,new LanPairing.Listener(){
+            public void code(String value){if(pairing==request&&!isDestroyed())pairingDialog.setMessage("Compara este código con el de Umbriel Connect en tu computadora:\n\n"+value+"\n\nSi coinciden, confirma el vínculo allí. No necesita huella en la red local.");}
+            public void paired(JSONObject config){if(pairing!=request||isDestroyed())return;pairingDialog.dismiss();preferences().edit().putString("server",config.toString()).putBoolean("autoPaused",false).putBoolean("phoneControl",false).apply();render();connect(true);}
+            public void failed(String message){if(pairing!=request||isDestroyed())return;pairingDialog.dismiss();showStatus(message);}
+        });
+    }
+    private void chooseRegistration(){new AlertDialog.Builder(this).setTitle("Vincular tu computadora").setMessage("Genera el registro privado desde Ajustes en tu computadora y elige ese archivo aquí. Esta vinculación solo se hace una vez.").setNegativeButton("Cancelar",null).setPositiveButton("Elegir registro",(d,w)->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE),41)).show();}
     private void importRegistration(String value){
         try{final JSONObject config=Registration.parse(value);
             new AlertDialog.Builder(this).setTitle("Vincular esta computadora").setMessage("Comprueba que el código proviene de tu computadora.\n\nDirección: "+config.getString("host")+"\nIdentidad: "+config.getString("pin").substring(0,16)+"…\n\nLa conexión local posterior será automática.")
@@ -150,7 +173,7 @@ public class MainActivity extends Activity {
         preferences().edit().putBoolean("autoPaused",false).apply();EngineBridge.startup(this);
         try{startForegroundService(new Intent(this,RemoteService.class).putExtra("config",configuration().toString()).putExtra("autoOnly",autoOnly).putExtra("phoneControl",BuildFeatures.PHONE_CONTROL&&preferences().getBoolean("phoneControl",false)));showStatus(autoOnly?"Buscando en la red local…":"Conectando con tu computadora…");}catch(RuntimeException e){showStatus("Android no pudo iniciar la conexión. Revisa las notificaciones en Ajustes.");}
     }
-    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==42&&grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)connect(configuration().optBoolean("accessV2"));}
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==44&&grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED){scanNearby();return;}if(request==42&&grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)connect(configuration().optBoolean("accessV2"));}
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;
         if(request==43){pendingFile=data.getData();destination=2;RemoteService owner=RemoteService.instance;if(owner!=null&&owner.isAuthorized())authorized(owner);else render();return;}
         if(request!=41)return;

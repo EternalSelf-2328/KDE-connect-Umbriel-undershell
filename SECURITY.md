@@ -1,4 +1,4 @@
-# Seguridad de Umbriel Connect 0.5.0 experimental
+# Seguridad de Umbriel Connect 0.6.0 experimental
 
 No hay garantía de ausencia de vulnerabilidades ni auditoría externa. Esta versión
 incorpora una revisión dirigida del código y pruebas de regresión; no certifica el
@@ -116,3 +116,16 @@ El QR se genera localmente mediante una biblioteca opcional; su contenido no sal
 un generador web. El archivo de exportación tiene permisos0600 y el portapapeles se
 limpia al caducar si su contenido sigue siendo el copiado. Eso no revoca copias que
 el usuario haya hecho: el límite de uso/caducidad también se comprueba en el receptor.
+
+## Vinculación LAN por código —0.6.0
+
+La primera confianza puede aprobarse sin transferir un JSON. El canal TLS candidato
+no es confiable hasta comparar el código de ambas pantallas y aprobar en la PC por
+su socket Unix privado. La prueba P-256 y el código ligan certificado, ambas claves
+y nonce, evitando delegar claves a otro endpoint mediante una respuesta de descubrimiento
+suplantada. No se hereda el permiso de controlar el teléfono ni se modifican claves
+existentes; hay límites de solicitudes y caducidad. El acceso remoto sigue exigiendo
+la clave protegida por identidad Android. [Protocolo y uso](docs/UPDATE-0.6.0.md).
+
+Olvidar revoca el grupo exacto y sus sesiones; no usa nombres/IP para decidir qué
+confianza eliminar. Los anuncios ocultos se pueden restaurar desde Ajustes.

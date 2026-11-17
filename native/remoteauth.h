@@ -6,6 +6,8 @@
 
 namespace RemoteAuth {
 QByteArray random(int count = 32);
+QByteArray pairingProof(const QString &pin, const QByteArray &lan, const QByteArray &remote, const QByteArray &nonce);
+QString pairingCode(const QByteArray &proof);
 QString digest(const QByteArray &bytes);
 bool constantEqual(const QByteArray &a, const QByteArray &b);
 bool validKey(const QByteArray &spki);

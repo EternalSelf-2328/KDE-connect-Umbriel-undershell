@@ -20,6 +20,9 @@ public slots:
     void Activate();
 private:
     void refresh();
+    void refreshPairings();
+    void forgetSelected();
+    void featureSettings();
     void selection();
     void phoneAction(const QString &action, const QString &argument = {});
     void result(const Reply &reply);
@@ -31,7 +34,10 @@ private:
     LocalRemote m_remote;
     Integration m_integration;
     QJsonObject m_state;
+    QString m_preferredDevice;
     QListWidget *m_devices;
+    QWidget *m_pending;
+    QPushButton *m_forget,*m_features;
     QLabel *m_connectionHint,*m_legacyCommandsHint;
     QWidget *m_legacyShare;
     QLabel *m_summary, *m_deviceState, *m_deviceBattery, *m_key, *m_status;

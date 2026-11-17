@@ -119,3 +119,10 @@ QByteArray challenge(const QString &pin, const QByteArray &key, bool control, co
         + (control ? "phone-control" : "desktop-control") + '\n' + nonce.toBase64() + '\n';
 }
 }
+
+QByteArray RemoteAuth::pairingProof(const QString &pin,const QByteArray &lan,const QByteArray &remote,const QByteArray &nonce) {
+    return "umbriel-lan-pair-v1\n"+pin.toLatin1()+'\n'+lan.toBase64()+'\n'+remote.toBase64()+'\n'+nonce.toBase64();
+}
+QString RemoteAuth::pairingCode(const QByteArray &proof) {
+    const auto code=digest(proof).left(12).toUpper();return code.left(4)+" · "+code.mid(4,4)+" · "+code.mid(8,4);
+}

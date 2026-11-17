@@ -22,7 +22,7 @@ for p in OUT.rglob('*'):
  except UnicodeError:continue
  s=s.replace('org.kde.kdeconnect_tp','org.eternalself.umbrielremote').replace('org.kde.kdeconnect','org.eternalself.umbrielremote.engine').replace('org/kde/kdeconnect','org/eternalself/umbrielremote/engine')
  p.write_text(s)
-p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 9').replace('versionName = "1.37.3"','versionName = "0.5.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
+p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 10').replace('versionName = "1.37.3"','versionName = "0.6.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
 # Robolectric SDK36 uses a JDK21 internal FileDescriptor accessor; export only in test JVMs.
 with (OUT/'build.gradle.kts').open('a') as stream:
  stream.write('\ntasks.withType<Test>().configureEach { jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }\n')
@@ -57,7 +57,7 @@ removed={'android.permission.READ_LOGS','android.permission.ACCESS_BACKGROUND_LO
 for n in list(r):
  if n.tag=='uses-permission' and n.get(A+'name') in removed:r.remove(n)
 for name in removed:E.SubElement(r,'uses-permission',{A+'name':name,'{http://schemas.android.com/tools}node':'remove'})
-for name in ['android.permission.USE_BIOMETRIC','android.permission.USE_FINGERPRINT','android.permission.ACCESS_NETWORK_STATE','android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE','android.permission.CHANGE_NETWORK_STATE']:
+for name in ['android.permission.ACCESS_LOCAL_NETWORK','android.permission.USE_BIOMETRIC','android.permission.USE_FINGERPRINT','android.permission.ACCESS_NETWORK_STATE','android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE','android.permission.CHANGE_NETWORK_STATE']:
  if not any(n.get(A+'name')==name for n in r.findall('uses-permission')):E.SubElement(r,'uses-permission',{A+'name':name})
 for n in list(app):
  name=n.get(A+'name','')

@@ -115,6 +115,11 @@ void install(QApplication *app) {
         QString css=R"CSS(
 QWidget { color:@text; selection-background-color:@accent; selection-color:@onAccent; }
 QMainWindow, QDialog { background:@background; }
+QFrame#sidebar { background:@surface; }
+QListWidget#navigation { background:transparent; padding:0; border-radius:0; }
+QListWidget#navigation::item { padding:12px 8px; margin:2px 0; border-radius:14px; }
+QCheckBox { spacing:12px; padding:10px; }
+QCheckBox:focus { background:@raised; border:1px solid @accent; border-radius:10px; }
 QLabel { background:transparent; }
 QLabel[role="title"] { font-size:25px; font-weight:600; }
 QLabel[role="hero"] { font-size:26px; font-weight:600; }
@@ -203,7 +208,10 @@ QIcon icon(const QString &name,const QColor &requested) {
     const auto color=requested.isValid()?requested:palette().accent;
     QPixmap map(64,64);map.fill(Qt::transparent);QPainter painter(&map);painter.setRenderHint(QPainter::Antialiasing);
     painter.scale(64.0/24,64.0/24);painter.setPen(QPen(color,1.6,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.setBrush(Qt::NoBrush);
-    if(name=="phone"){painter.drawRoundedRect(QRectF(6,2,12,20),3,3);painter.drawLine(QPointF(10,5),QPointF(14,5));painter.drawPoint(QPointF(12,19));}
+    if(name=="home"){QPainterPath p;p.moveTo(3,11);p.lineTo(12,3);p.lineTo(21,11);p.moveTo(6,10);p.lineTo(6,21);p.lineTo(18,21);p.lineTo(18,10);p.moveTo(10,21);p.lineTo(10,14);p.lineTo(14,14);p.lineTo(14,21);painter.drawPath(p);}
+    else if(name=="settings"){painter.drawEllipse(QRectF(8,8,8,8));painter.drawEllipse(QRectF(4,4,16,16));for(int i=0;i<8;i++){painter.save();painter.translate(12,12);painter.rotate(i*45);painter.drawLine(QPointF(0,-8),QPointF(0,-10));painter.restore();}}
+    else if(name=="image"){painter.drawRoundedRect(QRectF(3,3,18,18),2,2);painter.drawEllipse(QRectF(6,6,4,4));QPainterPath p;p.moveTo(3,18);p.lineTo(10,12);p.lineTo(14,16);p.lineTo(17,13);p.lineTo(21,17);painter.drawPath(p);}
+    else if(name=="phone"){painter.drawRoundedRect(QRectF(6,2,12,20),3,3);painter.drawLine(QPointF(10,5),QPointF(14,5));painter.drawPoint(QPointF(12,19));}
     else if(name=="shield"){QPainterPath path;path.moveTo(12,2);path.lineTo(20,5);path.lineTo(19,14);path.quadTo(17,20,12,22);path.quadTo(7,20,5,14);path.lineTo(4,5);path.closeSubpath();painter.drawPath(path);painter.drawLine(QPointF(8,12),QPointF(11,15));painter.drawLine(QPointF(11,15),QPointF(16,9));}
     else if(name=="folder"){QPainterPath path;path.moveTo(3,7);path.lineTo(3,19);path.lineTo(21,19);path.lineTo(21,7);path.lineTo(12,7);path.lineTo(10,4);path.lineTo(3,4);path.closeSubpath();painter.drawPath(path);}
     else if(name=="send"){painter.drawLine(QPointF(3,12),QPointF(20,12));painter.drawLine(QPointF(13,5),QPointF(20,12));painter.drawLine(QPointF(20,12),QPointF(13,19));}

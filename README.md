@@ -1,13 +1,13 @@
 # Umbriel Connect
 
 Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **0.5.0 experimental** incorpora un motor privado derivado
+y aplicación Android propia. **0.6.0 experimental** incorpora un motor privado derivado
 de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
 Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
-![Umbriel Connect: datos de ejemplo](docs/screenshots/0.4.0/native-dark.png)
+![Umbriel Connect: datos de ejemplo](docs/screenshots/0.6.0/home-dark.png)
 
-[Descargar Android completo 0.5.0](downloads/UmbrielConnect-0.5.0.apk) ·
+[Descargar Android completo 0.6.0](downloads/UmbrielConnect-0.6.0.apk) ·
 [Instalación y compilación](docs/BUILDING.md) ·
 [Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
 [Seguridad y permisos](SECURITY.md)
@@ -16,7 +16,7 @@ Android abre **Inicio**, con Mouse, Navegación, Sonido, Apariencia, Fondos y Wi
 a un toque, reproducción y volumen. La barra **Inicio / Control / Archivos / Ajustes**
 permanece visible; el registro y los permisos tienen su propia sección. La conexión
 LAN ya vinculada es automática; fuera de ella se ofrece autorización explícita.
-[Novedades y actualización](docs/UPDATE-0.5.0.md).
+[Novedades y actualización](docs/UPDATE-0.6.0.md).
 
 <img src="docs/screenshots/0.5.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
 <img src="docs/screenshots/0.5.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">
@@ -63,10 +63,11 @@ la siguiente sesión gráfica; la opción predeterminada conserva los procesos a
 No modifica red, firewall, atajos ni configuraciones de otros programas. No elimina
 el paquete KDE Connect existente; utiliza su propio servicio y plugins privados.
 
-Instala el APK completo y abre **Inicio**. Si falta el registro, en el escritorio usa
-**Acceso protegido → Vincular teléfono… → Generar vínculo de 5 minutos**. Escanea el
-QR con la cámara del teléfono y abre Umbriel Connect, o importa su archivo privado
-desde Inicio. Confirma la computadora; no compartas ese QR ni ese archivo.
+Instala el APK completo y abre **Inicio** en ambos equipos dentro de la misma LAN.
+En Android elige la computadora detectada y solicita el vínculo. Compara el código
+en ambas pantallas y confirma en la PC. No necesita un archivo; se hace una sola vez.
+El QR/JSON privado queda disponible como alternativa en **Ajustes → Vincular con QR…**.
+Borrar los datos de Android requiere volver a vincular; actualizar el APK los conserva.
 
 Para los plugins del motor compatible, **Ajustes → Dispositivos y funciones** permite
 emparejar comparando la clave en ambos extremos. Su confianza sigue separada del canal
@@ -94,7 +95,7 @@ el diagnóstico sin compartir datos personales. [Contexto de distribución](docs
 
 ## Navegar con teclado
 
-**Ctrl+K** busca y localiza una función sin ejecutarla; **Alt+1…5** cambia de sección.
+**Ctrl+K** busca y localiza una función sin ejecutarla; **Alt+1…5** cambia de sección en la navegación lateral.
 Tab/Mayús+Tab recorre controles, IJKL y flechas navegan, Enter/Espacio activan y F1
 muestra ayuda. Los campos conservan sus letras normales; Esc/Q cierran fuera de
 edición. El diseño sigue la paleta Noctalia con variantes clara/oscura y foco visible,

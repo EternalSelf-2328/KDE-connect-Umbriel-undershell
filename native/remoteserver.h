@@ -26,6 +26,9 @@ public:
     static bool directLanPeer(const QHostAddress &local, const QHostAddress &remote);
     static bool privateAddress(const QHostAddress &address);
     void notifyClients();
+    QJsonArray pendingPairings() const;
+    Reply decidePairing(const QString &id, bool accept);
+    Reply forgetDevice(QString id);
     void share(const QJsonObject &request, Done done);
     Integration integration;
     Wallpapers wallpapers;
@@ -46,6 +49,7 @@ private:
     QList<QTcpServer *> m_lan;
     QUdpSocket m_discovery;
     QElapsedTimer m_discoveryWindow;int m_discoveryQueries=0;
+    QElapsedTimer m_pairWindow;int m_pairStarts=0;
     QFileSystemWatcher m_files;
     std::unique_ptr<QLockFile> m_instanceLock;
 };
