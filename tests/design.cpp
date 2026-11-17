@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "design.h"
+#include "pairingdialog.h"
+#include <QUrlQuery>
+#ifdef UMBRIEL_PAIR_QR_SCAN
+#include <Prison/ImageScanner>
+#include <Prison/ScanResult>
+#endif
 #include "window.h"
 #include "sharewindow.h"
 #include "androidpanel.h"
@@ -32,6 +38,18 @@ private slots:
     void initTestCase(){
         QVERIFY(config.isValid());qputenv("XDG_CONFIG_HOME",config.path().toUtf8());qunsetenv("UMBRIEL_CONNECT_THEME");
         QDir().mkpath(config.path()+"/gtk-4.0");QDir().mkpath(config.path()+"/runtime");qputenv("XDG_RUNTIME_DIR",(config.path()+"/runtime").toUtf8());Design::install(qApp);
+    }
+    void registrationCanBeScannedAndExportedPrivately(){
+        const QJsonObject registration{{"host","192.168.8.10"},{"port",31594},{"pin",QString(64,QChar('a'))},{"token",QString::fromLatin1(QByteArray(32,'x').toBase64())},{"expires",12345}};
+        const auto link=PairingUi::link(registration);QCOMPARE(QUrl(link).scheme(),"umbriel-connect");QCOMPARE(QUrl(link).host(),"pair");
+        const auto data=QUrlQuery(QUrl(link)).queryItemValue("data").toLatin1();QCOMPARE(QJsonDocument::fromJson(QByteArray::fromBase64(data,QByteArray::Base64UrlEncoding)).object(),registration);
+        const auto path=config.path()+"/private-pairing.json";QVERIFY(PairingUi::save(path,registration));QFile file(path);QVERIFY(file.open(QIODevice::ReadOnly));QCOMPARE(QJsonDocument::fromJson(file.readAll()).object(),registration);QVERIFY(!(file.permissions()&(QFile::ReadGroup|QFile::ReadOther|QFile::WriteGroup|QFile::WriteOther)));
+#ifdef UMBRIEL_PAIR_QR
+        const auto image=PairingUi::code(link,360);QVERIFY(!image.isNull());
+#ifdef UMBRIEL_PAIR_QR_SCAN
+        QCOMPARE(Prison::ImageScanner::scan(image).text(),link);
+#endif
+#endif
     }
     void readablePalettes(){
         for(const auto &name:{QByteArray("dark"),QByteArray("light")}){

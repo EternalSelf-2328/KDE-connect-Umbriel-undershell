@@ -343,6 +343,7 @@ bool RemoteServer::allowedAddress(const QHostAddress &address) {
 }
 bool RemoteServer::start(const QHostAddress &address, quint16 port, QString *error) {
     if (!allowedAddress(address)) { *error = "Usa loopback o la IPv4 real de tailscale0; no se admiten interfaces públicas"; return false; }
+    if (!RemoteAuth::initialize(m_directory, error)) return false;
     QFile cert(m_directory + "/server-cert.pem"), key(m_directory + "/server-key.pem");
     if (!cert.open(QIODevice::ReadOnly) || !key.open(QIODevice::ReadOnly)) { *error = "Ejecuta init primero"; return false; }
     m_pin = RemoteAuth::fingerprint(m_directory);

@@ -1,11 +1,11 @@
-# Funciones y verificación — 0.4.2 experimental
+# Funciones y verificación — 0.5.0 experimental
 
 Actualizado el 2026-11-17. Se reemplaza el daemon y las aplicaciones KDE Connect
 instaladas por motores derivados, compilados y aislados dentro de Umbriel Connect.
 **Compartir su código/protocolo no significa haber validado cada función en Umbriel o
 el Galaxy.** No se promete seguridad absoluta ni paridad física completa.
 
-| Función | Implementación 0.4.1 | Límite / verificación pendiente |
+| Función | Implementación 0.5.0 | Límite / verificación pendiente |
 |---|---|---|
 | Descubrimiento LAN/mDNS/Bluetooth, emparejamiento y certificados | Motor privado C++ y app Android completa | Nueva confianza, no importa claves KDE; router/Bluetooth físicos pendientes |
 | Batería y señal móvil | Plugins incluidos, ventana de funciones | Android real pendiente |
@@ -49,7 +49,7 @@ manual; no se cambian las rutas de la sesión remota actual para conseguirlo.
 Instalar el APK completo con el mismo firmante conserva los datos. El registro antiguo
 puede pedir una última huella para migrar las claves; después, la LAN directa se
 reconecta sola y fuera de ella ofrece huella o PIN/patrón/contraseña del teléfono.
-Abrir «Funciones del teléfono» y emparejar el motor propio comparando las claves en
+Abrir **Ajustes → Dispositivos y funciones** y emparejar el motor propio comparando las claves en
 ambos extremos. Conceder solo los permisos necesarios. La sincronización remota
 persistente anterior se retira; «Pausar conexión» suspende la reconexión local.
 
@@ -70,3 +70,14 @@ del servicio y se añadieron pruebas de regresión y un informe privado de error
 
 0.4.2 corrige el NoSuchFieldError reportado al vincular y valida el bytecode release.
 Los anuncios sin vínculo se muestran como disponibles. [Detalle](UPDATE-0.4.2.md).
+
+
+## Interfaz Android0.5.0
+
+Inicio propio con controles directos; Control, Archivos y Ajustes independientes.
+Los permisos/plugins se administran desde Ajustes; no se abre el drawer heredado al
+iniciar o tocar la notificación. El backend y las pantallas especializadas de algunos
+plugins siguen derivando del motor; no todas se han rediseñado. El registro inicial
+admite QR/archivo privado y confirmación; no fusiona las dos identidades de protocolo.
+31 pruebas Android y10 suites C++ aprobadas; renders nativos sintéticos en claro/
+oscuro,320/412/840 dp y texto 130%. Samsung físico pendiente. [Actualización](UPDATE-0.5.0.md).

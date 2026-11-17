@@ -14,17 +14,21 @@ cache = Path(os.environ.get('UMBRIEL_ANDROID_TOOLS', Path.home()/'.cache/umbriel
 jdk = Path(os.environ.get('UMBRIEL_JDK', cache/'jdk-21.0.13+9'))
 tools = cache/'full-sdk/build-tools/37.0.0'
 env = dict(os.environ, JAVA_HOME=str(jdk), PATH=str(jdk/'bin')+os.pathsep+os.environ['PATH'])
-apk = root/'downloads/UmbrielConnect-0.4.2.apk'
+apk = root/'downloads/UmbrielConnect-0.5.0.apk'
 def run(*args):
     return subprocess.check_output([str(a) for a in args], env=env, text=True, stderr=subprocess.STDOUT)
 manifest = run(tools/'aapt2', 'dump', 'xmltree', apk, '--file', 'AndroidManifest.xml')
-for value in ['versionCode(0x0101021b)=8', '"0.4.2-experimental"',
+for value in ['versionCode(0x0101021b)=9', '"0.5.0-experimental"',
               'minSdkVersion(0x0101020c)=30', 'targetSdkVersion(0x01010270)=37',
               '"org.eternalself.umbrielremote"', 'android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE',
               'android.permission.CHANGE_NETWORK_STATE', 'android.permission.ACCESS_NETWORK_STATE',
               'android.permission.RECEIVE_BOOT_COMPLETED', 'android.permission.USE_BIOMETRIC']:
     assert value in manifest, value
 blocks = re.split(r'\n(?=\s{10}E: )', manifest)
+home = next(b for b in blocks if re.search(r'E: activity ', b) and '"org.eternalself.umbrielremote.MainActivity"' in b)
+assert 'exported(0x01010010)=true' in home, home
+for value in ['android.intent.category.LAUNCHER', 'android.intent.category.BROWSABLE', '"umbriel-connect"', '"pair"']:
+    assert value in home, value
 service = next(b for b in blocks if re.search(r'E: service ', b) and '"org.eternalself.umbrielremote.RemoteService"' in b)
 assert re.search(r'foregroundServiceType\(0x01010599\)=0x0*10\b', service), service
 assert 'exported(0x01010010)=false' in service, service
@@ -40,6 +44,8 @@ with zipfile.ZipFile(apk) as archive:
     dex = b''.join(archive.read(n) for n in archive.namelist() if n.endswith('.dex'))
     for value in [b'umbriel-connect-auth-v2', b'umbriel-remote-credential-v2', b'umbriel-lan-device-v2', b'last-crash.txt']:
         assert value in dex, value
+    for component in [b'MainActivity', b'RemoteDashboard', b'ConnectionUi', b'Registration', b'UiIcons', b'FeatureSettings']:
+        assert b'Lorg/eternalself/umbrielremote/'+component+b';' in dex, component
 # Inspect optimized release instructions, not just the unminified unit-test classes.
 network_code = run(cache/'full-sdk/cmdline-tools/latest/bin/apkanalyzer', 'dex', 'code',
                    '--class', 'org.eternalself.umbrielremote.LocalNetworks', '--method',
@@ -56,7 +62,7 @@ assert certificate == (root/'downloads/SIGNING-CERTIFICATE-SHA256').read_text().
 digest = hashlib.sha256(apk.read_bytes()).hexdigest()
 checksums = {name:sha for sha,name in (line.split() for line in (root/'downloads/SHA256SUMS').read_text().splitlines() if line.strip())}
 assert checksums[apk.name] == digest
-result = dict(version='0.4.2-experimental', versionCode=8, package='org.eternalself.umbrielremote', bytes=apk.stat().st_size,
+result = dict(version='0.5.0-experimental', versionCode=9, package='org.eternalself.umbrielremote', bytes=apk.stat().st_size,
               sha256=digest, signing_certificate_sha256=certificate, foreground_service_type='connectedDevice',
               debuggable=False, private_boot_receiver=True, optimized_network_public_api=True, phone_validation='pending')
 (root/'build/android-full-artifacts.json').write_text(json.dumps(result, indent=2)+'\n')

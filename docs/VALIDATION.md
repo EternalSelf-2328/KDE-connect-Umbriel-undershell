@@ -201,7 +201,7 @@ y pruebas de búfer; no se afirma una nueva latencia física ni se movió el pun
 real para medir. Renders Qt de filtros y selector de envío revisados con datos
 sintéticos; APK 0.3.0 aún requiere actualizarse en el Galaxy.
 
-## Archivos grandes —0.3.1 / 2026-11-16
+## Archivos grandes — 0.3.1 / 2026-11-16
 
 Investigación del código oficial de KDE y decisiones: [LARGE-FILES.md](LARGE-FILES.md).
 Se eliminó el tope propio de1 GiB; se comprueba espacio libre y se utiliza una
@@ -257,3 +257,34 @@ sin pulsar Enviar. La ventana blanca observada era `kdeconnect-handler`; la
 instancia Yazi activa se inició antes del cambio de su configuración. Esta ya
 apunta al ejecutable propio y requiere reabrir Yazi. No se enviaron archivos
 personales ni capturó el escritorio durante las comprobaciones.
+
+
+## Inicio y registro — 0.5.0 / 2026-11-17
+
+31 pruebas Android aprobadas: HomeNavigation4, RegistrationUi4, AuthenticatedUi4,
+ConnectionRegression10, IncomingShare8 y HomeRender1. Renders de Views reales con
+runtime gráfico nativo/API 36 y datos sintéticos: claro/oscuro,320/412/840 dp, texto 130%,
+conectado/buscando/remoto/primer registro, Mouse, Apariencia, Archivos y Ajustes.
+Se revisaron los PNG; controles multimedia usan iconos para evitar texto partido,
+barra inferior persistente y contenido desplazable. [Renders y contraste](DESIGN-ANDROID-HOME.md).
+
+10/10 suites nativas aprobadas en 27.52 s, incluidas27 pruebas TLS y la inicialización
+idempotente de la identidad al primer inicio. El QR se generó y decodificó con
+Prison/PrisonScanner, con datos sintéticos; exportación privada0600 verificada.
+Se repitió solo diseño tras ajustar dos etiquetas del escritorio.101 comprobaciones
+Java existentes de guardas, entrada y transferencias aprobadas; variantes mínimas
+compiladas/firmadas e inspeccionadas, sin sustituir la descarga histórica mínima.
+
+APK completo0.5.0:11 531 919 bytes, SHA256
+`cd7df3c27c4cdeb5245da9e5c0627939901455000c2d1be8a96756bb1320f122`,
+versionCode 9/min 30 / target 37, mismo paquete/certificado, firma v3 y no debuggable.
+Inspección del manifiesto fusionado, deep link de registro y clases propias en DEX;
+bytecode R8 de LocalNetworks conserva getAddress/getPrefixLength públicos. El APK
+suma32 768 bytes frente a0.4.2. Mapas R8 conservados solo en almacenamiento privado.
+
+Escritorio0.5.0 instalado con respaldo0.4.2. Ambos servicios propios activos/habilitados;
+receptor reiniciado tras comprobar cero sesiones. TLS1.3 local coincide con certificado
+almacenado; identidad conservada. Daemon oficial sin propietario D-Bus. Sin cambios a
+VPN/rutas/DNS/firewall/compositor, sin mover puntero/aplicar fondos y sin capturas privadas.
+No había Galaxy conectado por ADB: huella/PIN, teclado Samsung, cámara que abre URI y
+funciones físicas se mantienen pendientes. No se afirma aprobación de Play Protect.

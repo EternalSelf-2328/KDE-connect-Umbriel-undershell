@@ -44,6 +44,8 @@ public class RemoteService extends Service {
     private volatile SessionGuard guard;
     private BroadcastReceiver lockReceiver;
 
+    volatile ConnectionUi.Phase phase=ConnectionUi.Phase.SEARCHING_LOCAL;
+    private void phase(ConnectionUi.Phase value){phase=value;MainActivity a=MainActivity.current.get();if(a!=null)a.connectionChanged(this);}
     @Override public void onCreate() {
         super.onCreate(); instance=this;files=new FileTransfers(this);
         NotificationManager nm=getSystemService(NotificationManager.class);
@@ -64,7 +66,7 @@ public class RemoteService extends Service {
         }
         if("STOP".equals(intent.getAction())) {getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("autoPaused",true).apply();EngineBridge.pause();stopping=true;closeConnection();stopSelf();return START_NOT_STICKY;}
         autoOnly=intent.getBooleanExtra("autoOnly",false);stopping=false;retryCount=0;
-        closeConnection();
+        closeConnection();phase(ConnectionUi.Phase.SEARCHING_LOCAL);
         if (!getSystemService(NotificationManager.class).areNotificationsEnabled()) {tell("Permite las notificaciones para hacer visible la sesión."); stopSelf(); return START_NOT_STICKY;}
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,RemoteService.class).setAction("STOP"),PendingIntent.FLAG_IMMUTABLE);
@@ -94,7 +96,7 @@ public class RemoteService extends Service {
     void expireControls(){
         if(!authorized)return;controlsExpired=true;cancelMotion();SessionGuard g=guard;if(g!=null)g.close();
         if(!transferScope.active(SystemClock.elapsedRealtime())){finishSession();return;}
-        MainActivity activity=MainActivity.current.get();if(activity!=null)activity.transferOnly(this);
+        phase(ConnectionUi.Phase.FILE_ONLY);MainActivity activity=MainActivity.current.get();if(activity!=null)activity.transferOnly(this);
     }
     void expectTransferClose(String id){if(controlsExpired&&transferScope.only(id))expectedTransferClose=true;}
     void releaseTransfer(String id){releaseTransfer(id,false);}
@@ -132,7 +134,7 @@ public class RemoteService extends Service {
     void notificationStatus(String value){if(notificationBuilder!=null)main.post(()->{try{getSystemService(NotificationManager.class).notify(17,notificationBuilder.setContentText(value).build());}catch(RuntimeException ignored){}});}
     private void waitForLocal(long delay){
         if(!stopping&&config!=null&&config.optBoolean("accessV2")&&!getSharedPreferences("connection",MODE_PRIVATE).getBoolean("autoPaused",false)){
-            autoOnly=true;notificationStatus("Esperando la red local · el acceso remoto requiere autorización");retryLocal(delay);
+            autoOnly=true;phase(ConnectionUi.Phase.REMOTE_REQUIRED);notificationStatus("Esperando la red local · el acceso remoto requiere autorización");retryLocal(delay);
         }else main.post(this::stopSelf);
     }
     void finishSession(){closeConnection();waitForLocal(1500);}
@@ -199,11 +201,11 @@ public class RemoteService extends Service {
                     byte[] challenge=decode(message.getString("challenge"));session.challenge(challenge);
                     Signature signature=Signature.getInstance("SHA256withECDSA");signature.initSign((PrivateKey)keys.getKey(alias,null));
                     if(localAuto){if(!LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress()))throw new GeneralSecurityException("La ruta ya no es local");signature.update(challenge);completeAuthentication(signature.sign(),generation);}
-                    else {MainActivity a=MainActivity.current.get();if(a==null||!a.visible)throw new GeneralSecurityException("Abre la aplicación para autorizar con huella o bloqueo del teléfono");a.approve(signature,challenge,this,generation,upgrade);}
+                    else {phase(ConnectionUi.Phase.AUTHENTICATING);MainActivity a=MainActivity.current.get();if(a==null||!a.visible)throw new GeneralSecurityException("Abre la aplicación para autorizar con huella o bloqueo del teléfono");a.approve(signature,challenge,this,generation,upgrade);}
                 }else if(type.equals("authorized")){
                     if(!prompted||proofSubmitted!=generation||!message.optString("keyId").equals(hex(sha(publicKey)))||message.optInt("leaseSeconds")!=600||message.optBoolean("phoneControl")!=requestedPhone||message.optBoolean("localAuto")!=localAuto||!message.optBoolean("accessV2"))throw new GeneralSecurityException("Autorización inválida");
                     session.authorize(message.optString("keyId"),message.optInt("leaseSeconds"),message.optBoolean("phoneControl"),SystemClock.elapsedRealtime());
-                    notificationStatus(localAuto?"Conectado automáticamente en la red local":"Acceso remoto autorizado por 10 minutos");
+                    phase(localAuto?ConnectionUi.Phase.CONNECTED_LOCAL:ConnectionUi.Phase.CONNECTED_REMOTE);notificationStatus(localAuto?"Conectado automáticamente en la red local":"Acceso remoto autorizado por 10 minutos");
                     retryCount=0;authorized=true;deadline=SystemClock.elapsedRealtime()+600000;wire.setSoTimeout(30000);
                     settings.remove("token");settings.remove("expires");settings.put("accessV2",true);
                     getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",settings.toString()).apply();

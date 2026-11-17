@@ -22,13 +22,15 @@ for p in OUT.rglob('*'):
  except UnicodeError:continue
  s=s.replace('org.kde.kdeconnect_tp','org.eternalself.umbrielremote').replace('org.kde.kdeconnect','org.eternalself.umbrielremote.engine').replace('org/kde/kdeconnect','org/eternalself/umbrielremote/engine')
  p.write_text(s)
-p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 8').replace('versionName = "1.37.3"','versionName = "0.4.2-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
+p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 9').replace('versionName = "1.37.3"','versionName = "0.5.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
 # Robolectric SDK36 uses a JDK21 internal FileDescriptor accessor; export only in test JVMs.
 with (OUT/'build.gradle.kts').open('a') as stream:
  stream.write('\ntasks.withType<Test>().configureEach { jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }\n')
 # Framework duplicates in the MMS dependency must not expose private Android fields through R8.
 with (OUT/'proguard-rules.pro').open('a') as stream:
  stream.write('\n'+(ROOT/'data/android-framework-boundaries.pro').read_text())
+# Native graphics tests need the pinned font resources excluded by upstream's lightweight tests.
+p=OUT/'build.gradle.kts';p.write_text(p.read_text().replace('        exclude(group = "org.robolectric", module = "nativeruntime-dist-compat")', '        // Keep native font resources on the test runtime classpath only.'))
 p=OUT/'gradle.properties';p.write_text(p.read_text().replace('-Xmx4096m','-Xmx1536m')+'\norg.gradle.workers.max=2\nkotlin.daemon.jvmargs=-Xmx768m\n')
 verification=ROOT/'data/android-full-verification-metadata.xml'
 if verification.exists():shutil.copy2(verification,OUT/'gradle/verification-metadata.xml')
@@ -67,6 +69,7 @@ for n in list(app):
  if name.endswith('KdeConnectBroadcastReceiver'):n.set(A+'exported','false')
 main=E.SubElement(app,'activity',{A+'name':'org.eternalself.umbrielremote.MainActivity',A+'exported':'true',A+'theme':'@android:style/Theme.Material.NoActionBar'})
 f=E.SubElement(main,'intent-filter');E.SubElement(f,'action',{A+'name':'android.intent.action.MAIN'});E.SubElement(f,'category',{A+'name':'android.intent.category.LAUNCHER'})
+f=E.SubElement(main,'intent-filter');E.SubElement(f,'action',{A+'name':'android.intent.action.VIEW'});E.SubElement(f,'category',{A+'name':'android.intent.category.DEFAULT'});E.SubElement(f,'category',{A+'name':'android.intent.category.BROWSABLE'});E.SubElement(f,'data',{A+'scheme':'umbriel-connect',A+'host':'pair'})
 E.SubElement(app,'activity',{A+'name':'org.eternalself.umbrielremote.EngineUnlockActivity',A+'exported':'false',A+'theme':'@android:style/Theme.Material.NoActionBar'})
 E.SubElement(app,'service',{A+'name':'org.eternalself.umbrielremote.RemoteService',A+'exported':'false',A+'foregroundServiceType':'connectedDevice'})
 receiver=E.SubElement(app,'receiver',{A+'name':'org.eternalself.umbrielremote.AutoConnectReceiver',A+'exported':'false'})
@@ -91,7 +94,10 @@ s=s.replace('        notifyPluginPacketReceived(np)','        if (!isPaired) { n
 s=s.replace('    ): Boolean {\n        if (!supportsPacketType(np.type))','    ): Boolean {\n        if (!org.eternalself.umbrielremote.EngineGate.packetAllowed(deviceId, np.type)) { np.payload?.close(); return false }\n        np.payload?.let { org.eternalself.umbrielremote.EnginePayloads.authorize(it, deviceId, np.type) }\n        if (!supportsPacketType(np.type))');p.write_text(s)
 p=OUT/'src/main/java/org/kde/kdeconnect/Device.kt';s=p.read_text().replace('fun sendPacket(np: NetworkPacket, callback: SendPacketStatusCallback) {','fun sendPacket(np: NetworkPacket, callback: SendPacketStatusCallback) {\n        if (!org.eternalself.umbrielremote.EngineGate.packetAllowed(deviceId, np.type)) { np.payload?.close(); callback.onFailure(Exception("Session is not authorized")); return }\n        np.payload?.let { org.eternalself.umbrielremote.EnginePayloads.authorize(it, deviceId, np.type) }');p.write_text(s)
 p=OUT/'src/main/java/org/kde/kdeconnect/KdeConnect.kt';s=p.read_text().replace('        _instance = this','        _instance = this\n        org.eternalself.umbrielremote.CrashReports.install(this)\n        org.eternalself.umbrielremote.EngineGate.init(this)');p.write_text(s)
-p=OUT/'src/main/java/org/kde/kdeconnect/ui/MainActivity.kt';s=p.read_text().replace('        DeviceHelper.initializeDeviceId(this)','        if (!org.eternalself.umbrielremote.EngineGate.uiAllowed()) {\n            startActivity(android.content.Intent(this, org.eternalself.umbrielremote.EngineUnlockActivity::class.java)); finish(); return\n        }\n        DeviceHelper.initializeDeviceId(this)',1);p.write_text(s)
+# Retain binary/API compatibility for plugin intents, but route the legacy entry to our app shell.
+p=OUT/'src/main/java/org/kde/kdeconnect/ui/MainActivity.kt';s=p.read_text()
+s=s.replace('        DeviceHelper.initializeDeviceId(this)', '        if (openUmbrielHome()) return\n        DeviceHelper.initializeDeviceId(this)',1)
+s=s.replace('    companion object {', '    private fun openUmbrielHome(): Boolean {\n        val home = android.content.Intent(this, org.eternalself.umbrielremote.MainActivity::class.java)\n        if (intent.hasExtra(PAIR_REQUEST_STATUS)) home.putExtra("settings", "devices")\n        home.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)\n        startActivity(home)\n        finish()\n        return true\n    }\n\n    companion object {',1);p.write_text(s)
 # Route decisions use the actual TLS socket endpoints and Android physical network capabilities.
 p=OUT/'src/main/java/org/kde/kdeconnect/backends/lan/LanLink.kt';s=p.read_text().replace('    override val name = "LanLink"','    fun isDirectLocal(): Boolean = !socket.isClosed && org.eternalself.umbrielremote.LocalNetworks.direct(context, socket.localAddress, socket.inetAddress)\n\n    override val name = "LanLink"');p.write_text(s)
 p=OUT/'src/main/java/org/kde/kdeconnect/Device.kt';s=p.read_text().replace('    fun disconnect() {','    fun hasDirectLocalLink(): Boolean = links.any { it is org.eternalself.umbrielremote.engine.backends.lan.LanLink && it.isDirectLocal() }\n\n    fun disconnect() {');p.write_text(s)

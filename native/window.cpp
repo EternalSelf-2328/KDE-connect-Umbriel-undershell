@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "window.h"
+#include "pairingdialog.h"
 #include "androidpanel.h"
 #include <QShortcut>
 #include <QDialog>
@@ -164,10 +165,12 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     auto *secureIcon=plainLabel("");secureIcon->setPixmap(Design::icon("shield").pixmap(48,48));secureLayout->addWidget(secureIcon);
     secureIcon->setProperty("glyph","shield");secureIcon->setProperty("glyphSize",48);
     auto *secureTitle=plainLabel("El acceso, en tus manos.");secureTitle->setProperty("role","hero");secureLayout->addWidget(secureTitle);
-    secureLayout->addWidget(plainLabel("Vincula tus equipos por una red privada y aprueba cada sesión desde tu teléfono."));
+    secureLayout->addWidget(plainLabel("Vincula una vez. En la red local se conecta automáticamente; fuera de ella autoriza desde tu teléfono."));
     auto *secureInfo=plainLabel("1 · Vincular una vez     2 · LAN automática     3 · Fuera de LAN: huella o bloqueo del teléfono");secureInfo->setProperty("role","muted");secureLayout->addWidget(secureInfo);moreLayout->addWidget(secureHero);
-    auto *lanInfo=button("Ver conexión local…",moreLayout);connect(lanInfo,&QPushButton::clicked,this,[this]{m_remote.call({{"action","network"}},[this](Reply r){if(!r.ok){result(r);return;}auto info=r.value.toMap();QStringList addresses;for(auto host:info["hosts"].toList())addresses.append(host.toString()+":"+info["port"].toString());QMessageBox::information(this,"Red local",addresses.isEmpty()?"No hay una interfaz IPv4 privada disponible. Conecta la computadora a tu red y vuelve a iniciar el receptor.":"No necesitas Tailscale en la misma red. El teléfono detecta esta computadora por su identidad registrada.\n\n"+addresses.join("\n")+"\n\nSi tu red bloquea la detección, introduce esta IP en «Configurar red local» del teléfono.");});});
-    auto *securePhone = button("Controlar teléfono con aprobación biométrica", moreLayout);
+    auto *bindPhone=button("Vincular teléfono…",moreLayout);bindPhone->setObjectName("bindPhone");bindPhone->setProperty("kind","primary");bindPhone->setEnabled(!preview);
+    connect(bindPhone,&QPushButton::clicked,this,[this]{m_remote.call({{"action","network"}},[this](Reply reply){if(!reply.ok){result(reply);return;}const auto info=reply.value.toMap();QStringList hosts;for(const auto &host:info["hosts"].toList())hosts.append(host.toString());PairingUi::open(this,hosts,quint16(info["port"].toUInt()),Integration::executable("umbriel-connect-remote"));});});
+    auto *lanInfo=button("Ver conexión local…",moreLayout);connect(lanInfo,&QPushButton::clicked,this,[this]{m_remote.call({{"action","network"}},[this](Reply r){if(!r.ok){result(r);return;}auto info=r.value.toMap();QStringList addresses;for(auto host:info["hosts"].toList())addresses.append(host.toString()+":"+info["port"].toString());QMessageBox::information(this,"Red local",addresses.isEmpty()?"No hay una interfaz IPv4 privada disponible. Conecta la computadora a tu red y vuelve a iniciar el receptor.":"No necesitas Tailscale en la misma red. El teléfono detecta esta computadora por su identidad registrada.\n\n"+addresses.join("\n")+"\n\nSi tu red bloquea la detección, introduce esta IP en Ajustes → Mi computadora → Dirección local del teléfono.");});});
+    auto *securePhone = button("Controlar teléfono…", moreLayout);
     securePhone->setProperty("kind","primary");securePhone->setIcon(Design::icon("shield",Design::palette().onAccent));
     securePhone->setProperty("glyph","shield");securePhone->setProperty("glyphPrimary",true);
     securePhone->setEnabled(!preview && !Integration::executable("umbriel-connect-remote").isEmpty());

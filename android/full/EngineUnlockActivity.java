@@ -140,7 +140,7 @@ public final class EngineUnlockActivity extends Activity {
     private void openFeatures() {
         try {
             startActivity(
-                new Intent(this, Class.forName("org.eternalself.umbrielremote.engine.ui.MainActivity")));
+                new Intent(this, Class.forName("org.eternalself.umbrielremote.MainActivity")));
         } catch (ClassNotFoundException e) {
             EngineGate.revoke();
             status.setText("La compilación no incluye el motor de funciones.");

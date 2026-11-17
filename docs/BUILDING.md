@@ -1,4 +1,4 @@
-# Compilar Umbriel Connect 0.4.2
+# Compilar Umbriel Connect 0.5.0
 
 El cliente, receptor y motor de escritorio están en C++20/Qt6. El motor se compila desde
 una revisión de KDE Connect vendorizada como submódulo; **no utiliza el programa
@@ -33,6 +33,10 @@ gráfica; sin esa opción se conserva el inicio por GUI/D-Bus.
 El motor propio se activa al abrir la aplicación o por su servicio D-Bus privado.
 Si tienes una instancia anterior abierta, ciérrala y vuelve a abrirla.
 
+`prison` es opcional: genera el QR de vinculación dentro del proceso, sin servicios
+web. Sin ella, el diálogo conserva exportación de archivo y portapapeles privados.
+La prueba de lectura del QR usa `KF6PrisonScanner` cuando está disponible.
+
 Para empaquetar: `./install.sh --prefix /ruta/absoluta`. Para separar compilación e
 instalación: `scripts/engine/build.sh /prefijo`, `tests/engine.sh`, CMake raíz y `ctest`;
 instalar ambos proyectos con `cmake --install build/engine --strip` y
@@ -64,6 +68,7 @@ python3 scripts/android-full/sdk.py
 scripts/android-full/build.sh
 # Pruebas Android con recursos (Robolectric):
 scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.IncomingShareTest --tests org.eternalself.umbrielremote.ConnectionRegressionTest
+bash scripts/android-full/build.sh testDebugUnitTest --tests org.eternalself.umbrielremote.HomeNavigationTest --tests org.eternalself.umbrielremote.HomeRenderTest --tests org.eternalself.umbrielremote.RegistrationUiTest --tests org.eternalself.umbrielremote.AuthenticatedUiTest
 bash tests/android-guard.sh
 ```
 
@@ -71,6 +76,12 @@ El APK release resultante es **sin firmar** y está bajo
 `build/android-full-source/build/outputs/apk/release/`. Dependencias Maven y Gradle
 usan revisiones y verificaciones SHA256; una actualización exige revisar los cambios
 y actualizar `data/android-full-verification-metadata.xml`, no desactivar la comprobación.
+
+`HomeRenderTest` dibuja las Views reales con datos sintéticos y runtime gráfico nativo
+Robolectric, en API 36: claro/oscuro, ancho320/412/840 dp y texto aumentado al130%.
+Los PNG quedan en `build/android-home-previews/`; no se captura el escritorio ni un
+teléfono real. Su dependencia de fuentes/runtime nativo suma unos152 MiB a la caché
+de pruebas; no entra en el APK. El checksum está fijado en los metadatos de verificación.
 
 Para firmar tu propio fork, crea y respalda tu propia clave fuera de Git. Configura
 `UMBRIEL_ANDROID_KEYSTORE`, `UMBRIEL_ANDROID_KEY_PASSWORD_FILE` y

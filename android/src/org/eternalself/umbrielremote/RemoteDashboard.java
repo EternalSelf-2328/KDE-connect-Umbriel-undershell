@@ -17,35 +17,52 @@ import java.util.function.Consumer;
 final class RemoteDashboard extends LinearLayout {
     final Activity activity;final UiDesign ui;final RemoteService owner;final Consumer<String> status;
     final LinearLayout body;final Map<String,JSONObject> actions=new LinkedHashMap<>();final ArrayList<Button> tabs=new ArrayList<>();
-    JSONArray profiles=new JSONArray();JSONObject features=new JSONObject();int selected=0,generation=0,offset=0;boolean disposed=false,pointerEnabled=false,pointerStarting=false,moving=false;int pointerEpoch=0;
+    JSONArray profiles=new JSONArray();JSONObject features=new JSONObject();int selected=5,generation=0,offset=0;boolean disposed=false,pointerEnabled=false,pointerStarting=false,moving=false;int pointerEpoch=0;
+    boolean loaded=false,wantPointer=false,loadFailed=false;private HorizontalScrollView navBar;private Button pointerToggle;
     Touchpad touchpad;boolean favourites=false;String filter="",source="local",folder="",kind="";
     RemoteDashboard(Activity a,UiDesign design,RemoteService service,Consumer<String> message){
         super(a);activity=a;ui=design;owner=service;status=message;setOrientation(VERTICAL);source=a.getPreferences(0).getString("wallSource","local");folder=a.getPreferences(0).getString("wallFolder","");kind=a.getPreferences(0).getString("wallKind","");
-        HorizontalScrollView scroll=new HorizontalScrollView(a);scroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout row=new LinearLayout(a);scroll.addView(row);
-        String[] names={"Navegación","Mouse","Sonido y apariencia","Fondos","Archivos"};
-        for(int i=0;i<names.length;i++){final int index=i;Button b=ui.button(names[i],false);b.setTextSize(14);row.addView(b);tabs.add(b);b.setOnClickListener(v->select(index));}
-        addView(scroll);body=ui.column();ui.add(this,body,0);load();
+        navBar=new HorizontalScrollView(a);navBar.setHorizontalScrollBarEnabled(false);
+        LinearLayout row=new LinearLayout(a);navBar.addView(row);
+        String[] names={"Mouse","Navegación","Sonido","Apariencia","Fondos","Widgets"};int[] pages={1,0,2,6,3,7};
+        for(int i=0;i<names.length;i++){final int index=pages[i];Button b=ui.button(names[i],false);b.setTag(index);b.setTextSize(13);row.addView(b);tabs.add(b);b.setOnClickListener(v->{if(a instanceof MainActivity)((MainActivity)a).openControl(index);else select(index);});}
+        addView(navBar);body=ui.column();ui.add(this,body,0);load();
     }
+    void showNavigation(boolean visible){navBar.setVisibility(visible?VISIBLE:GONE);}
+    void activateMouse(){wantPointer=true;if(selected==1&&pointerToggle!=null&&!pointerEnabled&&!pointerStarting)pointerToggle.performClick();}
     void request(String type,JSONObject args,Consumer<JSONObject> complete){
         if(disposed||!owner.isAuthorized())return;
         owner.request(type,args,reply->activity.runOnUiThread(()->{if(!disposed&&owner.isAuthorized())complete.accept(reply);}));
     }
     JSONObject object(Object... values){JSONObject o=new JSONObject();try{for(int i=0;i<values.length;i+=2)o.put(values[i].toString(),values[i+1]);}catch(JSONException ignored){}return o;}
     void load(){
-        status.accept("Cargando controles…");
-        request("features",new JSONObject(),reply->{features=reply.optJSONObject("value");if(features==null)features=new JSONObject();
-            request("catalog",new JSONObject(),catalog->{JSONArray list=catalog.optJSONArray("value");if(list!=null)for(int i=0;i<list.length();i++){JSONObject action=list.optJSONObject(i);if(action!=null)actions.put(action.optString("id"),action);}
-                request("profiles",new JSONObject(),saved->{JSONArray listProfiles=saved.optJSONArray("value");if(listProfiles!=null)profiles=listProfiles;select(0);status.accept("Controles listos · sesión aprobada con huella");});
+        loaded=false;loadFailed=false;status.accept("Cargando tus controles…");
+        request("features",new JSONObject(),reply->{
+            if(!reply.optBoolean("ok")){loadError();return;}features=reply.optJSONObject("value");if(features==null)features=new JSONObject();
+            request("catalog",new JSONObject(),catalog->{if(!catalog.optBoolean("ok")){loadError();return;}JSONArray list=catalog.optJSONArray("value");if(list!=null)for(int i=0;i<list.length();i++){JSONObject action=list.optJSONObject(i);if(action!=null)actions.put(action.optString("id"),action);}
+                request("profiles",new JSONObject(),saved->{JSONArray listProfiles=saved.optJSONArray("value");if(listProfiles!=null)profiles=listProfiles;loaded=true;boolean start=wantPointer;select(selected);if(start&&selected==1)activateMouse();status.accept(owner.automaticLocal()?"Todo listo · red local":"Todo listo · acceso remoto autorizado");});
             });
         });
     }
+    private void loadError(){loadFailed=true;body.removeAllViews();LinearLayout c=card("No pude cargar los controles","La conexión sigue protegida. Vuelve a intentarlo.");Button retry=ui.button("Cargar de nuevo",true);retry.setOnClickListener(v->load());ui.add(c,retry,0);status.accept("No se pudieron cargar los controles");}
     void dispose(){if(disposed)return;stopPointer();disposed=true;generation++;}
-    void stopPointer(){pointerEpoch++;owner.cancelMotion();if(touchpad!=null)touchpad.cancel();if(pointerEnabled||pointerStarting)request("pointer",object("op","stop"),r->{});pointerEnabled=false;pointerStarting=false;}
-    void select(int page){stopPointer();selected=page;generation++;body.removeAllViews();
-        for(int i=0;i<tabs.size();i++){tabs.get(i).setTextColor(i==page?ui.onAccent:ui.text);tabs.get(i).setBackgroundTintList(android.content.res.ColorStateList.valueOf(i==page?ui.accent:ui.raised));tabs.get(i).setSelected(i==page);}
-        if(page==0)navigation();else if(page==1)mouse();else if(page==2)sound();else if(page==3)wallpapers(0);else files();
+    void stopPointer(){wantPointer=false;pointerEpoch++;owner.cancelMotion();if(touchpad!=null)touchpad.cancel();if(pointerEnabled||pointerStarting)request("pointer",object("op","stop"),r->{});pointerEnabled=false;pointerStarting=false;}
+    void select(int page){stopPointer();selected=page;generation++;body.removeAllViews();pointerToggle=null;
+        for(Button tab:tabs){boolean active=tab.getTag().equals(page);tab.setTextColor(active?ui.onAccent:ui.text);tab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(active?ui.accent:ui.raised));tab.setSelected(active);}
+        for(Button tab:tabs)if(tab.getTag().equals(page)&&navBar.getVisibility()==VISIBLE){navBar.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener(){public void onGlobalLayout(){if(navBar.getViewTreeObserver().isAlive())navBar.getViewTreeObserver().removeOnGlobalLayoutListener(this);navBar.scrollTo(Math.max(0,tab.getLeft()-ui.dp(8)),0);}});break;}
+        if(!loaded&&loadFailed){loadError();return;}
+        if(!loaded){card("Preparando tus controles…","La primera carga tarda unos instantes.");return;}
+        if(page==5)home();else if(page==0)navigation();else if(page==1)mouse();else if(page==2)sound();else if(page==3)wallpapers(0);else if(page==4)files();else if(page==6)appearance();else widgets();
     }
+    private void home(){
+        if(activity instanceof MainActivity)((MainActivity)activity).homeShortcuts(body,true);
+        LinearLayout media=card("Reproducción","");
+        row(media,transport("noctalia.media-previous","Pista anterior","previous",false),transport("noctalia.media-play-pause","Reproducir o pausar","play",true),transport("noctalia.media-next","Pista siguiente","next",false));
+        TextView value=ui.label("Volumen · leyendo…",14,ui.muted,false);ui.add(media,value,0);SeekBar volume=new SeekBar(activity);volume.setMax(100);volume.setEnabled(false);ui.add(media,volume,0);Button mute=transport("noctalia.volume-mute","Silenciar","sound",false);
+        readVolume(volume,value,mute);volume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int v,boolean user){if(user)value.setText("Volumen · "+v+" %");}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){act("noctalia.volume-set",Integer.toString(s.getProgress()));}});
+
+    }
+    private Button transport(String id,String label,String icon,boolean primary){Button b=action(id,"",primary);b.setContentDescription(label);b.setCompoundDrawables(null,ui.icon(icon,primary?ui.onAccent:ui.text,24),null,null);b.setCompoundDrawablePadding(0);return b;}
     LinearLayout card(String title,String hint){LinearLayout c=ui.card();ui.add(c,ui.label(title,20,ui.text,true),8);if(!hint.isEmpty())ui.add(c,ui.label(hint,14,ui.muted,false),12);ui.add(body,c,16);return c;}
     Button action(String id,String title,boolean primary){Button b=ui.button(title,primary);b.setEnabled(actions.containsKey(id)&&actions.get(id).optBoolean("available"));b.setOnClickListener(v->act(id));return b;}
     void act(String id,String... args){
@@ -53,7 +70,7 @@ final class RemoteDashboard extends LinearLayout {
         if(id.equals("noctalia.lock")||id.equals("umbriel.dpms-off"))new AlertDialog.Builder(activity).setTitle("Confirmar acción").setMessage("Esta acción puede interrumpir el acceso al escritorio.").setNegativeButton("Cancelar",null).setPositiveButton("Continuar",(d,w)->run.run()).show();else run.run();
     }
     void result(JSONObject reply){status.accept(reply.optBoolean("ok")?"Acción completada":reply.optString("error","No se pudo completar la acción"));}
-    void row(LinearLayout parent,Button... buttons){LinearLayout row=new LinearLayout(activity);for(Button b:buttons){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1);p.setMargins(0,0,ui.dp(6),0);row.addView(b,p);}ui.add(parent,row,8);}
+    void row(LinearLayout parent,Button... buttons){LinearLayout row=new LinearLayout(activity);for(Button b:buttons){b.setTextSize(b.getText().length()==0?0:14);b.setPadding(ui.dp(10),ui.dp(12),ui.dp(10),ui.dp(12));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1);p.setMargins(0,0,ui.dp(6),0);row.addView(b,p);}ui.add(parent,row,8);}
     void navigation(){
         LinearLayout nav=card("Muévete por Umbriel","Enfoca ventanas con las flechas y cambia de escritorio con los botones inferiores.");
         GridLayout pad=new GridLayout(activity);pad.setColumnCount(3);pad.setRowCount(3);
@@ -65,6 +82,8 @@ final class RemoteDashboard extends LinearLayout {
         row(nav,action("umbriel.workspace-toggle-show-desktop","Mostrar escritorio",false));
         Button advanced=ui.button("Pantallas y sesión…",false);ui.add(nav,advanced,8);LinearLayout extraNav=ui.column();extraNav.setVisibility(GONE);ui.add(nav,extraNav,0);advanced.setOnClickListener(v->extraNav.setVisibility(extraNav.getVisibility()==GONE?VISIBLE:GONE));
         row(extraNav,action("umbriel.output-focus-previous","Pantalla anterior",false),action("umbriel.output-focus-next","Pantalla siguiente",false));row(extraNav,action("umbriel.dpms-on","Encender pantallas",false),action("umbriel.dpms-off","Apagar pantallas…",false));row(extraNav,action("noctalia.lock","Bloquear sesión…",false));
+    }
+    void widgets(){
         LinearLayout widgets=card("Tus widgets","Controles de undershell y perfiles guardados.");
         row(widgets,action("undershell.edit-on","Editar",true),action("undershell.edit-off","Terminar",false));
         row(widgets,action("undershell.show","Mostrar widgets",false),action("undershell.hide","Ocultar widgets",false));
@@ -76,7 +95,7 @@ final class RemoteDashboard extends LinearLayout {
     void mouse(){
         LinearLayout c=card("Tu celular, un touchpad","Desliza para mover · toca para hacer clic · dos dedos para desplazar · mantén y arrastra.");
         if(!features.optBoolean("pointer")){ui.add(c,ui.label("El receptor necesita una compilación con Xwayland/XTest y una sesión gráfica disponible.",14,ui.muted,false),8);return;}
-        Button enable=ui.button("Activar mouse",true);ui.add(c,enable,12);
+        Button enable=ui.button("Activar mouse",true);pointerToggle=enable;ui.add(c,enable,12);
         touchpad=new Touchpad(activity,ui,new Touchpad.Sink(){
             public boolean move(int dx,int dy){return pointerEnabled&&owner.pointerMove(dx,dy);}
             public void event(String op,String button,boolean down,int steps){if(pointerEnabled)request("pointer",object("op",op,"button",button,"down",down,"dy",steps),reply->{if(!reply.optBoolean("ok"))result(reply);});}
@@ -96,7 +115,9 @@ final class RemoteDashboard extends LinearLayout {
         mute.setOnClickListener(v->request("action",object("action","noctalia.volume-mute","args",new JSONArray()),reply->{result(reply);readVolume(volume,value,mute);}));
         volume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean user){if(user)value.setText("Volumen · "+p+" %");}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){act("noctalia.volume-set",Integer.toString(s.getProgress()));}});
         row(c,action("noctalia.volume-down","− Volumen",false),mute,action("noctalia.volume-up","+ Volumen",false));
-        row(c,action("noctalia.media-previous","Anterior",false),action("noctalia.media-play-pause","Reproducir / pausar",true),action("noctalia.media-next","Siguiente",false));
+        row(c,action("noctalia.media-previous","Anterior",false),action("noctalia.media-play-pause","Reproducir",true),action("noctalia.media-next","Siguiente",false));
+    }
+    void appearance(){
         LinearLayout look=card("Apariencia","Elige el tema que deseas aplicar.");row(look,action("noctalia.theme-light","Claro",false),action("noctalia.theme-dark","Oscuro",false));
         LinearLayout quiet=card("Concentración y reposo","");row(quiet,action("noctalia.dnd-on","No molestar",false),action("noctalia.dnd-off","Permitir avisos",false));row(quiet,action("noctalia.caffeine-enable","Evitar reposo",false),action("noctalia.caffeine-disable","Permitir reposo",false));
     }
@@ -105,9 +126,9 @@ final class RemoteDashboard extends LinearLayout {
         if(!features.optBoolean("files")){ui.add(c,ui.label("Actualiza el receptor de la computadora para transferir archivos.",14,ui.muted,false),8);return;}
         Button choose=ui.button("Elegir archivo…",true);choose.setOnClickListener(v->{if(activity instanceof MainActivity)((MainActivity)activity).chooseFile();});ui.add(c,choose,8);
         if(activity instanceof MainActivity&&((MainActivity)activity).pendingFile!=null){Button send=ui.button("Enviar archivo seleccionado",false);send.setOnClickListener(v->owner.files.upload(((MainActivity)activity).pendingFile));ui.add(c,send,8);}
-        ui.add(c,ui.label("Elegir un archivo abre el selector de Android y cierra la sesión de control. Al volver, confirma tu huella. Para recibir desde la computadora, mantén esta app abierta y acepta la descarga.",14,ui.muted,false),8);
+        ui.add(c,ui.label("El selector de Android conserva una conexión válida. En la red local, los archivos se reciben automáticamente sin abrirse; fuera de ella se pide aceptar cada descarga.",14,ui.muted,false),8);
     }
-    void readVolume(SeekBar volume,TextView value,Button mute){request("audio-state",new JSONObject(),reply->{JSONObject state=reply.optJSONObject("value");if(reply.optBoolean("ok")&&state!=null){volume.setProgress(state.optInt("volume"));value.setText("Volumen · "+state.optInt("volume")+" %"+(state.optBoolean("muted")?" · silenciado":""));mute.setText(state.optBoolean("muted")?"Activar audio":"Silenciar");volume.setEnabled(true);}else value.setText("Volumen actual no disponible");});}
+    void readVolume(SeekBar volume,TextView value,Button mute){request("audio-state",new JSONObject(),reply->{JSONObject state=reply.optJSONObject("value");if(reply.optBoolean("ok")&&state!=null){volume.setProgress(state.optInt("volume"));value.setText("Volumen · "+state.optInt("volume")+" %"+(state.optBoolean("muted")?" · silenciado":""));mute.setContentDescription(state.optBoolean("muted")?"Activar audio":"Silenciar");if(mute.getText().length()>0)mute.setText(state.optBoolean("muted")?"Activar audio":"Silenciar");volume.setEnabled(true);}else value.setText("Volumen actual no disponible");});}
     void wallpapers(int next){
         offset=next;generation++;final int version=generation;body.removeAllViews();LinearLayout c=card("Tus fondos","Biblioteca de undershell-wall · miniaturas ligeras, sin reproducir animaciones.");
         if(!features.optBoolean("wallpapers")){ui.add(c,ui.label("Instala o inicia undershell-wall para mostrar su biblioteca.",14,ui.muted,false),8);return;}

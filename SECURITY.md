@@ -1,4 +1,4 @@
-# Seguridad de Umbriel Connect 0.4.2 experimental
+# Seguridad de Umbriel Connect 0.5.0 experimental
 
 No hay garantía de ausencia de vulnerabilidades ni auditoría externa. Esta versión
 incorpora una revisión dirigida del código y pruebas de regresión; no certifica el
@@ -97,9 +97,22 @@ se limitan al repositorio; no adjuntes secretos a un issue público.
 
 ## Corrección de compatibilidad0.4.2
 
-El informe Galaxy de0.4.1 identificó un NoSuchFieldError de red, causado por R8 al
+El informe Galaxy de 0.4.1 identificó un NoSuchFieldError de red, causado por R8 al
 usar una clase duplicada de la dependencia MMS. Se conserva la frontera del API
 Android y se verifica el bytecode release; no se debilita la clasificación LAN ni
 la autenticación para ocultar el error. [Diagnóstico](docs/UPDATE-0.4.2.md).
 Los anuncios no vinculados se muestran como disponibles, sin afirmar conexión o
 confianza; no se fusionan identidades solo por nombre o IP.
+
+## Registro desde QR/enlace en 0.5.0
+
+El URI exportado `umbriel-connect://pair` solo propone un registro: no autoriza por
+recibir un intent. Se limita el tamaño, formato, host privado/Tailscale, puerto,
+certificado, token y caducidad; se vuelve a comprobar al confirmar. Cancelar conserva
+la confianza anterior. Cambiar a un certificado distinto retira el permiso opt-in de
+controlar el teléfono. Los estados visuales de conexión no conceden autorización.
+
+El QR se genera localmente mediante una biblioteca opcional; su contenido no sale a
+un generador web. El archivo de exportación tiene permisos0600 y el portapapeles se
+limpia al caducar si su contenido sigue siendo el copiado. Eso no revoca copias que
+el usuario haya hecho: el límite de uso/caducidad también se comprueba en el receptor.

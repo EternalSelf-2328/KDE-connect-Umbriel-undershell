@@ -57,18 +57,24 @@ final class UiDesign {
         states.addState(new int[]{android.R.attr.state_focused},focus);states.addState(new int[]{},shape(raised,20));
         b.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf((accent&0xffffff)|0x22000000),states,shape(Color.WHITE,20)));return b;
     }
-    View glyph(String kind){
-        View view=new View(activity){
-            final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-            @Override protected void onDraw(Canvas canvas){
-                super.onDraw(canvas);canvas.save();float scale=Math.min(getWidth(),getHeight())/24f;canvas.scale(scale,scale);
-                paint.setColor(accent);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.6f);paint.setStrokeCap(Paint.Cap.ROUND);paint.setStrokeJoin(Paint.Join.ROUND);
-                if(kind.equals("shield")){
-                    Path p=new Path();p.moveTo(12,2);p.lineTo(20,5);p.lineTo(19,14);p.quadTo(17,20,12,22);p.quadTo(7,20,5,14);p.lineTo(4,5);p.close();canvas.drawPath(p,paint);canvas.drawLine(8,12,11,15,paint);canvas.drawLine(11,15,16,9,paint);
-                }else{canvas.drawRoundRect(2,3,22,17,2,2,paint);canvas.drawLine(12,17,12,22,paint);canvas.drawLine(8,22,16,22,paint);}
-                canvas.restore();
-            }
-        };
-        view.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);return view;
+    Drawable icon(String name,int color,int size){Drawable icon=new UiIcons(name,color);icon.setBounds(0,0,dp(size),dp(size));return icon;}
+    Button nav(String text,String name,boolean selected){
+        Button b=button(text,false);b.setTextSize(11);b.setMinHeight(dp(64));b.setMinimumHeight(dp(64));b.setPadding(dp(4),dp(8),dp(4),dp(8));
+        b.setCompoundDrawables(null,icon(name,selected?accent:muted,22),null,null);b.setCompoundDrawablePadding(dp(4));
+        b.setTextColor(selected?textColor():muted);b.setSelected(selected);
+        StateListDrawable states=new StateListDrawable();GradientDrawable focused=shape(selected?raised:background,20);focused.setStroke(dp(2),accent);states.addState(new int[]{android.R.attr.state_focused},focused);states.addState(new int[]{},shape(selected?raised:background,20));
+        b.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf((accent&0xffffff)|0x22000000),states,shape(Color.WHITE,20)));return b;
     }
+    private int textColor(){return text;}
+    View shortcut(String title,String hint,String name){
+        LinearLayout tile=column();tile.setPadding(dp(16),dp(16),dp(16),dp(16));tile.setMinimumHeight(dp(116));tile.setFocusable(true);tile.setClickable(true);
+        StateListDrawable states=new StateListDrawable();GradientDrawable focus=shape(raised,24);focus.setStroke(dp(2),accent);states.addState(new int[]{android.R.attr.state_focused},focus);states.addState(new int[]{-android.R.attr.state_enabled},shape(surface,24));states.addState(new int[]{},shape(raised,24));tile.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf((accent&0xffffff)|0x22000000),states,shape(Color.WHITE,24)));
+        ImageView image=new ImageView(activity);image.setImageDrawable(icon(name,accent,24));tile.addView(image,new LinearLayout.LayoutParams(dp(24),dp(24)));
+        TextView label=label(title,17,text,true);label.setMaxLines(1);label.setEllipsize(android.text.TextUtils.TruncateAt.END);LinearLayout.LayoutParams textParams=new LinearLayout.LayoutParams(-1,-2);textParams.topMargin=dp(10);tile.addView(label,textParams);
+        TextView supporting=label(hint,12,muted,false);supporting.setMaxLines(2);tile.addView(supporting);
+        tile.setContentDescription(title+". "+hint);image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);label.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);supporting.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        tile.setAccessibilityDelegate(new View.AccessibilityDelegate(){@Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info){super.onInitializeAccessibilityNodeInfo(host,info);info.setClassName(Button.class.getName());}});
+        return tile;
+    }
+    View glyph(String kind){ImageView image=new ImageView(activity);image.setImageDrawable(icon(kind,accent,28));image.setPadding(dp(10),dp(10),dp(10),dp(10));image.setBackground(shape(raised,18));image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);return image;}
 }

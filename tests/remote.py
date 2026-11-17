@@ -98,6 +98,21 @@ class RemoteTests(unittest.TestCase):
         self.server.communicate(timeout=5)
         self.temp.cleanup()
 
+    def test_first_run_receiver_creates_and_preserves_its_identity(self):
+        runtime=self.root/"first-run-runtime";runtime.mkdir(mode=0o700)
+        env={**self.env,"XDG_CONFIG_HOME":str(self.root/"first-run-config"),"XDG_RUNTIME_DIR":str(runtime)}
+        saved=None
+        for _ in range(2):
+            with socket.socket() as probe:probe.bind(("127.0.0.1",0));port=probe.getsockname()[1]
+            process=subprocess.Popen([BINARY,"serve","127.0.0.1",str(port)],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            try:
+                self.assertTrue(select.select([process.stdout],[],[],5)[0]);self.assertIn("Canal TLS activo",process.stdout.readline())
+                directory=self.root/"first-run-config/umbriel-connect/remote";certificate=(directory/"server-cert.pem").read_bytes()
+                self.assertEqual((directory/"server-key.pem").stat().st_mode&0o777,0o600)
+                if saved is not None:self.assertEqual(certificate,saved)
+                saved=certificate
+            finally:process.terminate();process.communicate(timeout=5)
+
     def cli(self, *args, check=True):
         return subprocess.run([BINARY, *args], env=self.env, capture_output=True, text=True, check=check, timeout=5)
 

@@ -1,16 +1,25 @@
 # Umbriel Connect
 
 Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **0.4.2 experimental** incorpora un motor privado derivado
+y aplicación Android propia. **0.5.0 experimental** incorpora un motor privado derivado
 de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
 Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
 ![Umbriel Connect: datos de ejemplo](docs/screenshots/0.4.0/native-dark.png)
 
-[Descargar Android completo 0.4.2](downloads/UmbrielConnect-0.4.2.apk) ·
+[Descargar Android completo 0.5.0](downloads/UmbrielConnect-0.5.0.apk) ·
 [Instalación y compilación](docs/BUILDING.md) ·
 [Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
 [Seguridad y permisos](SECURITY.md)
+
+Android abre **Inicio**, con Mouse, Navegación, Sonido, Apariencia, Fondos y Widgets
+a un toque, reproducción y volumen. La barra **Inicio / Control / Archivos / Ajustes**
+permanece visible; el registro y los permisos tienen su propia sección. La conexión
+LAN ya vinculada es automática; fuera de ella se ofrece autorización explícita.
+[Novedades y actualización](docs/UPDATE-0.5.0.md).
+
+<img src="docs/screenshots/0.5.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
+<img src="docs/screenshots/0.5.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">
 
 ## Qué integra
 
@@ -54,10 +63,16 @@ la siguiente sesión gráfica; la opción predeterminada conserva los procesos a
 No modifica red, firewall, atajos ni configuraciones de otros programas. No elimina
 el paquete KDE Connect existente; utiliza su propio servicio y plugins privados.
 
-Instala el APK completo y abre **Funciones del teléfono**. En LAN puedes emparejar
-el motor nuevo comparando la clave en ambos extremos. Las claves privadas de KDE
-Connect no se importan. La actualización conserva paquete, firma y registros propios
-anteriores. No necesitas borrar los datos ni volver a registrar normalmente.
+Instala el APK completo y abre **Inicio**. Si falta el registro, en el escritorio usa
+**Acceso protegido → Vincular teléfono… → Generar vínculo de 5 minutos**. Escanea el
+QR con la cámara del teléfono y abre Umbriel Connect, o importa su archivo privado
+desde Inicio. Confirma la computadora; no compartas ese QR ni ese archivo.
+
+Para los plugins del motor compatible, **Ajustes → Dispositivos y funciones** permite
+emparejar comparando la clave en ambos extremos. Su confianza sigue separada del canal
+firmado de controles; no se fusiona por nombre/IP. Las claves privadas de KDE Connect
+no se importan. La actualización conserva paquete, firma y registros propios anteriores.
+No necesitas borrar los datos ni volver a registrar normalmente.
 
 **En LAN directa, los dispositivos vinculados se conectan automáticamente**, también
 con la app en segundo plano y notificación visible. **Fuera de ella, Android exige

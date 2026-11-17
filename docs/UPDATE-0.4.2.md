@@ -52,7 +52,7 @@ El motor de Umbriel sigue usando su propio nombre D-Bus y sus servicios.
 
 ## Actualizar
 
-Instalar [UmbrielConnect-0.4.2.apk](../downloads/UmbrielConnect-0.4.2.apk) encima de
+Instalar [la actualización vigente](UPDATE-0.5.0.md) encima de
 la app anterior, conservando datos. Actualizar/reabrir la ventana de escritorio para
 cargar los estados nuevos. Si se mantiene KDE Connect en el teléfono, su anuncio
 puede seguir apareciendo: cerrar o retirar esa app oficial cuando ya no se use.
