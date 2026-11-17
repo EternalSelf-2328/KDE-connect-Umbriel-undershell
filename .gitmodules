@@ -1,0 +1,6 @@
+[submodule "vendor/kdeconnect-kde"]
+	path = vendor/kdeconnect-kde
+	url = https://invent.kde.org/network/kdeconnect-kde.git
+[submodule "vendor/kdeconnect-android"]
+	path = vendor/kdeconnect-android
+	url = https://invent.kde.org/network/kdeconnect-android.git

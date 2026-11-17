@@ -32,7 +32,14 @@ PY
     "$REMOTE" init >/dev/null
     exec "$REMOTE" serve 127.0.0.1 "$PORT"
     ;;
+  proxy)
+    exec "$TOOLS/tailscale" --socket="$SOCKET" serve --tcp="$PORT" "tcp://127.0.0.1:$PORT"
+    ;;
   start)
+    # The desktop UI may already own the receiver. Reuse it and never kill another owner's process.
+    if "$REMOTE" clients >/dev/null 2>&1; then
+      exec "$TOOLS/tailscale" --socket="$SOCKET" serve --tcp="$PORT" "tcp://127.0.0.1:$PORT"
+    fi
     "$REMOTE" serve 127.0.0.1 "$PORT" &
     RECEIVER_PID=$!
     "$TOOLS/tailscale" --socket="$SOCKET" serve --tcp="$PORT" "tcp://127.0.0.1:$PORT" &
@@ -47,7 +54,7 @@ PY
     ;;
   status) cli status ;;
   *)
-    echo "Usage: umbriel-remote-session vpn|login|pair|lan|start|status"
+    echo "Usage: umbriel-remote-session vpn|login|pair|lan|start|proxy|status"
     echo "1. vpn (leave running); 2. login (same account as Android); 3. pair; 4. start"
     echo "Starts no service automatically and never enables Tailscale Funnel."
     ;;

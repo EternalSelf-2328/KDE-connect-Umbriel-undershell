@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Private, source-built Umbriel engine. Never fall back to a system KDE Connect binary.
+set -euo pipefail
+umask 077
+# This source distribution bundles Spanish catalogs; preserve explicit language choices.
+if [[ -z "${UMBRIEL_CONNECT_LANGUAGE:-}" && "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" == es* ]]; then
+  export UMBRIEL_CONNECT_LANGUAGE=es
+fi
+PREFIX_UC="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ENGINE="$PREFIX_UC/lib/umbriel-connect/engine"
+PROGRAM='@UMBRIEL_ENGINE_PROGRAM@'
+[[ -x "$ENGINE/bin/$PROGRAM" ]] || { echo "Motor integrado ausente. Compila e instala con scripts/engine/build.sh." >&2; exit 1; }
+export PATH="$PREFIX_UC/bin:$ENGINE/bin:$PATH"
+export QT_PLUGIN_PATH="$ENGINE/lib/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+export QML_IMPORT_PATH="$ENGINE/lib/qml${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+export QML2_IMPORT_PATH="$ENGINE/lib/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
+export XDG_DATA_DIRS="$ENGINE/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+[[ -f "$ENGINE/lib/qml/org/kde/kdeconnect/qmldir" ]] || { echo "Falta el módulo privado de Umbriel Connect." >&2; exit 1; }
+if [[ "${1:-}" == --check ]]; then exit 0; fi
+exec "$ENGINE/bin/$PROGRAM" "$@"

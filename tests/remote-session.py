@@ -15,6 +15,7 @@ with tempfile.TemporaryDirectory(prefix="uc-session-") as folder:
 import json,os,sys,time
 with open(os.environ['UC_TEST_LOG'],'a') as f:f.write(json.dumps({'name':os.path.basename(sys.argv[0]),'args':sys.argv[1:],'pid':os.getpid()})+'\\n')
 args=sys.argv[1:]
+if 'clients' in args: sys.exit(0 if os.environ.get('UC_TEST_RECEIVER_LIVE')=='1' else 1)
 if 'ip' in args: print(os.environ.get('UC_TEST_ADDRESS','100.80.0.1'))
 if 'serve' in args:
  if os.path.basename(sys.argv[0])=='remote': time.sleep(.1)
@@ -37,6 +38,16 @@ if 'serve' in args:
     try: os.kill(proxy["pid"],0)
     except ProcessLookupError: pass
     else: raise AssertionError("Proxy was left running after receiver exit")
+    # Reuse a receiver owned by the UI; ending the proxy must not start or terminate that receiver.
+    before=len(calls);env["UC_TEST_RECEIVER_LIVE"]="1"
+    reused=subprocess.Popen(["bash",str(root/"scripts/remote-session.sh"),"start"],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    for attempt in range(100):
+        entries=[json.loads(v) for v in log.read_text().splitlines()][before:]
+        if any(c["name"]=="tailscale" and "serve" in c["args"] for c in entries):break
+        time.sleep(.02)
+    else:reused.kill();raise AssertionError("Existing receiver was not reused")
+    reused.terminate();reused.communicate(timeout=3)
+    assert not any(c["name"]=="remote" and "serve" in c["args"] for c in entries)
     env["UC_TEST_ADDRESS"]="192.0.2.1"
     rejected=subprocess.run(["bash",str(root/"scripts/remote-session.sh"),"pair"],env=env,capture_output=True)
     assert rejected.returncode!=0

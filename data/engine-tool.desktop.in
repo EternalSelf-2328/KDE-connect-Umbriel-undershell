@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Umbriel Connect · @UMBRIEL_TOOL_NAME@
+Exec="@CMAKE_INSTALL_FULL_BINDIR@/umbriel-connect-@UMBRIEL_TOOL@"
+Icon=org.eternalself.UmbrielConnect
+NoDisplay=true
+Terminal=false
+Categories=Network;

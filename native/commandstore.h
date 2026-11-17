@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-#include "kdeclient.h"
+#include "engineclient.h"
 #include <QJsonArray>
 
 class CommandStore {

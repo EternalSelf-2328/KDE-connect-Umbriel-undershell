@@ -1,5 +1,7 @@
 # Red local, archivos propios y respuesta del mouse — 0.3.1
 
+> El canal descrito aquí sigue disponible. Para la aplicación completa0.4.0 y su motor privado, consulta [seguridad](../SECURITY.md) y [matriz actual](COMPATIBILITY.md). Las referencias a aplicaciones KDE son históricas; la ruta nueva no las ejecuta.
+
 En la misma red **no hace falta Tailscale**. El receptor ofrece TLS en las IPv4
 privadas reales de las interfaces activas (RFC1918), además del loopback usado
 por el proxy privado de Tailscale. No se modifican rutas, DNS, firewall ni servicios

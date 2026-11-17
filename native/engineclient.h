@@ -15,12 +15,12 @@ using Done = std::function<void(Reply)>;
 
 // Raw messages deliberately avoid introspection: KDE exports overloaded methods
 // and some versions expose two interfaces with the same name on the daemon.
-class KdeClient : public QObject {
+class EngineClient : public QObject {
     Q_OBJECT
 public:
-    explicit KdeClient(QObject *parent = nullptr,
+    explicit EngineClient(QObject *parent = nullptr,
                        QDBusConnection bus = QDBusConnection::sessionBus(),
-                       QString service = "org.kde.kdeconnect");
+                       QString service = "org.eternalself.UmbrielConnect.Engine");
     void call(const QString &path, const QString &interface, const QString &method,
               const QVariantList &args, Done done);
     void snapshot(std::function<void(QJsonObject)> done);

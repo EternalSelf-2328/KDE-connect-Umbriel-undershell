@@ -1,58 +1,65 @@
-# Compatibilidad y alcance
+# Funciones y verificación — 0.4.0 experimental
 
-Actualizado el 2026-11-16 para 0.3.1. Se confirmó una sesión Android autorizada
-sobre Tailscale y transferencia de registro aceptada por KDE Connect. La matriz
-separa implementación de prueba física; no se afirma compatibilidad del 100%.
-Consulta [red local y archivos propios](LOCAL-FILES.md) y [controles, fondos y restricciones](REMOTE-CONTROLS.md).
+Actualizado el 2026-11-17. Se reemplaza el daemon y las aplicaciones KDE Connect
+instaladas por motores derivados, compilados y aislados dentro de Umbriel Connect.
+**Compartir su código/protocolo no significa haber validado cada función en Umbriel o
+el Galaxy.** No se promete seguridad absoluta ni paridad física completa.
 
-| Función | Ruta nativa | Verificación |
+| Función | Implementación 0.4.0 | Límite / verificación pendiente |
 |---|---|---|
-| Lista, estado y batería | D-Bus KDE Connect | Teléfono simulado; daemon real con A24 emparejado y conectado |
-| Emparejar / aceptar / desvincular | D-Bus; clave visible | Guardas y aceptación simuladas; pendiente Android real |
-| Archivos, URL, texto, ping y encontrar teléfono | Plugins oficiales | API verificada; texto/archivo probados con teléfono D-Bus falso |
-| Explorar archivos | Plugin SFTP oficial | Método y resultado booleano implementados; pendiente teléfono real |
-| Notificaciones y portapapeles | Motor oficial; ajustes por dispositivo | Pendiente envío y recepción reales en Umbriel |
-| Audio / MPRIS | Motor oficial | Pendiente control desde Android y publicación de reproductores remotos |
-| SMS / contactos | Aplicaciones oficiales, acceso desde la ventana | Lanzador; pendiente teléfono y permisos Android |
-| Touchpad / teclado / presentación / tableta | Motor oficial y portales/permisos del sistema | Pendiente comprobar entrada real con Umbriel |
-| Control de escritorios y foco | CLI de Umbriel | Sintaxis contrastada con binario; no se cambió la sesión remota |
-| DPMS y bloqueo | Umbriel / Noctalia | Implementado; no ejecutado en el escritorio remoto |
-| Editor, widgets y rendimiento | Socket de undershell | Solicitudes y errores simulados; no se cambió la configuración real |
-| Perfiles guardados | Socket `saves` / `save-load` | Leídos los 18 perfiles reales; carga y errores probados en servidor falso |
-| Mascotas / demo / salvapantallas | Socket de undershell | Catálogo y validación; pendiente efecto visual real |
-| Órdenes desde Android | Configuración oficial de `runcommand` | Fusión/respaldo/idempotencia/retirada probados en archivos temporales |
-| Widget Noctalia | Servicio y widget Luau | Lint válido; pendiente activación y prueba gráfica real |
-| LAN y archivos propios | TLS fijado, discovery privado y MediaStore | CLI/TLS/LAN y hashes probados con clientes simulados; Galaxy/router pendientes |
-| Filtros de fondos | Origen/carpeta/tipo persistentes | 276 imágenes locales y 186 WE; filtros/rutas probados |
-| Canal biométrico Android ↔ C++ | Implementado por separado; APK API36 firmado | 21 pruebas TLS y 20 checks Java; sesión real autorizada, control inverso fuera del APK mínimo |
-| scrcpy y cámara/webcam | Código Python original conservado | Sin migrar a interfaz C++; no ofrecer como validado para Umbriel |
-| Audio Bluetooth del teléfono | Código original / herramientas del sistema | Sin integrar en la ventana C++; depende del perfil Bluetooth |
-| Monitor virtual | Motor KDE o backend original | No validado; original usa Hyprland; Android no ofrece la función de monitor entre computadoras |
-| Touchpad biométrico | C++ XTest/Xwayland y UI Android | Límites, arrastre/liberación y cancelación simulados; puntero real pendiente |
-| Galería undershell-wall | CLI oficial, metadatos y miniaturas restringidas | 462 registros consultados; paginación/rutas/aplicar con proveedor falso; Galaxy pendiente |
-| Navegación y sonido dedicados | Cruceta, escritorios, volumen y reproducción | API/argv probados con servicios falsos; nueva UI Android pendiente de inspección física |
+| Descubrimiento LAN/mDNS/Bluetooth, emparejamiento y certificados | Motor privado C++ y app Android completa | Nueva confianza, no importa claves KDE; router/Bluetooth físicos pendientes |
+| Batería y señal móvil | Plugins incluidos, ventana de funciones | Android real pendiente |
+| Archivos, URL, texto en ambos sentidos | Motor con payload TLS streaming y canal firmado propio; selector/Yazi propios | Motor pone envíos en cola; confirmación SHA256 explícita pertenece al canal firmado |
+| Explorador de archivos | Ventana propia con KIO privado + SSHFS, host key fijada al certificado | Requiere permiso de carpetas Android, sshfs/kio-extras; montaje físico pendiente |
+| Notificaciones, acciones, respuesta y cierre | Motores incluidos, permisos Android opt-in | Respuesta afecta datos personales; sincronización al bloquear explícita |
+| Portapapeles | Plugins incluidos; exportación PC desactivada inicialmente | Restricciones Android al leer en segundo plano; requiere opt-in |
+| MPRIS, reproducción y volumen | Plugins completos y controles dedicados propios | Validar reproductores/Noctalia reales |
+| SMS/MMS, adjuntos y contactos | Motor Android y ventana Mensajes propia | Permisos Android/operador; no se envió ningún SMS para probar |
+| Llamadas y silencio/pausa | Plugins de telefonía incluidos | Depende de permisos y política Samsung; prueba física pendiente |
+| Encontrar teléfono y computadora | Plugins incluidos | Necesita conexión y sesión o sincronización autorizada |
+| Touchpad/teclado, presentación y tableta | Plugins incluidos; touchpad firmado propio | Input PC opt-in; portales Wayland/Umbriel reales pendientes |
+| Compartir entrada por borde | Plugins incluidos, opt-in | Requiere backend de entrada/portal y accesibilidad Android; sin prueba física |
+| Ejecutar órdenes | Motor privado y publicación de catálogo Umbriel/undershell | Desactivado por defecto en PC; enlaces piden confirmación; requiere sesión activa |
+| Control/captura del teléfono | Servicio de accesibilidad único + canal firmado propio | Activación explícita en Android y sesión firmada; prueba Galaxy pendiente |
+| Duplicar/controlar pantalla | Panel Teléfono C++ + scrcpy | ADB autorizado USB o inalámbrico; no requiere KDE |
+| Cámara frontal/posterior | Panel Teléfono C++ + scrcpy | Android12+, 30fps; orientación automática adicional no portada |
+| Webcam bajo demanda | Productor C++ con eventos v4l2loopback + scrcpy/ffmpeg | Nodo loopback existente, 720p; módulo y cámara físicos pendientes |
+| Audio del teléfono en PC | BlueZ A2DP directo desde panel Teléfono | Emparejamiento/perfil independiente; no usa Tailscale |
+| Monitor virtual entre computadoras | Fuente conservada, ruta insegura bloqueada | Falta backend con credencial privada y portal compatible; Android no implementa monitor virtual |
+| Umbriel/Noctalia/undershell | Controles C++, socket/CLI, perfiles y galería | No se ejecutaron bloqueo/DPMS/cambios en la sesión remota del usuario |
+| undershell-wall | Biblioteca, favoritos, carpetas/local/WE, miniaturas móvil | Usa CLI existente; no se cambia el fondo al explorar |
+| Integración de barra | Plugin Noctalia propio opcional | No se instala el popout exclusivo de Caelestia ni se parchea su shell |
+| Teclado de escritorio | Tab/MayúsTab, IJKL/flechas, Enter/Espacio, Alt1–5, CtrlK, F1 | Pruebas Qt sintéticas; respeta campos de texto y controles nativos |
 
-## Prueba final cuando el teléfono esté disponible
+## Alcance de red
 
-1. Abrir KDE Connect en ambos dispositivos; comprobar descubrimiento, clave y
-   reconexión por Wi-Fi tras suspender la computadora y al cambiar de red.
-2. Enviar archivos pequeños/grandes, enlaces y texto en ambas direcciones;
-   verificar progreso, cancelación, errores y permisos de almacenamiento.
-3. Comprobar batería, llamadas, notificaciones con acciones/respuesta y
-   portapapeles, respetando los permisos y restricciones de Android.
-4. Probar MPRIS, volumen, teclado con caracteres españoles, touchpad y
-   presentación bajo Umbriel. Verificar los permisos del portal antes de concluir
-   que un plugin funciona en Wayland.
-5. Revisar el catálogo y publicar en el teléfono elegido. En una instancia aislada
-   de undershell probar editor, visibilidad, perfiles, rendimiento y mascotas.
-6. Probar escritorios en un compositor aislado; DPMS solo sobre una salida virtual.
-   No bloquear ni apagar una sesión de la que depende el acceso remoto.
-7. Activar el widget y comprobar conexión/desconexión, batería, clic y reinicio del
-   daemon, tanto en barra horizontal como vertical.
-8. Solo después validar Bluetooth, SFTP, scrcpy y cámara con sus dependencias.
+En la misma LAN **no hace falta Tailscale**. El canal firmado propio usa TLS31594 y
+anuncios UDP31595. El motor compatible usa su descubrimiento y conexiones privadas
+1714–1764 TCP/UDP y mDNS. No se abren puertos del router ni reglas de firewall.
 
-No ejecutar simultáneamente `caelestia-connectd` y `kdeconnectd`: ambas rutas tienen
-descubrimiento, certificados y almacenamiento de confianza propios. No se migra
-automáticamente una clave privada ni una decisión de confianza entre clientes.
+El Tailscale de usuario instalado aquí funciona en **userspace**: su proxy Serve ya
+permite el canal propio de controles/archivos, pero **no transporta automáticamente
+todos los plugins del motor ni anuncios multicast**. SFTP, MPRIS/SMS del motor,
+Bluetooth o ADB no se convierten en funciones remotas solo por estar en la tailnet.
+Para el motor fuera de LAN hace falta una ruta IP real hacia ambos pares y un destino
+manual; no se cambian las rutas de la sesión remota actual para conseguirlo.
 
-Archivos grandes y separación del vencimiento de control: [fuentes KDE, decisiones y pruebas](LARGE-FILES.md).
+## Qué comprobar en el teléfono
+
+Instalar el APK completo con el mismo firmante conserva el canal firmado existente.
+Abrir «Funciones del teléfono», aprobar huella, emparejar de nuevo el motor de la PC
+comparando la clave de ambos extremos, y conceder solo los permisos necesarios.
+Si se desea recepción permanente, volver a esa pantalla y marcar la computadora en
+«Sincronización al bloquear»: queda ligada a su certificado, con notificación visible.
+Cerrar esa sesión revoca también la sincronización; cambiar certificados no hereda permiso.
+
+Validar envío/cancelación/archivos grandes, reconexión, consumo Samsung, notificaciones,
+SMS y cámara con datos de prueba elegidos por el usuario. No se ha tomado control del
+mouse, cámara, mensajes, audio o pantalla reales para estas comprobaciones.
+
+Si Tailscale estaba detenido, el canal LAN sigue disponible. Para recuperar el modo
+userspace sin cambiar DNS/rutas, deja `~/.local/bin/umbriel-remote-session vpn`
+en ejecución y, en otra terminal, usa `~/.local/bin/umbriel-remote-session start`.
+Este último reutiliza el receptor de la ventana si ya existe; también puede abrirse
+solo el proxy con `proxy`. No vuelvas a iniciar sesión ni generes un registro si se
+conserva la identidad anterior. El estado de la VPN no se cambia durante las pruebas.

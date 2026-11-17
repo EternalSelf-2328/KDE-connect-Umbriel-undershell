@@ -80,7 +80,7 @@ private slots:
         auto bus = QDBusConnection::sessionBus();
         QVERIFY(bus.isConnected());
         QVERIFY(bus.registerService(service));
-        QVERIFY(bus.registerService("org.kde.kdeconnect")); // private test bus only
+        QVERIFY(bus.registerService("org.eternalself.UmbrielConnect.Engine")); // private test bus only
         const auto flags = QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllProperties | QDBusConnection::ExportAllSignals;
         QVERIFY(bus.registerObject("/modules/kdeconnect", &daemon, flags));
         QVERIFY(bus.registerObject(path, &device, flags));
@@ -90,7 +90,7 @@ private slots:
     void cleanupTestCase() { qputenv("XDG_RUNTIME_DIR", oldRuntime); }
     void init() { device.paired = true; device.reachable = true; device.requested = false; share.url.clear(); share.text.clear(); }
     void snapshotUsesRealDbusTypes() {
-        KdeClient client(nullptr, QDBusConnection::sessionBus(), service);
+        EngineClient client(nullptr, QDBusConnection::sessionBus(), service);
         QJsonObject state; bool complete = false;
         client.snapshot([&](QJsonObject v) { state = v; complete = true; });
         QTRY_VERIFY_WITH_TIMEOUT(complete, 4000);
@@ -102,14 +102,14 @@ private slots:
         QVERIFY(d["plugins"].toArray().contains("kdeconnect_share"));
     }
     void unavailableDaemonReportsFailure() {
-        KdeClient client(nullptr, QDBusConnection::sessionBus(), "org.example.NoDaemon");
+        EngineClient client(nullptr, QDBusConnection::sessionBus(), "org.example.NoDaemon");
         bool complete = false; QJsonObject state;
         client.snapshot([&](auto v) { state = v; complete = true; });
         QTRY_VERIFY_WITH_TIMEOUT(complete, 4000);
         QVERIFY(!state["available"].toBool()); QVERIFY(!state["error"].toString().isEmpty());
     }
     void operationsRespectTrustReachabilityAndPlugins() {
-        KdeClient client(nullptr, QDBusConnection::sessionBus(), service);
+        EngineClient client(nullptr, QDBusConnection::sessionBus(), service);
         const auto run = [&](QString action) {
             bool complete = false; Reply reply;
             client.operation("phone_test", action, "prueba", [&](Reply r) { reply = r; complete = true; });
@@ -127,15 +127,15 @@ private slots:
     void fileSharingPreservesSpecialCharacters() {
         const auto fileName = temp.path() + "/foto con ' $ y ñ.txt";
         QFile file(fileName); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("test"); file.close();
-        KdeClient client(nullptr, QDBusConnection::sessionBus(), service);
+        EngineClient client(nullptr, QDBusConnection::sessionBus(), service);
         Reply reply; bool complete = false;
         client.operation("phone_test", "share", fileName, [&](auto r) { reply = r; complete = true; });
         QTRY_VERIFY_WITH_TIMEOUT(complete, 4000);
         QVERIFY2(reply.ok, qPrintable(reply.error)); QCOMPARE(QUrl(share.url).toLocalFile(), fileName);
     }
     void signalsAreDebounced() {
-        KdeClient client(nullptr, QDBusConnection::sessionBus(), service);
-        client.startWatching(); QSignalSpy changes(&client, &KdeClient::changed);
+        EngineClient client(nullptr, QDBusConnection::sessionBus(), service);
+        client.startWatching(); QSignalSpy changes(&client, &EngineClient::changed);
         emit daemon.deviceListChanged(); emit device.reachableChanged(true); emit daemon.deviceListChanged();
         QTRY_COMPARE_WITH_TIMEOUT(changes.size(), 1, 1500);
         QTest::qWait(180); QCOMPARE(changes.size(), 1);
@@ -213,7 +213,7 @@ private slots:
     }
     void commandMergeBackupIdempotenceAndRemoval() {
         const auto root = temp.path() + "/config";
-        const auto file = root + "/kdeconnect/phone_test/kdeconnect_runcommand/config";
+        const auto file = root + "/umbriel-connect/engine/phone_test/kdeconnect_runcommand/config";
         QDir().mkpath(QFileInfo(file).absolutePath());
         {
             QSettings settings(file, QSettings::IniFormat);
@@ -241,8 +241,8 @@ private slots:
     }
     void corruptCommandsAndPathTraversalAreRejected() {
         QVERIFY(!CommandStore::update(temp.path(), "../escape", {}).ok);
-        QVERIFY(!KdeClient::validId("a/b")); QVERIFY(!KdeClient::validId(""));
-        const auto path = temp.path() + "/kdeconnect/broken/kdeconnect_runcommand/config";
+        QVERIFY(!EngineClient::validId("a/b")); QVERIFY(!EngineClient::validId(""));
+        const auto path = temp.path() + "/umbriel-connect/engine/broken/kdeconnect_runcommand/config";
         QDir().mkpath(QFileInfo(path).absolutePath());
         { QSettings s(path, QSettings::IniFormat); s.setValue("commands", "broken"); s.sync(); }
         QFile f(path); QVERIFY(f.open(QIODevice::ReadOnly)); const auto before = f.readAll(); f.close();

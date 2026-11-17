@@ -1,32 +1,27 @@
-# APK experimental para controlar la computadora
+# Aplicaciones Android
 
-- [Descargar Umbriel Remote 0.3.1](UmbrielRemote-0.3.1.apk).
-- [Comprobar SHA256](SHA256SUMS).
-- [Huella pública del certificado de firma](SIGNING-CERTIFICATE-SHA256).
-- [Cambio de permisos y bloqueo de Play Protect](../docs/PLAY-PROTECT.md).
-- [Guía de registro y límites](../docs/REMOTE-SECURITY.md).
+- **[Umbriel Connect0.4.0 completo](UmbrielConnect-0.4.0.apk)**: motor de funciones,
+  mensajes/notificaciones/contactos/archivos/multimedia y control inverso opcional,
+  además del dashboard y canal firmado de Umbriel Remote. versionCode6, API37/min30; experimental, prueba Galaxy pendiente.
+- **[Umbriel Remote0.3.1 mínimo](UmbrielRemote-0.3.1.apk)**: controles de computadora,
+  galería y archivos propios; sin SMS, lector de notificaciones ni accesibilidad.
 
-Incluye navegación dedicada, touchpad de computadora, controles de sonido/apariencia
-y galería de undershell-wall con miniaturas y filtros. Añade red local y transferencia
-de archivos en ambos sentidos sin KDE Connect. [Guía actual](../docs/LOCAL-FILES.md). [Uso y límites](../docs/REMOTE-CONTROLS.md).
+Son alternativas con el mismo paquete `org.eternalself.umbrielremote` y firmante.
+0.4.0 actualiza la anterior conservando sus datos; una bajada de versión no se instala
+normalmente sobre una versión superior. No borres los datos para probar sin respaldar
+antes tus registros/decisiones de confianza por un medio privado.
 
-Esta edición permite controlar Umbriel, Noctalia y undershell desde Android,
-con una sesión aprobada mediante biometría fuerte. **No puede controlar el teléfono,
-leer sus ventanas ni obtener capturas.** No incluye un servicio de accesibilidad,
-lector de notificaciones, permisos SMS ni código de captura/gestos del teléfono.
+[SHA256](SHA256SUMS) · [Certificado de firma](SIGNING-CERTIFICATE-SHA256) ·
+[Permisos y seguridad](../SECURITY.md) · [Play Protect](../docs/PLAY-PROTECT.md).
 
-Compilada contra Android API 36, mínimo API 30, sin dependencias externas en el APK.
-Firma APK v3 verificada, con la misma identidad de firma de 0.1.0; versionCode 5.
-La clave privada está fuera del repositorio. Requiere la red privada preparada,
-registro explícito, notificaciones y biometría fuerte.
+0.4.0 incluye capacidades sensibles que requieren permisos Android por función y
+biometría local. La sincronización al bloquear es opcional, ligada al certificado de
+la computadora y con notificación visible. El canal propio mantiene firmas por sesión;
+el motor compatible usa TLS emparejado y autorización local, sin atestación remota.
+La firma valida identidad e integridad; no acredita seguridad ni aprobación de Google.
+No desactives Play Protect si impide instalarla. No hay instalación física confirmada.
 
-La versión 0.1.0 fue bloqueada por Play Protect en el teléfono del usuario y se retiró
-de la descarga recomendada. Esta versión reduce realmente sus capacidades, pero
-**no tiene aprobación de Google ni instalación física verificada**. Si Play Protect
-la bloquea, conserva la protección y utiliza el procedimiento oficial de revisión.
-La variante con control inverso se conserva en el código, pendiente de revisión;
-no se ofrece otro APK para eludir el bloqueo.
-
-Construcción: `bash android/build.sh desktop`, resultado en
-`build/android/desktop/UmbrielRemote.apk`. El SHA256 comprueba integridad, no garantiza
-la seguridad de la aplicación ni sustituye la clasificación de Play Protect.
+La clave de publicación queda fuera del repositorio. Para reconstruir y firmar tu
+propio fork, consulta [BUILDING](../docs/BUILDING.md). Las fuentes completas están
+fijadas en submódulos y las adaptaciones son reproducibles; no se distribuye una clave
+privada ni un registro de dispositivo.

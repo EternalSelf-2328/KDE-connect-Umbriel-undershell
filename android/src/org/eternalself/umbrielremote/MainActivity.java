@@ -121,6 +121,7 @@ public class MainActivity extends Activity {
             stopService(new Intent(this,RemoteService.class));clearActions();setup.setVisibility(View.VISIBLE);
             showStatus("Importa el nuevo registro y aprueba otra sesión con tu huella.");
         });
+        try { final Class<?> features=Class.forName("org.eternalself.umbrielremote.EngineUnlockActivity"); button("Funciones del teléfono…",root,()->startActivity(new Intent(this,features))); } catch(ClassNotFoundException ignored) {}
         commands = new LinearLayout(this); commands.setOrientation(LinearLayout.VERTICAL); root.addView(commands);
         String stored = getSharedPreferences("connection",MODE_PRIVATE).getString("server", "");
         if (!stored.isEmpty()) pairing.setText(stored);

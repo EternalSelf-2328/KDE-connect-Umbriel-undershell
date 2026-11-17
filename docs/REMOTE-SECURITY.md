@@ -1,5 +1,7 @@
 # Canal remoto con aprobación biométrica
 
+> El canal descrito aquí sigue disponible. Para la aplicación completa0.4.0 y su motor privado, consulta [seguridad](../SECURITY.md) y [matriz actual](COMPATIBILITY.md). Las referencias a aplicaciones KDE son históricas; la ruta nueva no las ejecuta.
+
 **Estado actualizado el 2026-11-16: versión 0.3.1, experimental.** El APK 0.1.0 fue
 bloqueado por Play Protect; la edición mínima 0.1.1 después registró una sesión
 Android autorizada. La 0.3.0 conserva permisos mínimos y añade controles de

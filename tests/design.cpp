@@ -2,6 +2,9 @@
 #include "design.h"
 #include "window.h"
 #include "sharewindow.h"
+#include "androidpanel.h"
+#include <QScopeGuard>
+#include <QDialog>
 #include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
@@ -82,6 +85,16 @@ private slots:
         window.applyDevices({{"available",true},{"devices",QJsonArray{own,other}}});QCOMPARE(peers->currentData().toString(),QString("remote:two"));
         window.applyDevices({{"available",false},{"devices",QJsonArray{}}});QVERIFY(!send->isEnabled());QVERIFY(window.findChild<QLabel*>("shareStatusTitle")->text().contains("Abre"));
     }
+    void shareWindowAcceptsOnlyPairedPrivateEnginePeers(){
+        ShareWindow window({"/example/a.txt"},true);window.show();
+        auto engine=QJsonObject{{"id","engine-one"},{"name","Motor propio"},{"reachable",true},{"paired",true},{"transport","engine"},{"plugins",QJsonArray{"kdeconnect_share"}}};
+        auto unpaired=engine;unpaired["id"]="unpaired";unpaired["paired"]=false;
+        auto offline=engine;offline["id"]="offline";offline["reachable"]=false;
+        auto legacy=engine;legacy["id"]="legacy";legacy["transport"]="kde";
+        window.applyDevices({{"available",true},{"devices",QJsonArray{unpaired,offline,legacy,engine}}});
+        auto *peers=window.findChild<QComboBox*>("sharePeers");QVERIFY(peers);QCOMPARE(peers->count(),1);QCOMPARE(peers->currentData().toString(),QString("engine-one"));
+        QSignalSpy sent(&window,&ShareWindow::sendRequested);QTest::mouseClick(window.findChild<QPushButton*>("shareSend"),Qt::LeftButton);QCOMPARE(sent.size(),1);QCOMPARE(sent[0][0].toString(),QString("engine-one"));
+    }
     void shareWindowFitsSmallAndTiledSizes(){
         ShareWindow window({"/example/"+QString(150,'x')+".pdf","/example/otra imagen.png"},true);window.applyDevices({{"available",true},{"devices",QJsonArray{}}});window.show();
         window.findChild<QLabel*>("shareStatusTitle")->setText("Enviando "+QString(150,'x')+".pdf");
@@ -105,6 +118,22 @@ private slots:
         QTRY_VERIFY(send->isEnabled());QTest::mouseClick(send,Qt::LeftButton);QTRY_VERIFY(status->text().contains("No se pudo"));QCOMPARE(filesSent,QStringList({"/example/a.txt","/example/b.txt"}));
         QTest::mouseClick(send,Qt::LeftButton);QTRY_COMPARE(status->text(),QString("Archivos recibidos"));QCOMPARE(filesSent,QStringList({"/example/a.txt","/example/b.txt","/example/b.txt"}));QCOMPARE(window.findChild<QProgressBar*>("shareProgress")->value(),2);
         window.applyDevices({{"available",true},{"devices",QJsonArray{}}});QVERIFY(!send->isEnabled());QCOMPARE(status->text(),QString("Archivos recibidos"));
+    }
+    void keyboardMovesBetweenButtons(){
+        ShareWindow window({"/example/a.txt"},true);window.applyDevices({{"available",true},{"devices",QJsonArray{QJsonObject{{"id","remote:one"},{"name","Uno"},{"reachable",true},{"transport","umbriel"},{"plugins",QJsonArray{"umbriel_files"}}}}}});window.show();window.activateWindow();
+        auto *close=window.findChild<QPushButton*>("shareClose");auto *send=window.findChild<QPushButton*>("shareSend");QVERIFY(close&&send);close->setFocus();QTRY_COMPARE(QApplication::focusWidget(),static_cast<QWidget*>(close));QTest::keyClick(close,Qt::Key_L);QCOMPARE(QApplication::focusWidget(),static_cast<QWidget*>(send));QTest::keyClick(send,Qt::Key_Left);QCOMPARE(QApplication::focusWidget(),static_cast<QWidget*>(close));
+    }
+    void functionSearchNavigatesWithoutExecuting(){
+        Window window(true);window.show();window.activateWindow();auto *tabs=window.findChild<QTabWidget*>("mainTabs");QVERIFY(tabs);QTRY_COMPARE(QApplication::activeWindow(),static_cast<QWidget*>(&window));bool found=false;
+        QTimer::singleShot(80,&window,[&]{auto *dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;auto *input=dialog->findChild<QLineEdit*>("functionSearch");auto *list=dialog->findChild<QListWidget*>("functionResults");if(input&&list){input->setText("camara");const bool accents=list->count()>0&&list->item(0)->text().contains("cámara");input->setText("duplicar");found=accents&&list->count()>0&&list->item(0)->text().contains("Duplicar");QTest::keyClick(input,Qt::Key_Return);}else dialog->reject();});
+        QTest::keyClick(&window,Qt::Key_K,Qt::ControlModifier);QVERIFY(found);QCOMPARE(tabs->tabText(tabs->currentIndex()),QString("Teléfono"));
+        QTRY_COMPARE(QApplication::activeWindow(),static_cast<QWidget*>(&window));QTest::keyClick(&window,Qt::Key_1,Qt::AltModifier);QTRY_COMPARE(tabs->currentIndex(),0);
+    }
+    void androidToolsAcceptOnlyAuthorizedListedDevices(){
+        QTemporaryDir tools;QVERIFY(tools.isValid());const auto old=qgetenv("PATH");auto restore=qScopeGuard([old]{qputenv("PATH",old);});
+        for(auto name:{"adb","scrcpy"}){QFile file(tools.path()+"/"+name);QVERIFY(file.open(QIODevice::WriteOnly));file.write("#!/bin/sh\nprintf 'List of devices attached\\nphone_one device model:Fake\\nphone_locked unauthorized\\n--help device\\n'\n");file.close();QVERIFY(file.setPermissions(QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner));}
+        qputenv("PATH",tools.path().toUtf8()+":"+old);AndroidPanel panel;panel.show();auto *scan=panel.findChild<QPushButton*>("scanAndroid");auto *devices=panel.findChild<QComboBox*>("adbDevices");QVERIFY(scan&&devices);QTest::mouseClick(scan,Qt::LeftButton);QTRY_COMPARE(devices->currentData().toString(),QString("phone_one"));QCOMPARE(devices->count(),1);
+        QVERIFY(AndroidPanel::arguments("phone_one","mirror","front").contains("phone_one"));QVERIFY(AndroidPanel::arguments("--server=x","mirror","front").isEmpty());QVERIFY(AndroidPanel::arguments("phone_one","camera","side").isEmpty());QVERIFY(AndroidPanel::arguments("phone_one","webcam","front","/tmp/video0").isEmpty());
     }
     void noctaliaPaletteReloadsAfterAtomicWrite(){
         const auto path=config.path()+"/gtk-4.0/noctalia.css";

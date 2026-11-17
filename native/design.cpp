@@ -11,6 +11,10 @@
 #include <QLineEdit>
 #include <QLabel>
 #include <QAbstractButton>
+#include <QAbstractItemView>
+#include <QAbstractSlider>
+#include <QAbstractSpinBox>
+#include <QTabBar>
 #include <QListWidget>
 #include <QPainter>
 #include <QPainterPath>
@@ -19,6 +23,7 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <cmath>
+#include <limits>
 #include <algorithm>
 
 namespace Design {
@@ -38,6 +43,20 @@ QColor legible(QColor foreground,QColor background,double minimum=4.5) {
     return target;
 }
 class Keyboard : public QObject {
+    static bool moveFocus(QWidget *focus,int arrow){
+        auto *window=focus->window();const auto center=focus->mapTo(window,focus->rect().center());
+        QWidget *best=nullptr;double score=std::numeric_limits<double>::max();
+        for(auto *candidate:window->findChildren<QWidget*>()){
+            if(candidate==focus||!candidate->isEnabled()||!candidate->isVisibleTo(window)||!(candidate->focusPolicy()&Qt::TabFocus)||candidate->focusProxy())continue;
+            const auto point=candidate->mapTo(window,candidate->rect().center());const auto delta=point-center;
+            const bool horizontal=arrow==Qt::Key_Left||arrow==Qt::Key_Right;
+            const int forward=horizontal?(arrow==Qt::Key_Left?-delta.x():delta.x()):(arrow==Qt::Key_Up?-delta.y():delta.y());
+            if(forward<=2)continue;
+            const int across=std::abs(horizontal?delta.y():delta.x());const auto value=double(forward)+2.5*across;
+            if(value<score){best=candidate;score=value;}
+        }
+        if(best){best->setFocus(Qt::TabFocusReason);return true;}return false;
+    }
 public:
     using QObject::QObject;
     bool eventFilter(QObject *target,QEvent *event) override {
@@ -46,9 +65,14 @@ public:
         if(!focus||qobject_cast<QLineEdit*>(focus)||qobject_cast<QTextEdit*>(focus)||qobject_cast<QPlainTextEdit*>(focus))return false;
         if(auto *combo=qobject_cast<QComboBox*>(focus);combo&&combo->isEditable())return false;
         if(key->modifiers()!=Qt::NoModifier&&key->modifiers()!=Qt::ShiftModifier)return false;
-        int arrow=key->key()==Qt::Key_I?Qt::Key_Up:key->key()==Qt::Key_K?Qt::Key_Down:key->key()==Qt::Key_J?Qt::Key_Left:key->key()==Qt::Key_L?Qt::Key_Right:0;
-        if(arrow){QKeyEvent translated(QEvent::KeyPress,arrow,key->modifiers());QApplication::sendEvent(focus,&translated);return true;}
-        if(key->modifiers()==Qt::NoModifier&&(key->key()==Qt::Key_Q||key->key()==Qt::Key_Escape)){focus->window()->close();return true;}
+        const int translated=key->key()==Qt::Key_I?Qt::Key_Up:key->key()==Qt::Key_K?Qt::Key_Down:key->key()==Qt::Key_J?Qt::Key_Left:key->key()==Qt::Key_L?Qt::Key_Right:0;
+        const int arrow=translated?translated:(key->key()>=Qt::Key_Left&&key->key()<=Qt::Key_Down?key->key():0);
+        if(arrow){
+            const bool native=qobject_cast<QAbstractItemView*>(focus)||qobject_cast<QComboBox*>(focus)||qobject_cast<QAbstractSlider*>(focus)||qobject_cast<QAbstractSpinBox*>(focus)||qobject_cast<QTabBar*>(focus);
+            if(!native&&moveFocus(focus,arrow))return true;
+            if(translated){QKeyEvent forward(QEvent::KeyPress,arrow,key->modifiers());QApplication::sendEvent(focus,&forward);return true;}
+        }
+        if(!QApplication::activePopupWidget()&&key->modifiers()==Qt::NoModifier&&(key->key()==Qt::Key_Q||key->key()==Qt::Key_Escape)){focus->window()->close();return true;}
         return QObject::eventFilter(target,event);
     }
 };
@@ -76,6 +100,7 @@ Palette palette() {
     return p;
 }
 void install(QApplication *app) {
+    app->setAttribute(Qt::AA_DontUseNativeDialogs);
     app->setStyle("Fusion");
     QFont font=app->font();
     for(const auto &family:{QString("Google Sans Flex"),QString("Inter"),QString("Noto Sans")})
@@ -83,6 +108,7 @@ void install(QApplication *app) {
     font.setPointSizeF(10.5);app->setFont(font);
     auto apply=[app]{
         const auto p=palette();
+        QIcon::setThemeName(p.background.lightness()<128 ? "breeze-dark" : "breeze");
         QPalette qt;qt.setColor(QPalette::Window,p.background);qt.setColor(QPalette::WindowText,p.text);qt.setColor(QPalette::Base,p.surface);
         qt.setColor(QPalette::Text,p.text);qt.setColor(QPalette::Button,p.raised);qt.setColor(QPalette::ButtonText,p.text);
         qt.setColor(QPalette::Highlight,p.accent);qt.setColor(QPalette::HighlightedText,p.onAccent);qt.setColor(QPalette::PlaceholderText,p.muted);app->setPalette(qt);
@@ -116,6 +142,9 @@ QPushButton[kind="tile"] { min-height:48px; border-radius:18px; text-align:left;
 QLineEdit, QTextEdit, QComboBox { background:@background; border:1px solid @outline; border-radius:12px; padding:10px 12px; selection-background-color:@accent; }
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus { border:1px solid @accent; }
 QComboBox::drop-down { border:0; width:24px; }
+QTreeView, QTableView { background:@surface; alternate-background-color:@raised; color:@text; border:1px solid @outline; border-radius:12px; padding:8px; selection-background-color:@selected; selection-color:@text; }
+QTreeView::item, QTableView::item { padding:7px 5px; }
+QHeaderView::section { background:@raised; color:@text; border:0; padding:10px 8px; font-weight:600; }
 QListWidget { background:@surface; border:0; border-radius:24px; padding:10px; outline:0; }
 QListWidget::item { padding:14px 12px; border:2px solid transparent; border-radius:18px; margin:3px 0; }
 QListWidget::item:selected { color:@text; background:@selected; }

@@ -21,7 +21,7 @@ void printJson(const QJsonObject &value) {
     QTextStream(stdout) << QJsonDocument(value).toJson(QJsonDocument::Compact) << Qt::endl;
 }
 void help() {
-    QTextStream(stdout) << "Umbriel Connect 0.3.2 — C++ / Qt6\n"
+    QTextStream(stdout) << "Umbriel Connect 0.4.0 — C++ / Qt6\n"
         "  umbriel-connect                         Abrir aplicación\n"
         "  umbriel-connect --send ARCHIVO...       Enviar con Umbriel Remote, sin KDE Connect\n"
         "  umbriel-connect list                    Estado JSON\n"
@@ -73,8 +73,8 @@ int main(int argc, char **argv) {
     }
     const auto command = args.value(0);
     if (command == "--help" || command == "-h") { help(); return 0; }
-    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.3.2\n"; return 0; }
-    KdeClient client;
+    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.4.0\n"; return 0; }
+    EngineClient client;
     Integration integration;
     LocalRemote remote;
     auto done = [&app](Reply reply) {
@@ -97,9 +97,9 @@ int main(int argc, char **argv) {
             *refresh = [&, busy, dirty, weak] {
                 if (*busy) { *dirty = true; return; }
                 *busy = true;
-                client.snapshot([&, busy, dirty, weak](QJsonObject legacy) {
-                    remote.snapshot([&, busy, dirty, weak,legacy](QJsonObject own) {
-                    auto state=legacy;auto devices=own["devices"].toArray();for(auto d:legacy["devices"].toArray())devices.append(d);state["devices"]=devices;state["available"]=own["available"].toBool()||legacy["available"].toBool();
+                client.snapshot([&, busy, dirty, weak](QJsonObject engine) {
+                    remote.snapshot([&, busy, dirty, weak,engine](QJsonObject own) {
+                    auto state=engine;auto devices=own["devices"].toArray();for(auto d:engine["devices"].toArray())devices.append(d);state["devices"]=devices;state["available"]=own["available"].toBool()||engine["available"].toBool();
                     *busy = false; printJson(state);
                     if (command == "list") { app->exit(state["available"].toBool() && !state["partial"].toBool() ? 0 : 1); return; }
                     if (*dirty) { *dirty = false; if (auto r = weak.lock()) (*r)(); }
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
             };
             if (command == "watch") {
                 client.startWatching();remote.watch();QObject::connect(&remote,&LocalRemote::changed,app.get(),[refresh]{(*refresh)();});
-                QObject::connect(&client, &KdeClient::changed, app.get(), [refresh] { (*refresh)(); });
+                QObject::connect(&client, &EngineClient::changed, app.get(), [refresh] { (*refresh)(); });
             }
             (*refresh)();
         } else if (command == "actions" && args.size() == 1) {

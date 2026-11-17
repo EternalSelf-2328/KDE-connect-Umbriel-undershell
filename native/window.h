@@ -27,7 +27,7 @@ private:
     void loadProfiles();
     QString selectedId() const;
     QJsonObject selectedDevice() const;
-    KdeClient m_client;
+    EngineClient m_client;
     LocalRemote m_remote;
     Integration m_integration;
     QJsonObject m_state;

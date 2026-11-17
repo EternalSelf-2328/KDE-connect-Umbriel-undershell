@@ -78,3 +78,17 @@ Datos públicos para revisión: paquete org.eternalself.umbrielremote y hashes e
 [SHA256SUMS](../downloads/SHA256SUMS). Una revisión o distribución futura no garantiza
 aprobación y requiere su propia comprobación. No desactivar Play Protect ni habilitar
 permisos por ADB para completar estas pruebas.
+
+## Aplicación completa 0.4.0
+
+A petición del usuario, se incorpora un motor Android propio derivado de las fuentes
+oficiales. Esta edición **sí** declara las capacidades opcionales de SMS/contactos,
+lector de notificaciones, accesibilidad y almacenamiento necesarias para esas funciones.
+La edición mínima0.3.1 sigue disponible por separado; ambas usan el mismo paquete y
+firmante y son alternativas, no dos apps instaladas a la vez.
+
+Los permisos se conceden por función y el intercambio requiere autorización local;
+la biometría no elimina los avisos de Google ni acredita la app ante Play Protect.
+No se distribuye como método para evadir ese bloqueo. No se ha confirmado instalación
+de0.4.0 en el Galaxy. Si se bloquea, mantener la protección activa y seguir el proceso
+oficial de revisión; no activar permisos restringidos para sortear un diagnóstico.

@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=Umbriel Connect
-Comment=KDE Connect, Umbriel and undershell controls
+Comment=Connect your phone with Umbriel and undershell
 Comment[es]=Conecta tu teléfono con Umbriel y undershell
 Exec="@CMAKE_INSTALL_FULL_BINDIR@/umbriel-connect"
-Icon=kdeconnect
+Icon=org.eternalself.UmbrielConnect
 Terminal=false
 Categories=Network;
 StartupNotify=true

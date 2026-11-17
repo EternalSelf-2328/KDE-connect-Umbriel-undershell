@@ -147,3 +147,19 @@ La ventana blanca de `kdeconnect-handler` pertenece al programa oficial. Este
 cambio sustituye ese flujo mediante la integración de Yazi con `umbriel-connect
 --send`; las instancias antiguas de Yazi necesitan reabrirse. No modifica el tema
 global de KDE. El APK permanece en 0.3.1.
+
+## Motor y navegación — 0.4.0
+
+La ventana incorpora la sección Teléfono (pantalla, cámara, webcam y audio), búsqueda
+Ctrl+K que localiza sin ejecutar, Alt+1…5 y ayuda F1. Se amplió IJKL entre botones
+respetando texto, listas, sliders y combos. Las herramientas Quick incluidas tienen
+un adaptador de teclado y paleta propia; no cambian el tema KDE global.
+El explorador utiliza tarjetas y tabla del mismo diseño. Los renders de
+[screenshots/0.4.0](screenshots/0.4.0/) son offscreen y contienen datos sintéticos.
+
+Se aplicaron las skills locales `diseno-interfaz` y `auditoria-diseno` del usuario:
+roles Noctalia, contraste, foco visible, tamaños adaptables, sin blur ni animación
+continua. Omarchy sirvió como referencia de búsqueda/filtros; el reproductor mantiene
+controles convencionales y el motor completo. No se instalaron plugins externos.
+Android combina el dashboard propio con las pantallas Material del motor: todavía
+requiere inspección física en el Galaxy, especialmente permisos, teclado y escala.

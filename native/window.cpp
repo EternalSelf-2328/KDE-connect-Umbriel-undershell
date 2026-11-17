@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "window.h"
+#include "androidpanel.h"
+#include <QShortcut>
+#include <QDialog>
+#include <QKeyEvent>
+#include <QPointer>
+#include <QRegularExpression>
 #include "commandstore.h"
 #include "design.h"
 #include "controlpanel.h"
@@ -33,6 +39,15 @@
 #include <QVBoxLayout>
 
 namespace {
+class FunctionSearchInput:public QLineEdit {
+public:
+    QListWidget *results=nullptr;
+protected:
+    void keyPressEvent(QKeyEvent *key) override {
+        if(results&&key->modifiers()==Qt::NoModifier&&(key->key()==Qt::Key_Down||key->key()==Qt::Key_Up)){results->setCurrentRow(qBound(0,results->currentRow()+(key->key()==Qt::Key_Down?1:-1),results->count()-1));return;}
+        QLineEdit::keyPressEvent(key);
+    }
+};
 QLabel *plainLabel(const QString &text, QWidget *parent = nullptr) {
     auto *label = new QLabel(text, parent);
     label->setTextFormat(Qt::PlainText);
@@ -58,6 +73,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     auto *title = plainLabel("Umbriel Connect");
     title->setProperty("role","title");
     header->addWidget(title); header->addStretch();
+    auto *search = button("Buscar función",header);search->setProperty("kind","ghost");search->setToolTip("Ctrl+K · buscar una función. F1 · ayuda de teclado");
     auto *discover = button("Buscar dispositivos", header);
     discover->setIcon(Design::icon("phone"));
     discover->setProperty("glyph","phone");
@@ -118,7 +134,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     m_publish = button("Configurar controles…", commandRow);
     m_remove = button("Retirar controles", commandRow); details->addLayout(commandRow);
     m_remove->setProperty("kind","ghost");
-    m_legacyCommandsHint=plainLabel("Disponibles en «Ejecutar órdenes» de KDE Connect.");m_legacyCommandsHint->setProperty("role","muted");details->addWidget(m_legacyCommandsHint);
+    m_legacyCommandsHint=plainLabel("Disponibles en las funciones ampliadas del teléfono.");m_legacyCommandsHint->setProperty("role","muted");details->addWidget(m_legacyCommandsHint);
     details->addStretch();
     auto *detailScroll=new QScrollArea;detailScroll->setWidgetResizable(true);detailScroll->setWidget(detail);phoneLayout->addWidget(detailScroll,3);
     tabs->addTab(phone, "Dispositivos");
@@ -138,6 +154,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     });
     auto *wallpapers=new WallpaperPanel(preview,[this](Reply r){result(r);});tabs->addTab(wallpapers,"Fondos");
     connect(tabs,&QTabWidget::currentChanged,this,[wallpapers,preview](int index){if(index==2&&!preview)wallpapers->refresh();});
+    auto *androidScroll=new QScrollArea;androidScroll->setWidgetResizable(true);androidScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);androidScroll->setWidget(new AndroidPanel(preview));tabs->addTab(androidScroll,"Teléfono");
     auto *more = new QWidget; auto *moreLayout = new QVBoxLayout(more);
     auto *secureHero=new QFrame;secureHero->setObjectName("card");auto *secureLayout=new QVBoxLayout(secureHero);secureLayout->setContentsMargins(28,28,28,28);secureLayout->setSpacing(12);
     auto *secureIcon=plainLabel("");secureIcon->setPixmap(Design::icon("shield").pixmap(48,48));secureLayout->addWidget(secureIcon);
@@ -154,23 +171,36 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
         if (!QProcess::startDetached(Integration::executable("umbriel-connect-remote"), {"--phone"}))
             result({false, "No se pudo abrir el control del teléfono", {}});
     });
-    moreLayout->addWidget(plainLabel("El canal biométrico es experimental y requiere Umbriel Remote en Android, registro previo y una sesión aprobada. Los permisos del KDE Connect habitual se administran por separado."));
-    for (const auto &entry : QList<QPair<QString, QString>>{{"kdeconnect-app", "Abrir ajustes y funciones de KDE Connect"}, {"kdeconnect-sms", "Abrir mensajes SMS"}}) {
+    moreLayout->addWidget(plainLabel("El canal biométrico es experimental y requiere Umbriel Remote en Android, registro previo y una sesión aprobada. Las funciones ampliadas tienen permisos independientes en el teléfono."));
+    for (const auto &entry : QList<QPair<QString, QString>>{{"umbriel-connect-features", "Funciones y permisos del teléfono"}, {"umbriel-connect-messages", "Conversaciones SMS y MMS"}}) {
         auto *b = button(entry.second, moreLayout);
         b->setEnabled(!Integration::executable(entry.first).isEmpty() && !preview);
         connect(b, &QPushButton::clicked, this, [this, entry] {
             if (!QProcess::startDetached(Integration::executable(entry.first), {})) result({false, "No se pudo abrir la aplicación", {}});
         });
     }
-    moreLayout->addWidget(plainLabel("Cámara, scrcpy y monitor virtual del cliente original siguen en la ruta heredada. Consulta la matriz de compatibilidad del proyecto antes de activarlos."));
+    moreLayout->addWidget(plainLabel("Pantalla y cámara están en la pestaña Teléfono. Multimedia, notificaciones, teclado, presentaciones y monitor virtual se administran en las funciones ampliadas del motor integrado."));
     moreLayout->addStretch();
     auto *moreScroll=new QScrollArea;moreScroll->setWidgetResizable(true);moreScroll->setWidget(more);tabs->addTab(moreScroll, "Acceso protegido");
-    m_status = plainLabel("Conectando con KDE Connect…");
+    m_status = plainLabel("Conectando con Umbriel Connect…");
     m_status->setProperty("role","muted");
     layout->addWidget(m_status);
     setCentralWidget(central);
+    for(int index=0;index<tabs->count();++index){auto *shortcut=new QShortcut(QKeySequence("Alt+"+QString::number(index+1)),this);connect(shortcut,&QShortcut::activated,tabs,[tabs,index]{tabs->setCurrentIndex(index);});}
+    auto *findShortcut=new QShortcut(QKeySequence("Ctrl+K"),this);connect(findShortcut,&QShortcut::activated,search,&QPushButton::click);
+    connect(search,&QPushButton::clicked,this,[this,tabs]{
+        struct Match{int tab;QPointer<QPushButton> button;QString title;};QList<Match> matches;
+        for(int index=0;index<tabs->count();++index)for(auto *b:tabs->widget(index)->findChildren<QPushButton*>())if(!b->isHidden()&&b->window()==this&&!b->text().isEmpty())matches.append({index,b,tabs->tabText(index)+" · "+b->text().simplified()});
+        QDialog dialog(this);dialog.setWindowTitle("Buscar función");dialog.resize(qMin(680,width()-48),qMin(500,height()-48));auto *layout=new QVBoxLayout(&dialog);layout->setContentsMargins(Design::margin,Design::padding,Design::margin,Design::padding);layout->setSpacing(Design::gap);
+        auto *heading=plainLabel("Encuentra un control");heading->setProperty("role","hero");layout->addWidget(heading);auto *input=new FunctionSearchInput;input->setObjectName("functionSearch");input->setPlaceholderText("Volumen, cámara, mensajes…");layout->addWidget(input);auto *list=new QListWidget;list->setObjectName("functionResults");list->setWordWrap(true);input->results=list;layout->addWidget(list,1);auto *hint=plainLabel("Enter localiza el control · Flechas eligen · Esc vuelve");hint->setProperty("role","muted");layout->addWidget(hint);
+        const auto fold=[](QString value){return value.normalized(QString::NormalizationForm_D).remove(QRegularExpression("\\p{M}")).toCaseFolded();};
+        auto filter=[&](const QString &query){list->clear();for(int index=0;index<matches.size();++index)if(fold(matches[index].title).contains(fold(query))){auto *item=new QListWidgetItem(matches[index].title,list);item->setData(Qt::UserRole,index);}if(!list->count()){auto *empty=new QListWidgetItem("No hay coincidencias. Prueba otra función.",list);empty->setFlags(Qt::NoItemFlags);}else list->setCurrentRow(0);};
+        int chosen=-1;auto choose=[&]{if(auto *item=list->currentItem();item&&(item->flags()&Qt::ItemIsEnabled)){chosen=item->data(Qt::UserRole).toInt();dialog.accept();}};connect(input,&QLineEdit::textChanged,&dialog,filter);connect(input,&QLineEdit::returnPressed,&dialog,choose);connect(list,&QListWidget::itemActivated,&dialog,[&](QListWidgetItem*){choose();});filter({});input->setFocus();
+        if(dialog.exec()==QDialog::Accepted&&chosen>=0&&chosen<matches.size()&&matches[chosen].button){auto match=matches[chosen];tabs->setCurrentIndex(match.tab);QTimer::singleShot(0,this,[this,target=match.button]{if(target&&target->isEnabled()){activateWindow();target->setFocus(Qt::TabFocusReason);}});for(auto *parent=match.button->parentWidget();parent;parent=parent->parentWidget())if(auto *scroll=qobject_cast<QScrollArea*>(parent))scroll->ensureWidgetVisible(match.button);}
+    });
+    auto *help=new QShortcut(QKeySequence(Qt::Key_F1),this);connect(help,&QShortcut::activated,this,[this]{QMessageBox::information(this,"Navegar con teclado","Ctrl+K: buscar una función\nTab / Mayús+Tab: siguiente / anterior control\nIJKL y flechas: navegar por controles y listas\nAlt+1…5: cambiar de sección\nCtrl+Tab: siguiente sección\nEnter o Espacio: activar el control\nEsc / Q: cerrar fuera de campos de texto\n\nPuedes escribir IJKL y Q normalmente en los campos de texto.");});
     connect(m_devices, &QListWidget::currentRowChanged, this, &Window::selection);
-    connect(discover, &QPushButton::clicked, this, [this] { m_remote.call({{"action","network"}},[this](Reply){refresh();});if(m_state["legacyAvailable"].toBool())m_client.refresh([this](Reply r) { result(r); refresh(); }); });
+    connect(discover, &QPushButton::clicked, this, [this] { m_remote.call({{"action","network"}},[this](Reply){refresh();});if(m_state["engineAvailable"].toBool())m_client.refresh([this](Reply r) { result(r); refresh(); }); });
     connect(m_pair, &QPushButton::clicked, this, [this] { phoneAction("pair"); });
     connect(m_accept, &QPushButton::clicked, this, [this] { phoneAction("accept"); });
     connect(m_unpair, &QPushButton::clicked, this, [this] {
@@ -200,11 +230,13 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
         if(qEnvironmentVariable("UMBRIEL_CONNECT_PREVIEW_TRANSPORT")=="umbriel")applyState({{"available",true},{"devices",QJsonArray{QJsonObject{{"id","remote:demo"},{"name","Galaxy de ejemplo"},{"paired",true},{"reachable",true},{"transport","umbriel"},{"battery",-1},{"plugins",QJsonArray{"umbriel_files"}}}}}});
         m_status->setText("Vista previa · datos de ejemplo");
         for(auto *b:findChildren<QPushButton*>()){b->setEnabled(true);b->blockSignals(true);}
+        search->blockSignals(false);
         tabs->setCurrentIndex(qEnvironmentVariableIntValue("UMBRIEL_CONNECT_PREVIEW_TAB"));
     } else {
+        if(!Integration::executable("umbriel-connect-engine").isEmpty())QProcess::startDetached(Integration::executable("umbriel-connect-engine"),{});
         m_client.startWatching();m_remote.watch();connect(&m_remote,&LocalRemote::changed,this,&Window::refresh);
         if(!QFileInfo::exists(LocalRemote::path())){const auto receiver=Integration::executable("umbriel-connect-remote");if(!receiver.isEmpty())QProcess::startDetached(receiver,{"serve","127.0.0.1","31594"});}
-        connect(&m_client, &KdeClient::changed, this, &Window::refresh);
+        connect(&m_client, &EngineClient::changed, this, &Window::refresh);
         refresh(); loadProfiles();
     }
 }
@@ -219,8 +251,8 @@ QJsonObject Window::selectedDevice() const {
 void Window::refresh() {
     if (m_loading) { m_again = true; return; }
     m_loading = true;
-    m_client.snapshot([this](QJsonObject legacy) {
-        m_remote.snapshot([this,legacy](QJsonObject own){auto state=legacy;auto devices=own["devices"].toArray();for(auto d:legacy["devices"].toArray())devices.append(d);state["devices"]=devices;state["available"]=own["available"].toBool()||legacy["available"].toBool();state["legacyAvailable"]=legacy["available"].toBool();
+    m_client.snapshot([this](QJsonObject engine) {
+        m_remote.snapshot([this,engine](QJsonObject own){auto state=engine;auto devices=own["devices"].toArray();for(auto d:engine["devices"].toArray())devices.append(d);state["devices"]=devices;state["available"]=own["available"].toBool()||engine["available"].toBool();state["engineAvailable"]=engine["available"].toBool();
         applyState(state); m_loading = false;
         if (m_again) { m_again = false; refresh(); }
         });
@@ -232,15 +264,15 @@ void Window::applyState(const QJsonObject &state) {
     m_devices->blockSignals(true); m_devices->clear();
     for (const auto &v : state["devices"].toArray()) {
         const auto d = v.toObject();
-        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + (d["reachable"].toBool() ? "Conectado" : "Sin conexión")+(d["transport"]=="umbriel"?" · Umbriel":" · KDE"), m_devices);
+        auto *item = new QListWidgetItem(Design::icon("phone"),d["name"].toString() + "\n" + (d["reachable"].toBool() ? "Conectado" : "Sin conexión")+(d["transport"]=="umbriel"?" · Huella":" · Funciones"), m_devices);
         item->setData(Qt::UserRole, d["id"].toString());
         if (d["id"].toString() == id) m_devices->setCurrentItem(item);
     }
     if (!m_devices->currentItem() && m_devices->count()) m_devices->setCurrentRow(0);
     m_devices->blockSignals(false); selection();
-    if (!state["available"].toBool()) m_status->setText("KDE Connect no está disponible: " + state["error"].toString());
+    if (!state["available"].toBool()) m_status->setText("El motor de Umbriel Connect no está disponible: " + state["error"].toString());
     else if (state["partial"].toBool()) m_status->setText("Se recibieron datos incompletos. Vuelve a buscar dispositivos.");
-    else m_status->setText(QString::number(m_devices->count()) + " conexiones · Umbriel Remote y KDE Connect");
+    else m_status->setText(QString::number(m_devices->count()) + " conexiones · Umbriel Remote y motor integrado");
 }
 void Window::selection() {
     const auto d = selectedDevice();
@@ -263,7 +295,7 @@ void Window::selection() {
     m_unpair->setEnabled(paired && !m_preview&&!native);
     m_legacyShare->setVisible(!native);m_legacyCommandsHint->setVisible(!native);
     for(auto *b:{m_ring,m_ping,m_files,m_publish,m_remove})b->setVisible(!native);
-    m_connectionHint->setText(native?(reachable?"Sesión de Umbriel Remote aprobada con huella. Acepta cada descarga en el teléfono.":"Abre Umbriel Remote en el teléfono y conecta con huella para activar el envío de archivos."):(d.isEmpty()?"Busca un teléfono o conecta desde Umbriel Remote.":"Conexión de KDE Connect. Sus permisos y funciones se administran por separado de Umbriel Remote."));
+    m_connectionHint->setText(native?(reachable?"Sesión de Umbriel Remote aprobada con huella. Acepta cada descarga en el teléfono.":"Abre Umbriel Remote en el teléfono y conecta con huella para activar el envío de archivos."):(d.isEmpty()?"Busca un teléfono o conecta desde Umbriel Remote.":"Motor integrado de Umbriel Connect. Revisa los permisos de cada función en el teléfono."));
     m_ring->setEnabled(ready && plugins.contains("kdeconnect_findmyphone"));
     m_ping->setEnabled(ready && plugins.contains("kdeconnect_ping"));
     m_files->setEnabled(ready && plugins.contains("kdeconnect_sftp"));

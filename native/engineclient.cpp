@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "kdeclient.h"
+#include "engineclient.h"
 #include <QDBusArgument>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
@@ -25,22 +25,22 @@ QStringList asStrings(const QVariant &v) {
         ? qdbus_cast<QStringList>(v) : v.toStringList();
 }
 }
-KdeClient::KdeClient(QObject *parent, QDBusConnection bus, QString service)
+EngineClient::EngineClient(QObject *parent, QDBusConnection bus, QString service)
     : QObject(parent), m_bus(std::move(bus)), m_service(std::move(service)) {
     m_debounce.setSingleShot(true);
     m_debounce.setInterval(100);
-    connect(&m_debounce, &QTimer::timeout, this, &KdeClient::changed);
+    connect(&m_debounce, &QTimer::timeout, this, &EngineClient::changed);
 }
-bool KdeClient::validId(const QString &id) {
+bool EngineClient::validId(const QString &id) {
     static const QRegularExpression re("^[A-Za-z0-9_]{1,128}$");
     return re.match(id).hasMatch();
 }
-QString KdeClient::devicePath(const QString &id) { return root + "/devices/" + id; }
-void KdeClient::call(const QString &path, const QString &interface, const QString &method,
+QString EngineClient::devicePath(const QString &id) { return root + "/devices/" + id; }
+void EngineClient::call(const QString &path, const QString &interface, const QString &method,
                      const QVariantList &args, Done done) {
     auto msg = QDBusMessage::createMethodCall(m_service, path, interface, method);
     msg.setArguments(args);
-    if(path==root&&method=="devices")msg.setAutoStartService(false); // Listing native peers must not launch KDE Connect.
+    // Activation is restricted to our own service; no system KDE Connect fallback.
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(msg, 2500), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this,
             [watcher, done = std::move(done)] {
@@ -53,7 +53,7 @@ void KdeClient::call(const QString &path, const QString &interface, const QStrin
         }
     });
 }
-void KdeClient::snapshot(std::function<void(QJsonObject)> done) {
+void EngineClient::snapshot(std::function<void(QJsonObject)> done) {
     call(root, "org.kde.kdeconnect.daemon", "devices", {false, false},
          [this, done = std::move(done)](Reply reply) {
         if (!reply.ok) {
@@ -107,7 +107,7 @@ void KdeClient::snapshot(std::function<void(QJsonObject)> done) {
                     {"reachable", p.value("isReachable").toBool()},
                     {"pairRequested", p.value("isPairRequestedByPeer").toBool()},
                     {"verificationKey", p.value("verificationKey").toString()},
-                    {"battery", -1}, {"charging", false}, {"plugins", QJsonArray()}});
+                    {"transport", "engine"}, {"battery", -1}, {"charging", false}, {"plugins", QJsonArray()}});
                 call(devicePath(id), deviceInterface, "loadedPlugins", {},
                      [this, id, device, batch, finish](Reply plugins) {
                     if (!plugins.ok) batch->errors.append(plugins.error);
@@ -133,10 +133,10 @@ void KdeClient::snapshot(std::function<void(QJsonObject)> done) {
         }
     });
 }
-void KdeClient::refresh(Done done) {
+void EngineClient::refresh(Done done) {
     call(root, "org.kde.kdeconnect.daemon", "forceOnNetworkChange", {}, std::move(done));
 }
-void KdeClient::operation(const QString &id, const QString &operation, const QString &argument, Done done) {
+void EngineClient::operation(const QString &id, const QString &operation, const QString &argument, Done done) {
     if (!validId(id)) { done({false, "ID de dispositivo inválido", {}}); return; }
     snapshot([this, id, operation, argument, done](const QJsonObject &state) {
         if (!state["available"].toBool()) { done({false, state["error"].toString(), {}}); return; }
@@ -184,12 +184,12 @@ void KdeClient::operation(const QString &id, const QString &operation, const QSt
         });
     });
 }
-void KdeClient::onEvent() { m_debounce.start(); }
-void KdeClient::startWatching() {
+void EngineClient::onEvent() { m_debounce.start(); }
+void EngineClient::startWatching() {
     if (m_watching) return;
     m_watching = true;
     auto *watcher = new QDBusServiceWatcher(m_service, m_bus, QDBusServiceWatcher::WatchForOwnerChange, this);
-    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, &KdeClient::onEvent);
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, &EngineClient::onEvent);
     for (const auto &signal : {"deviceListChanged", "pairingRequestsChanged"})
         m_bus.connect(m_service, root, "org.kde.kdeconnect.daemon", signal, this, SLOT(onEvent()));
     for (const auto &signal : {"reachableChanged", "pairStateChanged", "pluginsChanged", "nameChanged", "pairingFailed"})

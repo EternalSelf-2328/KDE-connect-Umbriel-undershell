@@ -1,227 +1,115 @@
 # Umbriel Connect
 
-Cliente nativo **C++20 / Qt6** para integrar KDE Connect con **Umbriel, Noctalia y
-undershell**. Este fork proviene de [Caelestia Connect](https://github.com/maylton/caelestia-connect).
+Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
+y aplicación Android propia. **0.4.0 experimental** incorpora un motor privado derivado
+de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
+Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
-El canal propio conecta con **Umbriel Remote** por LAN o Tailscale, con biometría
-y transferencia de archivos sin KDE Connect. La compatibilidad con el cliente
-Android oficial utiliza `kdeconnectd` mediante D-Bus; no necesita Plasma. La aplicación, el CLI y los
-controles de escritorio nuevos están en `native/`; no requieren Python.
+![Umbriel Connect: datos de ejemplo](docs/screenshots/0.4.0/native-dark.png)
 
-**Estado: escritorio 0.3.2 y Android 0.3.1, migración parcial.** No es una traducción completa de las 14.000
-líneas del cliente original. Su código y sus extras se conservan en
-`caelestia_connect/`. Cámara, scrcpy y monitor virtual aún requieren trabajo para
-ofrecerse desde la interfaz nativa. Consulta la [matriz de compatibilidad](docs/COMPATIBILITY.md).
+[Descargar Android completo 0.4.0](downloads/UmbrielConnect-0.4.0.apk) ·
+[Instalación y compilación](docs/BUILDING.md) ·
+[Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
+[Seguridad y permisos](SECURITY.md)
 
-![Interfaz nativa con datos de ejemplo](docs/screenshots/native-dark.png)
+## Qué integra
 
-[Diseño, variantes y comprobaciones visuales](docs/DESIGN.md).
+- Descubrimiento, emparejamiento, batería, señal móvil, archivos, enlaces y texto.
+- Notificaciones con acciones/respuesta, portapapeles, multimedia/MPRIS y volumen.
+- Mensajes SMS/MMS y contactos, avisos de llamada y encontrar dispositivos.
+- Entrada remota, presentación, tableta y órdenes, con permisos y opt-in por dispositivo.
+- Explorador de archivos y ventana de mensajes incluidos en el prefijo privado.
+- Pantalla interactiva, cámara frontal/posterior, webcam bajo demanda y audio Bluetooth,
+  desde la sección **Teléfono**, mediante scrcpy/ADB, v4l2loopback y BlueZ.
+- Controles propios de escritorios, foco, sonido, tema y no molestar; editor, widgets,
+  rendimiento, mascotas y perfiles de undershell.
+- Galería móvil/escritorio de undershell-wall con miniaturas, favoritos y filtros por
+  carpeta/origen: imágenes propias o Wallpaper Engine.
+- Canal TLS propio con certificado fijado, sesión biométrica y archivos grandes en
+  ambos sentidos. Integración Yazi `umbriel-connect --send ARCHIVOS...`.
 
-El selector de envío de escritorio comparte tarjetas, tipografía y paleta dinámica
-con la aplicación. Explica la autorización con huella y muestra los estados de envío,
-error y finalización. Si Yazi aún abre el selector de KDE, vuelve a abrir Yazi para
-cargar la integración `umbriel-connect --send`.
+El motor deriva de las fuentes oficiales C++ y Android, mantenidas como submódulos
+fijados. Los extras de pantalla/cámara se portaron desde las funciones de
+[Caelestia Connect](https://github.com/maylton/caelestia-connect) y su
+[fork de KingSahil](https://github.com/KingSahil/caelestia-connect).
+[Procedencia y licencias](THIRD_PARTY_NOTICES.md).
 
-## Funciones nativas
+**Límites actuales:** el monitor virtual requiere un backend de credenciales seguro
+y un portal compatible y permanece bloqueado. Las funciones Wayland, cámara, SMS,
+Bluetooth y permisos Samsung requieren validación física; compilar los plugins no
+prueba que todos funcionen en el compositor. [Matriz detallada](docs/COMPATIBILITY.md).
 
-- Lista de dispositivos, batería, conexión y solicitudes de emparejamiento por eventos.
-- Emparejar, aceptar solicitudes con clave visible y desvincular.
-- Enviar archivos, enlaces y texto; encontrar el teléfono y explorar sus archivos.
-- Controles de escritorios, foco, vista general y DPMS de Umbriel.
-- Volumen, bloqueo, reposo, no molestar y tema claro/oscuro de Noctalia.
-- Editor, visibilidad de widgets, demo, salvapantallas, cinco niveles de rendimiento,
-  seis reacciones de mascotas y perfiles guardados de undershell.
-- Publicar estos controles en **Ejecutar órdenes** del teléfono, con respaldo y
-  conservando las órdenes personales. Se pueden retirar por separado.
-- Widget opcional de Noctalia: estado y batería en el tooltip; clic para abrir.
-- Una sola ventana por sesión. CLI sin dependencia de un servidor gráfico.
-- [Canal biométrico experimental y APK Android](docs/REMOTE-SECURITY.md): controles
-  de computadora desde el teléfono; control inverso en una variante opcional pendiente de revisión.
-
-`Mostrar todos los widgets` hace visibles también los que ocultaste individualmente;
-ambas acciones de visibilidad persisten mediante el IPC de undershell.
-
-## Conexión local, mouse y fondos
-
-**0.3.1:** archivos grandes sin el tope de 1 GiB, espacio comprobado, progreso y
-finalización de archivos aprobados sin prolongar permisos de control.
-[Investigación de KDE y verificación](docs/LARGE-FILES.md).
-
-- Conexión local automática con el mismo certificado; Tailscale opcional fuera de casa.
-- Archivos en ambos sentidos por el canal propio, aceptación y SHA256; integración Yazi.
-- Mouse sin esperar respuesta por movimiento, agrupado a 16 ms y sensibilidad recordada.
-- Filtros de origen, carpeta y tipo; «Mis carpetas» por defecto.
-
-[Guía de red local, archivos, mouse y Yazi](docs/LOCAL-FILES.md).
-
-## Controles y galería
-
-- Touchpad móvil: movimiento relativo, clic izquierdo/derecho, desplazamiento con
-  dos dedos, mantener para arrastrar y sensibilidad. Requiere Xwayland/XTest y
-  puede solicitar aprobación local en Umbriel; no usa accesibilidad Android.
-- Navegación con cruceta de foco, vista general y escritorios anterior/siguiente.
-- Volumen real con deslizador de 0–100 %, silencio y reproducción; tema claro/oscuro,
-  no molestar y reposo con controles dedicados.
-- Biblioteca de **undershell-wall** en escritorio y móvil: búsqueda, favoritos,
-  doce elementos por página, miniaturas y confirmación para aplicar. Utiliza su
-  CLI para conservar renderizadores, hooks y tema; no cambia fondos al explorar.
-
-[Funcionamiento, restricciones de Tailscale y pendientes](docs/REMOTE-CONTROLS.md).
-Las rutas nuevas están probadas con servicios simulados; el touchpad y la nueva
-interfaz móvil todavía requieren prueba física en el Galaxy.
-
-## Instalar
-
-En Arch/CachyOS:
+## Instalar y enlazar
 
 ```bash
-sudo pacman -S --needed base-devel cmake qt6-base qt6-wayland openssl
+git submodule update --init --recursive
 ./install.sh
 ~/.local/bin/umbriel-connect
 ```
 
-`kdeconnect` es opcional para las funciones del cliente Android oficial.
+Consulta primero las [bibliotecas necesarias](docs/BUILDING.md). El instalador
+respalda los binarios anteriores, compila y prueba los dos proyectos, e instala en
+`~/.local`. No modifica red, firewall, autostart, atajos ni configuraciones de otros
+programas. No elimina el paquete KDE Connect existente; el cliente nuevo usa su
+servicio y sus plugins privados.
 
-El instalador compila, ejecuta las pruebas en un bus privado e instala en `~/.local`.
-No cambia atajos, firewall, servicios, emparejamientos ni ajustes del escritorio.
-Para otro prefijo: `./install.sh --prefix /ruta`.
+Instala el APK completo y abre **Funciones del teléfono**. Autoriza con huella y
+empareja el motor nuevo comparando la clave en ambos extremos. Las claves privadas
+de KDE Connect no se importan. El APK oficial de esta versión conserva el paquete
+y la firma de Umbriel Remote anterior y, por tanto, sus registros propios.
 
-`libwebp` permite leer las miniaturas del proveedor sin el plugin WebP de Qt.
-`libxtst` y `libx11` habilitan opcionalmente el touchpad de escritorio; se detectan
-al compilar. `umbriel`, `noctalia`, `undershell` y `undershell-wallctl` son
-integraciones opcionales. Si falta alguno,
-la aplicación sigue administrando el teléfono. Busca los ejecutables también en
-`~/.local/bin`, aunque el compositor no incluya esa carpeta en `PATH`.
+La autorización interactiva dura hasta diez minutos y finaliza al bloquear. Puedes
+habilitar explícitamente **Sincronización al bloquear** para computadoras concretas:
+conserva intercambio de archivos/datos con notificación visible y fija su certificado;
+no habilita entrada remota, órdenes ni nuevos emparejamientos. Cerrar la sesión de
+funciones revoca ambas autorizaciones. Concede solo los permisos Android que uses.
 
-Para una instalación de sistema o paquetes:
+El APK ampliado incluye capacidades sensibles opcionales. Si Play Protect impide
+instalarlo, no desactives esa protección; conserva la edición mínima
+[Umbriel Remote 0.3.1](downloads/UmbrielRemote-0.3.1.apk), solo teléfono→PC, y comunica
+el diagnóstico sin compartir datos personales. [Contexto de distribución](docs/PLAY-PROTECT.md).
 
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
-cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure
-DESTDIR="$PWD/staging" cmake --install build
-```
+## Navegar con teclado
 
-## Acceso remoto con aprobación biométrica (experimental)
+**Ctrl+K** busca y localiza una función sin ejecutarla; **Alt+1…5** cambia de sección.
+Tab/Mayús+Tab recorre controles, IJKL y flechas navegan, Enter/Espacio activan y F1
+muestra ayuda. Los campos conservan sus letras normales; Esc/Q cierran fuera de
+edición. El diseño sigue la paleta Noctalia con variantes clara/oscura y foco visible,
+sin animaciones permanentes. [Diseño](docs/DESIGN.md).
 
-[Descargar Umbriel Remote para Android](downloads/UmbrielRemote-0.3.1.apk) ·
-[Guía de registro, VPN y límites](docs/REMOTE-SECURITY.md).
+## LAN, Tailscale y archivos
 
-La descarga **0.3.1 tiene permisos mínimos y solo controla la computadora**. No
-incluye accesibilidad ni captura/control del teléfono. El APK 0.1.0 fue
-bloqueado por Play Protect: consulta el [diagnóstico y cambio de alcance](docs/PLAY-PROTECT.md).
-La nueva instalación todavía debe verificarse en el Galaxy; no se pide desactivar
-Play Protect.
+En la misma red no necesitas Tailscale. El canal propio descubre la computadora en
+LAN y mantiene la misma verificación TLS. Fuera de casa puedes usar el proxy privado
+Tailscale Serve ya configurado para controles y archivos. El modo **userspace** no
+transporta automáticamente todos los plugins, SFTP, ADB ni multicast del motor.
+Bluetooth y webcam son locales. [Restricciones completas](docs/COMPATIBILITY.md).
 
-Esta ruta usa un receptor C++ separado y una clave de Android Keystore autorizada
-con biometría fuerte por sesión. El APK está compilado contra API 36 y firmado;
-**todavía requiere prueba física en el teléfono**. Ofrece los controles de escritorio.
-La variante de código
-`phone-control` conserva navegación, gestos, texto y capturas del celular con
-accesibilidad explícita, pendiente de revisión de distribución y prueba física. No
-incluye video continuo ni teclado general de la computadora. El touchpad está disponible.
+Los archivos del motor usan streaming binario TLS; el selector informa cuando se
+ponen en cola, sin confundirlo con recepción confirmada. El canal firmado propio
+conserva SHA256, espacio disponible, progreso y recepción confirmada; su codificación
+Base64 añade aproximadamente un tercio al tráfico. [Archivos grandes](docs/LARGE-FILES.md).
 
-No requiere habilitar `runcommand` del KDE Connect habitual. Las funciones heredadas
-conservan sus propios permisos; esta ruta no les añade biometría automáticamente.
+La ventana de envío comparte tema y estados con el programa. Si Yazi todavía abre
+un selector antiguo, vuelve a abrir Yazi para cargar su configuración actualizada.
 
-## Controles desde Android con KDE Connect habitual (sin biometría por sesión)
-
-1. Empareja el teléfono con el KDE Connect oficial de la computadora.
-2. Habilita **Ejecutar órdenes** en los ajustes de plugins de KDE Connect.
-3. Abre Umbriel Connect y selecciona el teléfono.
-4. Presiona **Configurar controles…**, revisa la lista y aplica.
-5. En Android, abre **Ejecutar órdenes**. Si agregas perfiles de undershell,
-   vuelve a publicar para actualizar la lista.
-
-También puedes revisar y publicar desde el CLI:
+## CLI y desarrollo
 
 ```bash
-~/.local/bin/umbriel-connect list
-~/.local/bin/umbriel-connect commands
-~/.local/bin/umbriel-connect publish ID_DEL_TELEFONO
-~/.local/bin/umbriel-connect withdraw ID_DEL_TELEFONO
-```
-
-Se guarda una copia `config.bak-umbriel-connect-*` junto a la configuración del
-plugin. Solo se administran claves JSON con prefijo `umbriel_connect__`. El
-archivo se escribe con `QSettings` de forma atómica y se emite la misma señal
-`configChanged` que usa KDE; no se reinicia el daemon. El bloqueo de nuestra
-aplicación evita dos publicaciones simultáneas desde Umbriel Connect. Evita editar
-las órdenes en la app oficial mientras publicas: la app oficial no comparte ese bloqueo.
-
-## Widget de Noctalia
-
-Requiere API 45 o posterior. Una vez instalado el cliente:
-
-```bash
-noctalia msg plugins source add umbriel-connect-local path ~/.local/share/umbriel-connect/noctalia
-noctalia msg plugins enable eternalself-2328/umbriel-connect
-```
-
-Después agrega **Umbriel Connect** desde los ajustes de widgets de la barra. El
-plugin comparte un único proceso C++ `watch` entre todas las barras, además de una
-shell de supervisión. No hace sondeo periódico; al salir el proceso, limpia el estado
-y reintenta después de tres segundos. La ruta del ejecutable se puede configurar.
-
-No cambia automáticamente tus barras. Para desactivarlo:
-
-```bash
-noctalia msg plugins disable eternalself-2328/umbriel-connect
-```
-
-## CLI y atajos
-
-```bash
-umbriel-connect --help
 umbriel-connect list
+umbriel-connect commands
 umbriel-connect watch
-umbriel-connect --send /ruta/al/archivo
-umbriel-connect share remote:ID /ruta/al/archivo
-umbriel-connect share ID_KDE /ruta/al/archivo
-umbriel-connect text ID 'Un texto para el teléfono'
-umbriel-connect actions
-umbriel-connect profiles
-umbriel-connect action undershell.edit-on
-umbriel-connect action undershell.perf-eco
-umbriel-connect action undershell.pet-dance
-umbriel-connect action undershell.profile ID_DEL_PERFIL
-umbriel-connect action umbriel.overview-toggle
+umbriel-connect --send /ruta/archivo
+umbriel-connect-features
+umbriel-connect-messages
+umbriel-connect-protocol --help
 ```
 
-En los atajos del compositor, usa la ruta absoluta al ejecutable. El catálogo
-`actions` indica disponibilidad de las dependencias; la ejecución valida errores.
-Los mensajes enviados por el socket de undershell tienen límite, timeout y control
-del propietario. Una respuesta de error produce un código de salida distinto de cero.
-Los argumentos de teléfono se pasan por D-Bus; los programas de escritorio se
-invocan mediante `argv`, sin interpretar texto del teléfono como una orden de shell.
+Los controles también pueden publicarse en el plugin de órdenes del **motor propio**;
+`umbriel-connect publish ID` respalda y conserva órdenes personales, y `withdraw ID`
+retira solo las generadas por Umbriel. La ruta firmada no necesita activar ese plugin.
+El widget Noctalia sigue siendo opcional y no se activa automáticamente.
 
-## Arquitectura y comprobaciones
-
-- [Arquitectura, decisiones y migración](docs/NATIVE.md).
-- [Compatibilidad, pruebas reales y pendientes](docs/COMPATIBILITY.md).
-- [Documentación original de Caelestia](docs/CAELESTIA.md).
-- [Resultados de validación](docs/VALIDATION.md).
-- [Canal remoto biométrico — experimental, pendiente de prueba física](docs/REMOTE-SECURITY.md).
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure
-noctalia plugins lint integrations/noctalia/umbriel-connect
-QT_QPA_PLATFORM=offscreen build/umbriel-connect --preview build/preview.png
-```
-
-Las pruebas nativas usan un bus D-Bus privado, un teléfono falso y sockets/configs
-temporales. No debes probar DPMS, bloqueo, red o escritura de widgets en tu sesión
-real mientras trabajas de forma remota.
-
-La ruta heredada se instala explícitamente con `bash scripts/install-legacy.sh
---no-shell`; no ejecutes simultáneamente ambos daemons de protocolo. Sus
-emparejamientos son independientes y sus adaptaciones exclusivas de Hyprland siguen
-pendientes. El instalador original ya no es la instalación predeterminada del fork.
-
-## Licencia y créditos
-
-GPL-3.0-or-later. Cliente original: Caelestia Connect y sus colaboradores. Motor
-nativo: [KDE Connect](https://invent.kde.org/network/kdeconnect-kde). Integración con
-Umbriel y undershell: EternalSelf-2328. Se conservan los avisos de autoría del proyecto original.
+[Compilación y pruebas aisladas](docs/BUILDING.md). El Python original se conserva
+como referencia histórica, fuera de la ruta instalada. No se han capturado pantallas,
+mensajes, archivos ni cámaras reales de usuarios durante las pruebas de esta versión.

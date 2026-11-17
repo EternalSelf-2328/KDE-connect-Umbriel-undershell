@@ -15,7 +15,9 @@ QString Integration::executable(const QString &name) {
     // Compositors often omit ~/.local/bin from PATH.
     const auto local = QDir::homePath() + "/.local/bin/" + name;
     if (QFileInfo(local).isExecutable() && QFileInfo(local).isFile()) return local;
-    return QStandardPaths::findExecutable(name);
+    const auto system=QStandardPaths::findExecutable(name);if(!system.isEmpty())return system;
+    if(name=="adb"||name=="scrcpy"){const auto managed=QDir::homePath()+"/.local/bin/umbriel-"+name;if(QFileInfo(managed).isExecutable()&&QFileInfo(managed).isFile())return managed;}
+    return {};
 }
 QString Integration::socketPath() {
     QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");

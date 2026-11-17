@@ -37,10 +37,10 @@ QJsonObject CommandStore::commands(const QString &binary, const QJsonArray &prof
 }
 Reply CommandStore::update(const QString &configRoot, const QString &deviceId,
                             const QJsonObject &commands, QDBusConnection bus) {
-    if (!KdeClient::validId(deviceId)) return {false, "ID inválido", {}};
+    if (!EngineClient::validId(deviceId)) return {false, "ID inválido", {}};
     for (auto it = commands.begin(); it != commands.end(); ++it)
         if (!it.key().startsWith(prefix) || !it.value().isObject()) return {false, "Comando ajeno al catálogo", {}};
-    const auto dir = configRoot + "/kdeconnect/" + deviceId + "/kdeconnect_runcommand";
+    const auto dir = configRoot + "/umbriel-connect/engine/" + deviceId + "/kdeconnect_runcommand";
     if (!QDir().mkpath(dir)) return {false, "No se pudo crear " + dir, {}};
     QLockFile lock(dir + "/umbriel-connect.lock");
     if (!lock.tryLock(0)) return {false, "Otra instancia está actualizando los comandos", {}};

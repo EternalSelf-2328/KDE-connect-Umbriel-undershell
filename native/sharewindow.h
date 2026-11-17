@@ -18,6 +18,8 @@ private:
     void sendNext();
     void message(const QString &title,const QString &text,bool error=false);
     LocalRemote m_remote;
+    EngineClient m_engine;
+    bool m_engineTransfer=false;
     QStringList m_files;
     QString m_target;
     QJsonArray m_devices;
