@@ -32,6 +32,8 @@ packaged ones; invoking `/usr/bin/umbriel-connect` alone is not a complete migra
 Inspect `command -v umbriel-connect` and `systemctl --user cat umbriel-connect-engine.service`,
 then remove only the old installation files you have identified and backed up.
 Packages never delete your user-prefix installation or pairing data.
+The packaged Noctalia widget uses the selected install prefix. When migrating an
+existing widget, update its `binary` setting too if it still points to `~/.local/bin`.
 
 ### Void Linux
 

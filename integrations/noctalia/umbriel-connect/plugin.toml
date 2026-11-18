@@ -4,7 +4,7 @@ version = "0.1.0"
 plugin_api = 45
 author = "EternalSelf-2328"
 license = "GPL-3.0-or-later"
-description = "Phone connection and battery status with native KDE Connect integration."
+description = "Phone connection and battery status for Umbriel Connect."
 icon = "device-mobile"
 tags = ["bar", "service", "utility"]
 
