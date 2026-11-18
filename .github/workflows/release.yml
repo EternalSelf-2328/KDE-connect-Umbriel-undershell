@@ -133,6 +133,29 @@ jobs:
           fi
           nix build --no-write-lock-file --print-build-logs .#default
           mkdir -p out
+          nix eval --impure --json --expr '
+            let
+              f = builtins.getFlake (toString ./.);
+              configuration = autoStart: (f.inputs.nixpkgs.lib.nixosSystem {
+                system = "x86_64-linux";
+                modules = [ f.nixosModules.default {
+                  system.stateVersion = "26.05";
+                  services.umbriel-connect = { enable = true; inherit autoStart; };
+                } ];
+              }).config;
+              manual = configuration false;
+              automatic = configuration true;
+            in
+            assert manual.systemd.user.services.umbriel-connect-engine.wantedBy == [];
+            assert manual.systemd.user.services.umbriel-connect-remote.wantedBy == [];
+            assert automatic.systemd.user.services.umbriel-connect-engine.wantedBy == [ "graphical-session.target" ];
+            assert automatic.systemd.user.services.umbriel-connect-remote.wantedBy == [ "graphical-session.target" ];
+            {
+              manualWantedBy = manual.systemd.user.services.umbriel-connect-engine.wantedBy;
+              automaticWantedBy = automatic.systemd.user.services.umbriel-connect-engine.wantedBy;
+              engineBusName = manual.systemd.user.services.umbriel-connect-engine.serviceConfig.BusName;
+            }
+          ' > out/nixos-module-check.json
           cp flake.lock out/flake.lock
           nix path-info --closure-size --json ./result > out/nix-closure.json
           nix-store --export $(nix-store --query --requisites ./result) | xz -T2 -3 > out/umbriel-connect-0.8.0-nixos-26.05-x86_64.nar.xz
