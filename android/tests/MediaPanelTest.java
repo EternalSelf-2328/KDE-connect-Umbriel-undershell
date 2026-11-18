@@ -15,7 +15,7 @@ import org.robolectric.shadows.ShadowAlertDialog;
 import org.robolectric.util.ReflectionHelpers;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36,qualifiers="w412dp-h892dp-port-night-mdpi")
+@Config(application=UiTestApplication.class,sdk=36,qualifiers="w412dp-h892dp-port-night-mdpi")
 public class MediaPanelTest {
     static class Computer extends HomeNavigationTest.Computer {
         String status="Playing",action="",target="",output="";int watches,unwatches,reads,audioReads;boolean nativeAudio;Consumer<JSONObject> pending;boolean defer;

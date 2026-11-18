@@ -1,24 +1,27 @@
-# Funciones y verificación — 0.6.0 experimental
+# Funciones y verificación — 0.8.0 experimental
 
 Actualizado el 2026-11-17. Se reemplaza el daemon y las aplicaciones KDE Connect
 instaladas por motores derivados, compilados y aislados dentro de Umbriel Connect.
 **Compartir su código/protocolo no significa haber validado cada función en Umbriel o
 el Galaxy.** No se promete seguridad absoluta ni paridad física completa.
 
-| Función | Implementación 0.6.0 | Límite / verificación pendiente |
+| Función | Implementación 0.8.0 | Límite / verificación pendiente |
 |---|---|---|
 | Descubrimiento LAN/mDNS/Bluetooth, emparejamiento y certificados | Motor privado C++ y app Android completa | Nueva confianza, no importa claves KDE; router/Bluetooth físicos pendientes |
 | Batería y señal móvil | Plugins incluidos, ventana de funciones | Android real pendiente |
 | Archivos, URL, texto en ambos sentidos | Motor con payload TLS streaming y canal firmado propio; selector/Yazi propios | Motor pone envíos en cola; confirmación SHA256 explícita pertenece al canal firmado |
 | Explorador de archivos | Ventana propia con KIO privado + SSHFS, host key fijada al certificado | Requiere permiso de carpetas Android, sshfs/kio-extras; montaje físico pendiente |
 | Notificaciones, acciones, respuesta y cierre | Motores incluidos, permisos Android opt-in | Respuesta afecta datos personales; LAN automática; fuera de LAN requiere sesión autorizada |
-| Portapapeles | Plugins incluidos; exportación PC desactivada inicialmente | Restricciones Android al leer en segundo plano; requiere opt-in |
+| Portapapeles | Canal propio manual en ambos sentidos, texto64KiB; plugins separados | App Android en primer plano para solicitudes desde PC; opt-in |
 | MPRIS, reproducción y volumen | Plugins completos y controles dedicados propios | Validar reproductores/Noctalia reales |
 | SMS/MMS, adjuntos y contactos | Motor Android y ventana Mensajes propia | Permisos Android/operador; no se envió ningún SMS para probar |
 | Llamadas y silencio/pausa | Plugins de telefonía incluidos | Depende de permisos y política Samsung; prueba física pendiente |
 | Encontrar teléfono y computadora | Plugins incluidos | Necesita LAN vinculada o sesión remota autorizada |
 | Touchpad/teclado, presentación y tableta | Plugins incluidos; touchpad firmado propio | Input PC opt-in; portales Wayland/Umbriel reales pendientes |
 | Compartir entrada por borde | Plugins incluidos, opt-in | Requiere backend de entrada/portal y accesibilidad Android; sin prueba física |
+| Aplicaciones y energía propias | Catálogo .desktop/GIO, logind y confirmación de un solo uso | No ejecuta shell enviada por el teléfono; políticas locales; suspendido no recibe órdenes |
+| Pantalla PC→teléfono | Captura nativa Wayland, autorización visible por monitor,5min y hasta2imágenes/s | Compositor compatible; prueba headless aprobada, Galaxy pendiente |
+| Paletas, temas e idiomas | Cinco paletas, claro/oscuro/sistema; español/inglés en interfaz propia | Nombres y contenido personal conservados |
 | Ejecutar órdenes | Motor privado y publicación de catálogo Umbriel/undershell | Desactivado por defecto en PC; enlaces piden confirmación; requiere LAN vinculada o sesión remota activa |
 | Control/captura del teléfono | Servicio de accesibilidad único + canal firmado propio | Activación explícita en Android y sesión firmada; prueba Galaxy pendiente |
 | Duplicar/controlar pantalla | Panel Teléfono C++ + scrcpy | ADB autorizado USB o inalámbrico; no requiere KDE |
@@ -110,3 +113,5 @@ PulseAudio o PipeWire-Pulse; cambia el destino predeterminado y solicita mover l
 flujos actuales, con aviso si hay fallos parciales. Pruebas con salidas nulas y
 reproductor sintético; Galaxy y dispositivos físicos pendientes.
 [Detalles y restricciones](UPDATE-0.7.0.md).
+
+[Nuevos controles y límites0.8.0](UPDATE-0.8.0.md).

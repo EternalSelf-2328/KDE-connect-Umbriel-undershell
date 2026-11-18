@@ -13,7 +13,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.util.ReflectionHelpers;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36,qualifiers="w412dp-h892dp-port-night-mdpi")
+@Config(application=UiTestApplication.class,sdk=36,qualifiers="w412dp-h892dp-port-night-mdpi")
 public class ControlSpacingTest {
     @Before public void reset(){RemoteService.instance=null;MainActivity.current.clear();RuntimeEnvironment.getApplication().getSharedPreferences("connection",0).edit().clear().commit();}
     @After public void clear(){RemoteService.instance=null;MainActivity.current.clear();}

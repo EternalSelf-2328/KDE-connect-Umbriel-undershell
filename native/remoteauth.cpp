@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "remoteauth.h"
 #include <QCryptographicHash>
 #include <QDir>
@@ -57,7 +58,7 @@ static bool writePrivate(const QString &path, const QByteArray &bytes, QString *
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || !file.setPermissions(QFile::ReadOwner | QFile::WriteOwner)
         || file.write(bytes) != bytes.size() || !file.commit()) {
-        if (error) *error = "No se pudo guardar " + path;
+        if (error) *error = I18n::text("No se pudo guardar ") + path;
         return false;
     }
     return true;
@@ -65,27 +66,27 @@ static bool writePrivate(const QString &path, const QByteArray &bytes, QString *
 bool writeJson(const QString &path, const QJsonObject &json, QString *error) { return writePrivate(path, QJsonDocument(json).toJson(), error); }
 QJsonObject readJson(const QString &path, QString *error) {
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly) || file.size() > 1024 * 1024) { if (error) *error = "No se pudo leer " + path; return {}; }
+    if (!file.open(QIODevice::ReadOnly) || file.size() > 1024 * 1024) { if (error) *error = I18n::text("No se pudo leer ") + path; return {}; }
     QJsonParseError parse;
     auto doc = QJsonDocument::fromJson(file.readAll(), &parse);
-    if (parse.error != QJsonParseError::NoError || !doc.isObject()) { if (error) *error = "JSON inválido: " + path; return {}; }
+    if (parse.error != QJsonParseError::NoError || !doc.isObject()) { if (error) *error = I18n::text("JSON inválido: ") + path; return {}; }
     return doc.object();
 }
 bool initialize(const QString &directory, QString *error) {
     if (!QDir().mkpath(directory) || !QFile::setPermissions(directory, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner)) {
-        if (error) *error = "No se pudo proteger la carpeta de claves";
+        if (error) *error = I18n::text("No se pudo proteger la carpeta de claves");
         return false;
     }
     if (QFile::exists(directory + "/server-key.pem") || QFile::exists(directory + "/server-cert.pem")) {
         if (QFile::exists(directory + "/server-key.pem") && !fingerprint(directory).isEmpty()) return true;
-        if (error) *error = "Identidad incompleta: no se reemplazaron claves";
+        if (error) *error = I18n::text("Identidad incompleta: no se reemplazaron claves");
         return false;
     }
     std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> key(EVP_PKEY_Q_keygen(nullptr, nullptr, "EC", "P-256"), EVP_PKEY_free);
     std::unique_ptr<X509, decltype(&X509_free)> cert(X509_new(), X509_free);
     std::unique_ptr<BIO, decltype(&BIO_free)> privateBio(BIO_new(BIO_s_mem()), BIO_free), certBio(BIO_new(BIO_s_mem()), BIO_free);
     auto serial = random(16);
-    if (!key || !cert || !privateBio || !certBio || serial.isEmpty()) { if (error) *error = "No se pudo generar la identidad TLS"; return false; }
+    if (!key || !cert || !privateBio || !certBio || serial.isEmpty()) { if (error) *error = I18n::text("No se pudo generar la identidad TLS"); return false; }
     serial[0] = char(static_cast<unsigned char>(serial[0]) & 0x7f);
     std::unique_ptr<BIGNUM, decltype(&BN_free)> bn(BN_bin2bn(reinterpret_cast<const unsigned char *>(serial.constData()), int(serial.size()), nullptr), BN_free);
     std::unique_ptr<ASN1_INTEGER, decltype(&ASN1_INTEGER_free)> number(BN_to_ASN1_INTEGER(bn.get(), nullptr), ASN1_INTEGER_free);
@@ -96,11 +97,11 @@ bool initialize(const QString &directory, QString *error) {
     std::unique_ptr<X509_NAME, decltype(&X509_NAME_free)> subject(X509_NAME_new(), X509_NAME_free);
     if (!subject || !X509_NAME_add_entry_by_txt(subject.get(), "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("Umbriel Connect Remote"), -1, -1, 0)
         || !X509_set_subject_name(cert.get(), subject.get()) || !X509_set_issuer_name(cert.get(), subject.get())) {
-        if (error) *error = "No se pudo crear el nombre del certificado";
+        if (error) *error = I18n::text("No se pudo crear el nombre del certificado");
         return false;
     }
     if (!X509_sign(cert.get(), key.get(), EVP_sha256()) || !PEM_write_bio_PrivateKey(privateBio.get(), key.get(), nullptr, nullptr, 0, nullptr, nullptr)
-        || !PEM_write_bio_X509(certBio.get(), cert.get())) { if (error) *error = "Error al firmar la identidad"; return false; }
+        || !PEM_write_bio_X509(certBio.get(), cert.get())) { if (error) *error = I18n::text("Error al firmar la identidad"); return false; }
     char *data = nullptr;
     auto size = BIO_get_mem_data(privateBio.get(), &data);
     if (!writePrivate(directory + "/server-key.pem", QByteArray(data, int(size)), error)) return false;

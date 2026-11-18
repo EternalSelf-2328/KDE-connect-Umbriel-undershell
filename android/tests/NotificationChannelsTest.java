@@ -12,7 +12,7 @@ import org.robolectric.annotation.*;
 import org.robolectric.shadows.ShadowNotificationManager;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36,shadows=NotificationChannelsTest.ActiveChannelManager.class)
+@Config(application=UiTestApplication.class,sdk=36,shadows=NotificationChannelsTest.ActiveChannelManager.class)
 public class NotificationChannelsTest {
     @Implements(NotificationManager.class)
     public static class ActiveChannelManager extends ShadowNotificationManager {

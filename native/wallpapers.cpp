@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "wallpapers.h"
 #include <QBuffer>
 #include <QCryptographicHash>
@@ -14,14 +15,14 @@
 bool Wallpapers::available(){return !Integration::executable("undershell-wallctl").isEmpty();}
 void Wallpapers::load(Done done){
     if(m_age.isValid()&&m_age.elapsed()<30000){done({true,{}, {}});return;}
-    if(m_loading){done({false,"La biblioteca se está actualizando",{}});return;}
+    if(m_loading){done({false,I18n::text("La biblioteca se está actualizando"),{}});return;}
     m_loading=true;
     Integration::run(this,"undershell-wallctl",{"list","--json"},[this,done](Reply r){
         m_loading=false;if(!r.ok){done(r);return;}
         QJsonParseError error;auto doc=QJsonDocument::fromJson(r.value.toString().toUtf8(),&error);
-        if(error.error!=QJsonParseError::NoError||(!doc.isArray()&&!doc.object()["wallpapers"].isArray())){done({false,"undershell-wall devolvió una biblioteca inválida",{}});return;}
+        if(error.error!=QJsonParseError::NoError||(!doc.isArray()&&!doc.object()["wallpapers"].isArray())){done({false,I18n::text("undershell-wall devolvió una biblioteca inválida"),{}});return;}
         auto array=doc.isArray()?doc.array():doc.object()["wallpapers"].toArray();
-        if(array.size()>10000){done({false,"La biblioteca supera el límite de 10000 fondos",{}});return;}
+        if(array.size()>10000){done({false,I18n::text("La biblioteca supera el límite de 10000 fondos"),{}});return;}
         m_items.clear();m_order.clear();
         for(auto value:array){auto item=value.toObject();const auto key=item["key"].toString();
             if(key.isEmpty()||key.size()>2048||!Integration::singleLine(key)||item["hidden"].toBool())continue;
@@ -33,7 +34,7 @@ void Wallpapers::load(Done done){
     });
 }
 void Wallpapers::page(int offset,const QString &filter,bool favourites,Done done,const QString &source,const QString &folder,const QString &kind){
-    if(offset<0||offset>10000||filter.size()>120||!QStringList{"","local","engine"}.contains(source)||(!folder.isEmpty()&&!QRegularExpression("^[0-9a-f]{64}$").match(folder).hasMatch())||!QStringList{"","static","video","we"}.contains(kind)){done({false,"Página o filtro inválido",{}});return;}
+    if(offset<0||offset>10000||filter.size()>120||!QStringList{"","local","engine"}.contains(source)||(!folder.isEmpty()&&!QRegularExpression("^[0-9a-f]{64}$").match(folder).hasMatch())||!QStringList{"","static","video","we"}.contains(kind)){done({false,I18n::text("Página o filtro inválido"),{}});return;}
     load([this,offset,filter,favourites,source,folder,kind,done](Reply r){
         if(!r.ok){done(r);return;}
         QJsonArray items,folders;int total=0;QMap<QString,QJsonObject> grouped;
@@ -42,7 +43,7 @@ void Wallpapers::page(int offset,const QString &filter,bool favourites,Done done
             if(!source.isEmpty()&&source!=origin)continue;
             const auto relative=key.section(':',1);const auto parent=!item["path"].toString().isEmpty()?QFileInfo(item["path"].toString()).absolutePath():(relative.contains('/')?relative.left(relative.lastIndexOf('/')):QString());
             const auto folderId=QString::fromLatin1(QCryptographicHash::hash((origin+':'+parent).toUtf8(),QCryptographicHash::Sha256).toHex());
-            auto label=parent.isEmpty()?QString("Sin carpeta"):QFileInfo(parent).fileName().left(80);
+            auto label=parent.isEmpty()?QString(I18n::text("Sin carpeta")):QFileInfo(parent).fileName().left(80);
             if(!grouped.contains(folderId))grouped[folderId]=QJsonObject{{"id",folderId},{"name",label},{"source",origin},{"count",0}};
             grouped[folderId]["count"]=grouped[folderId]["count"].toInt()+1;
             if(!folder.isEmpty()&&folder!=folderId)continue;
@@ -61,7 +62,7 @@ void Wallpapers::page(int offset,const QString &filter,bool favourites,Done done
 void Wallpapers::thumbnail(const QString &id,Done done){
     load([this,id,done](Reply r){
         if(!r.ok){done(r);return;}
-        if(!m_items.contains(id)){done({false,"Ese fondo ya no está en la biblioteca",{}});return;}
+        if(!m_items.contains(id)){done({false,I18n::text("Ese fondo ya no está en la biblioteca"),{}});return;}
         const auto cache=qEnvironmentVariable("XDG_CACHE_HOME",QDir::homePath()+"/.cache");
         const auto root=QFileInfo(cache+"/undershell-wall").canonicalFilePath();
         const auto item=m_items[id];QString path;
@@ -69,17 +70,17 @@ void Wallpapers::thumbnail(const QString &id,Done done){
             QFileInfo file(item[field].toString());const auto canonical=file.canonicalFilePath();
             if(!root.isEmpty()&&!canonical.isEmpty()&&canonical.startsWith(root+'/')&&file.isFile()&&file.ownerId()==getuid()&&file.size()>0&&file.size()<=16*1024*1024){path=canonical;break;}
         }
-        if(path.isEmpty()){done({false,"Este fondo no tiene miniatura disponible",{}});return;}
+        if(path.isEmpty()){done({false,I18n::text("Este fondo no tiene miniatura disponible"),{}});return;}
         QImage image;
 #ifdef UMBRIEL_WEBP
         QFile input(path);
-        if(!input.open(QIODevice::ReadOnly)){done({false,"No se pudo leer la miniatura",{}});return;}
+        if(!input.open(QIODevice::ReadOnly)){done({false,I18n::text("No se pudo leer la miniatura"),{}});return;}
         const auto bytes=input.read(16*1024*1024+1);
-        if(bytes.size()>16*1024*1024){done({false,"Miniatura demasiado grande",{}});return;}
+        if(bytes.size()>16*1024*1024){done({false,I18n::text("Miniatura demasiado grande"),{}});return;}
         if(bytes.startsWith("RIFF")&&bytes.mid(8,4)=="WEBP"){
             WebPDecoderConfig config;
             const auto *data=reinterpret_cast<const uint8_t*>(bytes.constData());
-            if(!WebPInitDecoderConfig(&config)||WebPGetFeatures(data,size_t(bytes.size()),&config.input)!=VP8_STATUS_OK||config.input.width<=0||config.input.height<=0||config.input.width>8192||config.input.height>8192){done({false,"Miniatura WebP inválida",{}});return;}
+            if(!WebPInitDecoderConfig(&config)||WebPGetFeatures(data,size_t(bytes.size()),&config.input)!=VP8_STATUS_OK||config.input.width<=0||config.input.height<=0||config.input.width>8192||config.input.height>8192){done({false,I18n::text("Miniatura WebP inválida"),{}});return;}
             const auto size=QSize(config.input.width,config.input.height).scaled(320,200,Qt::KeepAspectRatio);
             config.options.use_scaling=1;config.options.scaled_width=size.width();config.options.scaled_height=size.height();config.output.colorspace=MODE_RGBA;
             if(WebPDecode(data,size_t(bytes.size()),&config)==VP8_STATUS_OK)image=QImage(config.output.u.RGBA.rgba,config.output.width,config.output.height,config.output.u.RGBA.stride,QImage::Format_RGBA8888).copy();
@@ -89,19 +90,19 @@ void Wallpapers::thumbnail(const QString &id,Done done){
         if(image.isNull()){
             QImageReader::setAllocationLimit(32);QImageReader reader(path);
             const auto format=reader.format().toLower();
-            if(format!="png"&&format!="jpeg"&&format!="jpg"&&format!="webp"){done({false,"Formato de miniatura no admitido",{}});return;}
+            if(format!="png"&&format!="jpeg"&&format!="jpg"&&format!="webp"){done({false,I18n::text("Formato de miniatura no admitido"),{}});return;}
             const auto size=reader.size();
-            if(!size.isValid()||size.width()>8192||size.height()>8192){done({false,"Miniatura fuera del límite de tamaño",{}});return;}
+            if(!size.isValid()||size.width()>8192||size.height()>8192){done({false,I18n::text("Miniatura fuera del límite de tamaño"),{}});return;}
             reader.setScaledSize(size.scaled(320,200,Qt::KeepAspectRatio));image=reader.read();
         }
         QByteArray jpeg;QBuffer output(&jpeg);output.open(QIODevice::WriteOnly);
-        if(image.isNull()||!image.save(&output,"JPEG",72)||jpeg.size()>96*1024){done({false,"No se pudo preparar la miniatura",{}});return;}
+        if(image.isNull()||!image.save(&output,"JPEG",72)||jpeg.size()>96*1024){done({false,I18n::text("No se pudo preparar la miniatura"),{}});return;}
         done({true,{},QJsonObject{{"id",id},{"jpeg",QString::fromLatin1(jpeg.toBase64())}}.toVariantMap()});
     });
 }
 void Wallpapers::apply(const QString &id,Done done){
     load([this,id,done](Reply r){if(!r.ok){done(r);return;}
-        if(!m_items.contains(id)){done({false,"Selecciona un fondo de la biblioteca",{}});return;}
+        if(!m_items.contains(id)){done({false,I18n::text("Selecciona un fondo de la biblioteca"),{}});return;}
         Integration::run(this,"undershell-wallctl",{"apply",m_items[id]["key"].toString()},done);
     });
 }

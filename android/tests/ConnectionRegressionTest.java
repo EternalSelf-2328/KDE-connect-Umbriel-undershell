@@ -17,7 +17,7 @@ import org.robolectric.util.ReflectionHelpers;
 import org.robolectric.util.ReflectionHelpers.ClassParameter;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36)
+@Config(application=UiTestApplication.class,sdk=36)
 public class ConnectionRegressionTest {
     private Application app;
     private ConnectivityManager cm;

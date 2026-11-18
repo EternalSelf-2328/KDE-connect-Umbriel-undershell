@@ -19,12 +19,14 @@ for name in ["classes","dex","generated","res"]:
     if path.exists(): shutil.rmtree(path)
     path.mkdir(parents=True)
 shutil.copytree(source/"res",out/"res",dirs_exist_ok=True)
+(out/"assets").mkdir(exist_ok=True)
+shutil.copy2(source.parent/"data/translations/en.json",out/"assets/messages-en.json")
 android="{http://schemas.android.com/apk/res/android}"
 ET.register_namespace("android",android[1:-1])
 manifest=ET.parse(source/"AndroidManifest.xml")
 if variant=="phone-control":
     manifest.getroot().find("application").append(ET.parse(source/"variants/phone-control/service.xml").getroot())
-    manifest.getroot().set(android+"versionName","0.7.0-phone-control-experimental")
+    manifest.getroot().set(android+"versionName","0.8.0-phone-control-experimental")
 else:
     (out/"res/xml/accessibility.xml").unlink()
 manifest.write(out/"AndroidManifest.xml",encoding="utf-8",xml_declaration=True)

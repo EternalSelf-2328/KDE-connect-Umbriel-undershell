@@ -10,7 +10,7 @@ import org.robolectric.annotation.Config;
 import java.nio.charset.StandardCharsets;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36)
+@Config(application=UiTestApplication.class,sdk=36)
 public class LanPairingTest {
     @Test public void comparisonCodeBindsTlsAndBothDeviceKeys() throws Exception {
         byte[] lan={1,2,3},remote={4,5,6},nonce=new byte[32];String pin="a".repeat(64);

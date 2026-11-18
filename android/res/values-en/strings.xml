@@ -1,0 +1,3 @@
+<resources>
+    <string name="accessibility_explanation">Allows your computer to tap, type and request screenshots of the phone only during an approved session. Remote access requires fingerprint or device unlock. Locking the phone prevents control. Enable only if you want to control this phone.</string>
+</resources>

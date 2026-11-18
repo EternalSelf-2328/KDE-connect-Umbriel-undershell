@@ -16,7 +16,7 @@ SIGNING_PASSWORD="${UMBRIEL_ANDROID_SIGNING_PASSWORD_FILE:-$SIGNING_KEY.password
 }
 python3 "$SOURCE/prepare.py" "$VARIANT" "$OUT"
 "$BUILD_TOOLS/aapt2" compile --dir "$OUT/res" -o "$OUT/resources.zip"
-"$BUILD_TOOLS/aapt2" link -o "$OUT/base.apk" -I "$PLATFORM/android.jar" --manifest "$OUT/AndroidManifest.xml" --java "$OUT/generated" "$OUT/resources.zip"
+"$BUILD_TOOLS/aapt2" link -o "$OUT/base.apk" -I "$PLATFORM/android.jar" --manifest "$OUT/AndroidManifest.xml" --java "$OUT/generated" "$OUT/resources.zip" -A "$OUT/assets"
 mapfile -t SOURCES < <(find "$SOURCE/src" "$SOURCE/variants/$VARIANT" "$OUT/generated" -name '*.java' -print)
 "$JAVA_HOME_UC/bin/javac" -encoding UTF-8 -source 8 -target 8 -Xlint:-options -classpath "$PLATFORM/android.jar" -d "$OUT/classes" "${SOURCES[@]}"
 "$JAVA_HOME_UC/bin/jar" --create --file "$OUT/classes.jar" -C "$OUT/classes" .

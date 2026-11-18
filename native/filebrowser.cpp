@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "design.h"
 #include <KDirOperator>
 #include <KFileItem>
@@ -53,9 +54,9 @@ int main(int argc, char **argv) {
         QFile note(demo.path() + "/Notas de ejemplo.txt");
         if (!note.open(QIODevice::WriteOnly))
             return 1;
-        note.write("Ejemplo de una vista aislada.\n");
+        note.write(I18n::text("Ejemplo de una vista aislada.\n").toUtf8());
         note.close();
-        QDir().mkpath(demo.path() + "/Imágenes de ejemplo");
+        QDir().mkpath(demo.path() + I18n::text("/Imágenes de ejemplo"));
         root = QUrl::fromLocalFile(demo.path() + "/");
     } else {
         root.setScheme("umbriel-connect");
@@ -63,37 +64,37 @@ int main(int argc, char **argv) {
         root.setPath("/");
     }
     FileWindow window;
-    window.setWindowTitle("Archivos · Umbriel Connect");
+    window.setWindowTitle(I18n::text("Archivos · Umbriel Connect"));
     const auto screen = app.primaryScreen()->availableGeometry().size();
     window.resize(qMin(900, int(screen.width() * .85)), qMin(680, int(screen.height() * .9)));
     window.setMinimumSize(560, 400);
     auto *layout = new QVBoxLayout(&window);
     layout->setContentsMargins(Design::margin, Design::padding, Design::margin, Design::padding);
     layout->setSpacing(Design::gap);
-    auto *title = new QLabel("Archivos del teléfono");
+    auto *title = new QLabel(I18n::text("Archivos del teléfono"));
     title->setProperty("role", "hero");
     layout->addWidget(title);
-    auto *hint = new QLabel(preview ? "Vista previa · documentos sintéticos, sin teléfono conectado."
-                                    : "Explora únicamente las carpetas que autorizaste en el teléfono.");
+    auto *hint = new QLabel(preview ? I18n::text("Vista previa · documentos sintéticos, sin teléfono conectado.")
+                                    : I18n::text("Explora únicamente las carpetas que autorizaste en el teléfono."));
     hint->setProperty("role", "muted");
     hint->setWordWrap(true);
     layout->addWidget(hint);
     auto *row = new QHBoxLayout;
-    auto *up = new QPushButton("Subir carpeta");
-    auto *refresh = new QPushButton("Actualizar");
+    auto *up = new QPushButton(I18n::text("Subir carpeta"));
+    auto *refresh = new QPushButton(I18n::text("Actualizar"));
     row->addWidget(up);
     row->addWidget(refresh);
     row->addStretch();
     layout->addLayout(row);
     auto *location = new QLineEdit;
     location->setReadOnly(true);
-    location->setAccessibleName("Carpeta actual");
+    location->setAccessibleName(I18n::text("Carpeta actual"));
     layout->addWidget(location);
     auto *files = new KDirOperator(root, &window);
     files->setMode(KFile::Files | KFile::Directory);
     files->setViewMode(KFile::Detail);
     layout->addWidget(files, 1);
-    auto *status = new QLabel("Selecciona un archivo o una carpeta.");
+    auto *status = new QLabel(I18n::text("Selecciona un archivo o una carpeta."));
     status->setTextFormat(Qt::PlainText);
     status->setWordWrap(true);
     status->setProperty("role", "muted");
@@ -104,10 +105,10 @@ int main(int argc, char **argv) {
     progress->hide();
     layout->addWidget(progress);
     auto *actions = new QHBoxLayout;
-    auto *upload = new QPushButton("Enviar aquí…");
+    auto *upload = new QPushButton(I18n::text("Enviar aquí…"));
     auto *download = new QPushButton("Descargar…");
     download->setProperty("kind", "primary");
-    auto *close = new QPushButton("Cerrar");
+    auto *close = new QPushButton(I18n::text("Cerrar"));
     close->setProperty("kind", "ghost");
     actions->addWidget(upload);
     actions->addStretch();
@@ -118,9 +119,9 @@ int main(int argc, char **argv) {
     QObject::connect(refresh, &QPushButton::clicked, files, &KDirOperator::rereadDir);
     QObject::connect(close, &QPushButton::clicked, &window, &QDialog::close);
     QObject::connect(files, &KDirOperator::urlEntered, &window, [=](const QUrl &url) {
-        location->setText(preview ? "/Teléfono de ejemplo/" : url.toDisplayString(QUrl::RemovePassword));
+        location->setText(preview ? I18n::text("/Teléfono de ejemplo/") : url.toDisplayString(QUrl::RemovePassword));
     });
-    location->setText(preview ? "/Teléfono de ejemplo/" : root.toDisplayString());
+    location->setText(preview ? I18n::text("/Teléfono de ejemplo/") : root.toDisplayString());
     auto transfer = [&](const QList<QUrl> &source, const QUrl &destination) {
         auto *job = KIO::copy(source, destination, KIO::HideProgressInfo);
         window.transfers.append(job);
@@ -132,7 +133,7 @@ int main(int argc, char **argv) {
         QObject::connect(job, &KJob::percentChanged, &window,
                          [progress](KJob *, unsigned long value) { progress->setValue(value); });
         QObject::connect(job, &KJob::result, &window, [=, &window](KJob *done) {
-            status->setText(done->error() ? done->errorText() : "Transferencia terminada.");
+            status->setText(done->error() ? done->errorText() : I18n::text("Transferencia terminada."));
             window.transfers.removeIf([done](const QPointer<KJob> &job) { return !job || job == done; });
             progress->hide();
             upload->setEnabled(true);
@@ -143,19 +144,19 @@ int main(int argc, char **argv) {
     QObject::connect(download, &QPushButton::clicked, &window, [&] {
         const auto selected = files->selectedItems();
         if (selected.isEmpty()) {
-            status->setText("Selecciona primero un archivo o una carpeta.");
+            status->setText(I18n::text("Selecciona primero un archivo o una carpeta."));
             return;
         }
         const auto item = selected.first();
         QString target;
         if (selected.size() > 1 || item.isDir())
             target = QFileDialog::getExistingDirectory(
-                &window, "Descargar carpeta",
+                &window, I18n::text("Descargar carpeta"),
                 QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
                 QFileDialog::DontUseNativeDialog);
         else
             target = QFileDialog::getSaveFileName(
-                &window, "Descargar archivo",
+                &window, I18n::text("Descargar archivo"),
                 QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/" +
                     QFileInfo(item.name()).fileName(),
                 {}, nullptr, QFileDialog::DontUseNativeDialog);
@@ -167,7 +168,7 @@ int main(int argc, char **argv) {
         }
     });
     QObject::connect(upload, &QPushButton::clicked, &window, [&] {
-        const auto paths = QFileDialog::getOpenFileNames(&window, "Enviar al teléfono", {}, {}, nullptr,
+        const auto paths = QFileDialog::getOpenFileNames(&window, I18n::text("Enviar al teléfono"), {}, {}, nullptr,
                                                        QFileDialog::DontUseNativeDialog);
         if (!paths.isEmpty()) {
             QList<QUrl> urls;

@@ -4,6 +4,8 @@
 #include "wallpapers.h"
 #include "mediahub.h"
 #include "audioroutes.h"
+#include "desktopcontrols.h"
+#include "screencapture.h"
 #include <QHash>
 #include <QPointer>
 #include <QLocalServer>
@@ -36,6 +38,13 @@ public:
     Wallpapers wallpapers;
     MediaHub media;
     AudioRoutes audio;
+    DesktopControls controls;
+    ScreenCapture screens;
+    void screenDetails(const QString &,Done);
+    void screenApprove(const QString &,const QString &,QLocalSocket *,Done);
+public slots:
+    void screenLocked(bool);
+public:
     QTimer mediaEvents;
     void phoneRequest(const QJsonObject &request, Done done);
 signals:
@@ -54,6 +63,8 @@ private:
     QList<QTcpServer *> m_lan;
     QUdpSocket m_discovery;
     QElapsedTimer m_discoveryWindow;int m_discoveryQueries=0;
+    bool m_desktopLocked=true;unsigned m_lockEpoch=0;
+    QElapsedTimer m_screenWindow;int m_screenStarts=0;
     QElapsedTimer m_pairWindow;int m_pairStarts=0;
     QFileSystemWatcher m_files;
     std::unique_ptr<QLockFile> m_instanceLock;

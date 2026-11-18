@@ -2,7 +2,7 @@
 
 2026-11-17 · escritorio/receptor 0.7.0 · Android versionCode 12 · experimental.
 
-Instala [UmbrielConnect-0.7.0.apk](../downloads/UmbrielConnect-0.7.0.apk) sobre la aplicación
+Instala [el APK actual](../downloads/UmbrielConnect-0.8.0.apk) sobre la aplicación
 actual. Conserva paquete, firma, datos y vínculo. No hace falta desinstalar ni borrar datos.
 Actualiza también el receptor de escritorio con `./install.sh`: los nuevos controles
 multimedia necesitan 0.7.0 en ambos extremos. Si ya tienes una GUI anterior abierta,
@@ -94,3 +94,5 @@ No cambian la salida ni la música de la sesión del usuario.
 La validación física en el Galaxy, incluidos carátulas reales, cambio de salida y
 latencia percibida, sigue pendiente. Se mantienen las correcciones de notificaciones
 activas y de los accesos públicos de Android que causaron los cierres anteriores.
+
+El artefacto0.7.0 se conserva en el historial de Git; [actualización0.8.0](UPDATE-0.8.0.md).

@@ -20,6 +20,8 @@ final class UiIcons extends Drawable {
             case "palette":c.drawCircle(12,12,9,p);c.drawCircle(8,9,1,p);c.drawCircle(12,6,1,p);c.drawCircle(16,9,1,p);c.drawCircle(7,13,1,p);path(c,13,20,13,16,18,16);break;
             case "file":path(c,5,2,14,2,19,7,19,22,5,22,5,2);path(c,14,2,14,8,19,8);line(c,9,13,15,13);line(c,9,17,15,17);break;
             case "settings":Path gear=new Path();for(int tooth=0;tooth<8;tooth++)for(int edge=0;edge<4;edge++){double angle=Math.toRadians(tooth*45+new int[]{-18,-12,12,18}[edge]);float radius=(edge==1||edge==2)?9.7f:7.5f;float x=12+(float)Math.cos(angle)*radius,y=12+(float)Math.sin(angle)*radius;if(tooth==0&&edge==0)gear.moveTo(x,y);else gear.lineTo(x,y);}gear.close();c.drawPath(gear,p);c.drawCircle(12,12,3.2f,p);break;
+            case "keyboard":c.drawRoundRect(2,5,22,20,2,2,p);for(int y=9;y<=12;y+=3)for(int x=6;x<=18;x+=4)c.drawPoint(x,y,p);line(c,8,16,16,16);break;
+            case "apps":for(int row=0;row<3;row++)for(int col=0;col<3;col++)c.drawRoundRect(3+col*7,3+row*7,7+col*7,7+row*7,1,1,p);break;
             case "music":path(c,9,17,9,5,19,3,19,15);c.drawOval(3,15,9,20,p);c.drawOval(13,13,19,18,p);break;
             case "widgets":for(int i=0;i<4;i++){int x=3+(i%2)*11,y=3+(i/2)*11;c.drawRoundRect(x,y,x+7,y+7,2,2,p);}break;
             case "lock":c.drawRoundRect(5,10,19,22,3,3,p);c.drawArc(8,1,16,15,180,180,false,p);line(c,12,15,12,18);break;

@@ -1,25 +1,26 @@
 # Umbriel Connect
 
 Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **Escritorio y Android 0.7.0 experimental** incorpora un motor privado derivado
+y aplicación Android propia. **Escritorio y Android 0.8.0 experimental** incorpora un motor privado derivado
 de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
 Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
 
-![Umbriel Connect: datos de ejemplo](docs/screenshots/0.7.0/sound-dark.png)
+![Umbriel Connect: inglés y paleta lavanda, datos de ejemplo](docs/screenshots/0.8.0/home-english-lavender.png)
 
-[Descargar Android completo 0.7.0](downloads/UmbrielConnect-0.7.0.apk) ·
+[Descargar Android completo 0.8.0](downloads/UmbrielConnect-0.8.0.apk) ·
 [Instalación y compilación](docs/BUILDING.md) ·
 [Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
 [Seguridad y permisos](SECURITY.md)
 
 Android abre **Inicio**, con Mouse, Navegación, Sonido, Apariencia, Fondos y Widgets
-a un toque, reproducción y volumen. La barra **Inicio / Control / Archivos / Ajustes**
+a un toque, reproducción y volumen. También ofrece Texto y teclado, Aplicaciones y
+Pantalla. Puedes enviar varios archivos y elegir idioma, paleta y tema de la app. La barra **Inicio / Control / Archivos / Ajustes**
 permanece visible; el registro y los permisos tienen su propia sección. La conexión
 LAN ya vinculada es automática; fuera de ella se ofrece autorización explícita.
-[Reproductor con carátula y origen, salidas de audio y preferencias del mouse](docs/UPDATE-0.7.0.md).
+[Novedades0.8: pantalla, texto, aplicaciones, archivos y colores](docs/UPDATE-0.8.0.md).
 
-<img src="docs/screenshots/0.7.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
-<img src="docs/screenshots/0.7.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">
+<img src="docs/screenshots/0.8.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
+<img src="docs/screenshots/0.8.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">
 
 ## Qué integra
 

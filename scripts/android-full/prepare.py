@@ -22,7 +22,7 @@ for p in OUT.rglob('*'):
  except UnicodeError:continue
  s=s.replace('org.kde.kdeconnect_tp','org.eternalself.umbrielremote').replace('org.kde.kdeconnect','org.eternalself.umbrielremote.engine').replace('org/kde/kdeconnect','org/eternalself/umbrielremote/engine')
  p.write_text(s)
-p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 12').replace('versionName = "1.37.3"','versionName = "0.7.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
+p=OUT/'build.gradle.kts';s=p.read_text().replace('versionCode = 13703','versionCode = 13').replace('versionName = "1.37.3"','versionName = "0.8.0-experimental"').replace('minSdk = 23','minSdk = 30').replace('compileSdk = 37','compileSdk = 37\n    buildToolsVersion = \"37.0.0\"').replace('storeFile = file("debug.keystore")','storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")');s=s.replace('generateLocaleConfig = true','generateLocaleConfig = false');s=s.replace('    buildFeatures {', '    testOptions { unitTests.isIncludeAndroidResources = true }\n    buildFeatures {');p.write_text(s)
 # Robolectric SDK36 uses a JDK21 internal FileDescriptor accessor; export only in test JVMs.
 with (OUT/'build.gradle.kts').open('a') as stream:
  stream.write('\ntasks.withType<Test>().configureEach { jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }\n')
@@ -40,6 +40,7 @@ wrapper=OUT/'gradle/wrapper/gradle-wrapper.properties'
 checksum='bbaeb2fef8710818cf0e261201dab964c572f92b942812df0c3620d62a529a01'
 if len(checksum)!=64 or any(c not in '0123456789abcdef' for c in checksum):raise SystemExit('Invalid Gradle checksum')
 wrapper.write_text(wrapper.read_text()+'\ndistributionSha256Sum='+checksum+'\n')
+assets=OUT/'src/main/assets';assets.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/'data/translations/en.json',assets/'messages-en.json')
 # Compose/package resources are separated from the existing Java biometric companion.
 for p in (ROOT/'android/src').rglob('*.java'):
  dst=OUT/'src/main/java'/p.relative_to(ROOT/'android/src');dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,dst)
@@ -51,7 +52,8 @@ for p in (ROOT/'android/tests').glob('*.java'):shutil.copy2(p,securityTests/p.na
 (OUT/'src/main/java/org/eternalself/umbrielremote/BuildFeatures.java').write_text('package org.eternalself.umbrielremote; final class BuildFeatures { static final boolean PHONE_CONTROL=true; }\n')
 A='{http://schemas.android.com/apk/res/android}';E.register_namespace('android',A[1:-1]);E.register_namespace('tools','http://schemas.android.com/tools')
 p=OUT/'src/main/AndroidManifest.xml';tree=E.parse(p);r=tree.getroot();app=r.find('application')
-app.set(A+'allowBackup','false');app.set(A+'usesCleartextTraffic','false');app.set(A+'icon','@drawable/ic_umbriel');app.set(A+'roundIcon','@drawable/ic_umbriel')
+shutil.copy2(ROOT/'android/res/xml/locales_config.xml',OUT/'src/main/res/xml/locales_config.xml')
+app.set(A+'localeConfig','@xml/locales_config');app.set(A+'allowBackup','false');app.set(A+'usesCleartextTraffic','false');app.set(A+'icon','@drawable/ic_umbriel');app.set(A+'roundIcon','@drawable/ic_umbriel')
 # Remove unused and unnecessarily broad access. Remaining sensitive capabilities are opt-in.
 removed={'android.permission.READ_LOGS','android.permission.ACCESS_BACKGROUND_LOCATION'}
 for n in list(r):

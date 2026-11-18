@@ -31,7 +31,7 @@ final class LanDiscovery {
                     byte[] bytes=new byte[2048];DatagramPacket packet=new DatagramPacket(bytes,bytes.length);socket.receive(packet);
                     JSONObject answer=new JSONObject(new String(bytes,0,packet.getLength(),StandardCharsets.UTF_8));String host=packet.getAddress().getHostAddress();
                     if(valid(answer,nonce,host,port)&&LocalNetworks.network(context,packet.getAddress(),null)!=null&&(pin.isEmpty()||answer.optString("pin").equals(pin))){
-                        answer.put("host",host);answer.put("name",answer.optString("name","Mi computadora").substring(0,Math.min(80,answer.optString("name","Mi computadora").length())));found.put(answer.getString("pin"),answer);if(!pin.isEmpty())return new ArrayList<>(found.values());
+                        answer.put("host",host);answer.put("name",answer.optString("name",Messages.t("Mi computadora")).substring(0,Math.min(80,answer.optString("name",Messages.t("Mi computadora")).length())));found.put(answer.getString("pin"),answer);if(!pin.isEmpty())return new ArrayList<>(found.values());
                     }
                 }catch(SocketTimeoutException timeout){break;}catch(JSONException invalid){}}
             }

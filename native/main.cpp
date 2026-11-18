@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "commandstore.h"
 #include "integration.h"
 #include "window.h"
 #include "design.h"
 #include "localremote.h"
 #include "sharewindow.h"
+#include "screenconsent.h"
 #include <QApplication>
+#include <QRegularExpression>
 #include <QCoreApplication>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
@@ -21,25 +24,12 @@ void printJson(const QJsonObject &value) {
     QTextStream(stdout) << QJsonDocument(value).toJson(QJsonDocument::Compact) << Qt::endl;
 }
 void help() {
-    QTextStream(stdout) << "Umbriel Connect 0.7.0 — C++ / Qt6\n"
-        "  umbriel-connect                         Abrir aplicación\n"
-        "  umbriel-connect --send ARCHIVO...       Enviar con Umbriel Remote, sin KDE Connect\n"
-        "  umbriel-connect list                    Estado JSON\n"
-        "  umbriel-connect watch                   Estado JSON por eventos, sin sondeo\n"
-        "  umbriel-connect discover                Buscar dispositivos\n"
-        "  umbriel-connect <pair|accept|reject|unpair|ring|browse> ID\n"
-        "  umbriel-connect <ping|text|share> ID TEXTO_O_ARCHIVO\n"
-        "  umbriel-connect actions                 Catálogo JSON de controles\n"
-        "  umbriel-connect action ACCIÓN [ARG...]   Ejecutar un control\n"
-        "  umbriel-connect profiles                Perfiles guardados de undershell\n"
-        "  umbriel-connect commands                Vista previa JSON de órdenes remotas\n"
-        "  umbriel-connect publish ID              Publicarlas en un teléfono emparejado\n"
-        "  umbriel-connect withdraw ID             Retirar solo nuestras órdenes\n"
-        "  umbriel-connect --preview ARCHIVO.png   Vista con datos de ejemplo\n";
+    QTextStream(stdout) << "Umbriel Connect 0.8.0 — C++ / Qt6\n" + I18n::text("  umbriel-connect                         Abrir aplicación\n") + I18n::text("  umbriel-connect --send ARCHIVO...       Enviar con Umbriel Remote, sin KDE Connect\n") + "  umbriel-connect list                    Estado JSON\n" + I18n::text("  umbriel-connect watch                   Estado JSON por eventos, sin sondeo\n") + I18n::text("  umbriel-connect discover                Buscar dispositivos\n") + "  umbriel-connect <pair|accept|reject|unpair|ring|browse> ID\n"
+        "  umbriel-connect <ping|text|share> ID TEXTO_O_ARCHIVO\n" + I18n::text("  umbriel-connect actions                 Catálogo JSON de controles\n") + I18n::text("  umbriel-connect action ACCIÓN [ARG...]   Ejecutar un control\n") + "  umbriel-connect profiles                Perfiles guardados de undershell\n" + I18n::text("  umbriel-connect commands                Vista previa JSON de órdenes remotas\n") + I18n::text("  umbriel-connect publish ID              Publicarlas en un teléfono emparejado\n") + I18n::text("  umbriel-connect withdraw ID             Retirar solo nuestras órdenes\n") + I18n::text("  umbriel-connect --preview ARCHIVO.png   Vista con datos de ejemplo\n");
 }
 }
 int main(int argc, char **argv) {
-    const bool gui = argc == 1 || (argc > 1 && QString::fromLocal8Bit(argv[1]) == "--preview") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--send") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--preview-share");
+    const bool gui = argc == 1 || (argc > 1 && QString::fromLocal8Bit(argv[1]) == "--preview") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--send") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--preview-share") || (argc>1&&QString::fromLocal8Bit(argv[1])=="--screen-consent");
     std::unique_ptr<QCoreApplication> app;
     if (gui) app = std::make_unique<QApplication>(argc, argv);
     else app = std::make_unique<QCoreApplication>(argc, argv);
@@ -49,10 +39,11 @@ int main(int argc, char **argv) {
     const auto args = app->arguments().mid(1);
     if (gui) {
         Design::install(static_cast<QApplication*>(app.get()));
+        if(args.value(0)=="--screen-consent"){if(args.size()!=2||!QRegularExpression("^[0-9a-f]{32}$").match(args[1]).hasMatch())return 2;ScreenConsent dialog(args[1]);dialog.show();return app->exec();}
         if(args.value(0)=="--preview-share"){
             if(args.size()!=2){help();return 2;}
-            ShareWindow window({"/ejemplo/Notas del proyecto.pdf","/ejemplo/Fotografía de ejemplo.png"},true);
-            QJsonArray devices;if(qEnvironmentVariable("UMBRIEL_CONNECT_PREVIEW_SHARE_STATE")!="empty")devices.append(QJsonObject{{"id","remote:demo"},{"name","Galaxy de ejemplo"},{"reachable",true},{"transport","umbriel"},{"plugins",QJsonArray{"umbriel_files"}}});
+            ShareWindow window({I18n::text("/ejemplo/Notas del proyecto.pdf"),I18n::text("/ejemplo/Fotografía de ejemplo.png")},true);
+            QJsonArray devices;if(qEnvironmentVariable("UMBRIEL_CONNECT_PREVIEW_SHARE_STATE")!="empty")devices.append(QJsonObject{{"id","remote:demo"},{"name",I18n::text("Galaxy de ejemplo")},{"reachable",true},{"transport","umbriel"},{"plugins",QJsonArray{"umbriel_files"}}});
             window.applyDevices({{"available",true},{"devices",devices}});window.show();
             QTimer::singleShot(150,&window,[&]{app->exit(window.grab().save(args[1])?0:1);});return app->exec();
         }
@@ -75,7 +66,7 @@ int main(int argc, char **argv) {
     }
     const auto command = args.value(0);
     if (command == "--help" || command == "-h") { help(); return 0; }
-    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.7.0\n"; return 0; }
+    if (command == "--version") { QTextStream(stdout) << "umbriel-connect 0.8.0\n"; return 0; }
     EngineClient client;
     Integration integration;
     LocalRemote remote;
@@ -135,7 +126,7 @@ int main(int argc, char **argv) {
                     bool paired = false;
                     for (const auto &d : state["devices"].toArray())
                         if (d.toObject()["id"].toString() == id && d.toObject()["paired"].toBool()) paired = true;
-                    if (!paired) { done({false, "Debes seleccionar un dispositivo emparejado", {}}); return; }
+                    if (!paired) { done({false, I18n::text("Debes seleccionar un dispositivo emparejado"), {}}); return; }
                     done(CommandStore::update(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation), id, commands));
                 });
             };

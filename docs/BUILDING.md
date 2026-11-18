@@ -1,4 +1,4 @@
-# Compilar Umbriel Connect 0.7.0
+# Compilar Umbriel Connect 0.8.0
 
 El cliente, receptor y motor de escritorio están en C++20/Qt6. El motor se compila desde
 una revisión de KDE Connect vendorizada como submódulo; **no utiliza el programa
@@ -20,7 +20,7 @@ sudo pacman -S --needed base-devel cmake extra-cmake-modules gettext python \
   kirigami kirigami-addons kitemmodels knotifications kpeople kservice \
   kstatusnotifieritem kwindowsystem kwidgetsaddons kpackage solid qqc2-desktop-style \
   pulseaudio-qt modemmanager-qt libei libevdev libfakekey libx11 libxkbcommon \
-  libxtst wayland wayland-protocols openssl libwebp
+  libxtst wayland wayland-protocols openssl libwebp glib2 wl-clipboard
 ./install.sh
 ~/.local/bin/umbriel-connect
 ```
@@ -32,6 +32,13 @@ no modifica firewall/rutas/DNS ni reinicia ventanas o servicios.
 gráfica; sin esa opción se conserva el inicio por GUI/D-Bus.
 El motor propio se activa al abrir la aplicación o por su servicio D-Bus privado.
 Si tienes una instancia anterior abierta, ciérrala y vuelve a abrirla.
+
+`wayland`, `wayland-protocols` y `wayland-scanner` habilitan la captura nativa por
+los protocolos ext-image-copy-capture/source. `glib2` con gio-unix habilita el catálogo
+y lanzamiento de aplicaciones; `libfakekey` habilita el teclado Unicode sobre XTest.
+Son dependencias opcionales al compilar. `wl-clipboard` se necesita en ejecución para
+el portapapeles propio. Las pruebas de pantalla levantan un Umbriel headless con
+configuración, runtime, bus y autostart aislados; no capturan la sesión real.
 
 `libpulse` es opcional para el selector nativo de salidas PulseAudio/PipeWire-Pulse.
 Las pruebas de audio necesitan además `pipewire`, `pipewire-pulse`, `wireplumber`,
@@ -82,6 +89,7 @@ y actualizar `data/android-full-verification-metadata.xml`, no desactivar la com
 
 `HomeRenderTest` dibuja las Views reales con datos sintéticos y runtime gráfico nativo
 Robolectric, en API 36: claro/oscuro, ancho320/412/840 dp y texto aumentado al130%.
+Incluye paletas, idioma inglés, colas y nuevos controles del canal propio.
 El script selecciona las clases del fork; no presenta como validado el conjunto de
 pruebas unitarias heredadas, que tiene su propio arnés y stubs de Android.
 Los PNG quedan en `build/android-home-previews/`; no se captura el escritorio ni un

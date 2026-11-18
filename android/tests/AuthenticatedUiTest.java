@@ -21,7 +21,7 @@ import java.security.*;
 import java.security.spec.ECGenParameterSpec;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36)
+@Config(application=UiTestApplication.class,sdk=36)
 public class AuthenticatedUiTest {
     static class AuthorizedService extends RemoteService {
         @Override boolean isAuthorized(){return true;}

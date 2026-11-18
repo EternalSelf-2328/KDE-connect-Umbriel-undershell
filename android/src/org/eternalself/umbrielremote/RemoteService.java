@@ -37,7 +37,7 @@ public class RemoteService extends Service {
     private volatile long proofSubmitted = -1;
     private long sequence=0, requestNumber=0;
     private final MotionBuffer motion=new MotionBuffer();private boolean motionQueued;
-    FileTransfers files;
+    FileTransfers files;boolean screenRequested;
     final TransferScope transferScope=new TransferScope();
     private volatile boolean controlsExpired,expectedTransferClose;
     private volatile JSONObject config;
@@ -49,7 +49,7 @@ public class RemoteService extends Service {
     @Override public void onCreate() {
         super.onCreate(); instance=this;files=new FileTransfers(this);
         NotificationManager nm=getSystemService(NotificationManager.class);
-        nm.createNotificationChannel(new NotificationChannel("session", "Acceso remoto activo", NotificationManager.IMPORTANCE_LOW));
+        nm.createNotificationChannel(new NotificationChannel("session", Messages.t("Acceso remoto activo"), NotificationManager.IMPORTANCE_LOW));
         IntentFilter filter=new IntentFilter(Intent.ACTION_SCREEN_OFF);
         lockReceiver=new BroadcastReceiver(){@Override public void onReceive(Context c, Intent i){if(!localAuto&&!autoOnly){finishSession();}}};
         if(Build.VERSION.SDK_INT>=33)registerReceiver(lockReceiver,filter,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(lockReceiver,filter);
@@ -67,16 +67,16 @@ public class RemoteService extends Service {
         if("STOP".equals(intent.getAction())) {getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("autoPaused",true).apply();EngineBridge.pause();stopping=true;closeConnection();stopSelf();return START_NOT_STICKY;}
         autoOnly=intent.getBooleanExtra("autoOnly",false);stopping=false;retryCount=0;
         closeConnection();phase(ConnectionUi.Phase.SEARCHING_LOCAL);
-        if (!getSystemService(NotificationManager.class).areNotificationsEnabled()) {tell("Permite las notificaciones para hacer visible la sesión."); stopSelf(); return START_NOT_STICKY;}
+        if (!getSystemService(NotificationManager.class).areNotificationsEnabled()) {tell(Messages.t("Permite las notificaciones para hacer visible la sesión.")); stopSelf(); return START_NOT_STICKY;}
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,RemoteService.class).setAction("STOP"),PendingIntent.FLAG_IMMUTABLE);
         notificationBuilder=new Notification.Builder(this,"session").setVisibility(Notification.VISIBILITY_PRIVATE)
-            .setSmallIcon(android.R.drawable.ic_lock_lock).setContentTitle("Umbriel Connect · conexión visible")
-            .setContentText("LAN automática · fuera de ella requiere huella o bloqueo del teléfono.")
-            .setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,"Desconectar",stop).build());
+            .setSmallIcon(android.R.drawable.ic_lock_lock).setContentTitle(Messages.t("Umbriel Connect · conexión visible"))
+            .setContentText(Messages.t("LAN automática · fuera de ella requiere huella o bloqueo del teléfono."))
+            .setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null,Messages.t("Desconectar"),stop).build());
         Notification notification=notificationBuilder.build();
-        try{startForeground(17,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);}catch(RuntimeException e){tell("Android no pudo iniciar la conexión: "+e.getClass().getSimpleName());stopSelf();return START_NOT_STICKY;}
-        try {config=new JSONObject(intent.getStringExtra("config"));}catch(Exception e){tell("Registro inválido"); stopSelf(); return START_NOT_STICKY;}
+        try{startForeground(17,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);}catch(RuntimeException e){tell(Messages.t("Android no pudo iniciar la conexión: ")+e.getClass().getSimpleName());stopSelf();return START_NOT_STICKY;}
+        try {config=new JSONObject(intent.getStringExtra("config"));}catch(Exception e){tell(Messages.t("Registro inválido")); stopSelf(); return START_NOT_STICKY;}
         requestedPhone=BuildFeatures.PHONE_CONTROL && intent.getBooleanExtra("phoneControl",false);
         final long generation=connection;
         final JSONObject settings=config;
@@ -103,7 +103,7 @@ public class RemoteService extends Service {
     void releaseTransfer(String id,boolean verified){
         if(verified)expectTransferClose(id);
         final long epoch=connection;
-        try{writerExecutor.execute(()->{if(epoch!=connection)return;transferScope.finish(id);if(!transferScope.active(SystemClock.elapsedRealtime())){MainActivity a=MainActivity.current.get();if(a!=null)a.transferRunning(false);}if(controlsExpired&&!transferScope.active(SystemClock.elapsedRealtime())){finishSession();tell(verified?"Transferencia verificada. Sesión cerrada; vuelve a autenticarte para controlar fuera de la LAN.":"Transferencia cerrada. Vuelve a autenticarte para controlar fuera de la LAN.");}});}catch(RejectedExecutionException ignored){}
+        try{writerExecutor.execute(()->{if(epoch!=connection)return;transferScope.finish(id);if(!transferScope.active(SystemClock.elapsedRealtime())){MainActivity a=MainActivity.current.get();if(a!=null)a.transferRunning(false);}if(controlsExpired&&!transferScope.active(SystemClock.elapsedRealtime())){finishSession();tell(verified?Messages.t("Transferencia verificada. Sesión cerrada; vuelve a autenticarte para controlar fuera de la LAN."):Messages.t("Transferencia cerrada. Vuelve a autenticarte para controlar fuera de la LAN."));}});}catch(RejectedExecutionException ignored){}
     }
     boolean automaticLocal(){return localAuto && authorized;}
     private void retryLocal(long delay){
@@ -115,7 +115,7 @@ public class RemoteService extends Service {
         readerExecutor.execute(()->connect(settings,epoch));
     };
     boolean phoneControlAllowed(){return requestedPhone;}
-    String routeLabel="Red privada";
+    String routeLabel=Messages.t("Red privada");
     String configuration(){return config==null?"":config.toString();}
     private boolean unlocked(){return !getSystemService(KeyguardManager.class).isDeviceLocked();}
     void closeConnection(){
@@ -128,13 +128,13 @@ public class RemoteService extends Service {
         }
         if(old!=null)try{old.close();}catch(IOException ignored){}
         // File I/O has its own lock. Never hold the session lock while closing it.
-        if(files!=null)files.cancel();
-        MainActivity a=MainActivity.current.get();if(a!=null)a.runOnUiThread(()->{if(connection!=closed||isAuthorized())return;a.transferRunning(false);a.clearActions();a.showStatus("Sesión cerrada. Vuelve a conectar para reanudar.");});
+        if(files!=null){files.cancel();files.cancelUploads();}
+        MainActivity a=MainActivity.current.get();if(a!=null)a.runOnUiThread(()->{if(connection!=closed||isAuthorized())return;a.transferRunning(false);a.clearActions();a.showStatus(Messages.t("Sesión cerrada. Vuelve a conectar para reanudar."));});
     }
     void notificationStatus(String value){if(notificationBuilder!=null)main.post(()->{try{getSystemService(NotificationManager.class).notify(17,notificationBuilder.setContentText(value).build());}catch(RuntimeException ignored){}});}
     private void waitForLocal(long delay){
         if(!stopping&&config!=null&&config.optBoolean("accessV2")&&!getSharedPreferences("connection",MODE_PRIVATE).getBoolean("autoPaused",false)){
-            autoOnly=true;phase(ConnectionUi.Phase.REMOTE_REQUIRED);notificationStatus("Esperando la red local · el acceso remoto requiere autorización");retryLocal(delay);
+            autoOnly=true;phase(ConnectionUi.Phase.REMOTE_REQUIRED);notificationStatus(Messages.t("Esperando la red local · el acceso remoto requiere autorización"));retryLocal(delay);
         }else main.post(this::stopSelf);
     }
     void finishSession(){closeConnection();waitForLocal(1500);}
@@ -144,7 +144,7 @@ public class RemoteService extends Service {
     private static byte[] sha(byte[] value)throws Exception{return MessageDigest.getInstance("SHA-256").digest(value);}
     private static byte[] decode(String value)throws Exception{
         byte[] bytes=Base64.decode(value,Base64.NO_WRAP);
-        if(!Base64.encodeToString(bytes,Base64.NO_WRAP).equals(value))throw new GeneralSecurityException("Base64 inválido");return bytes;
+        if(!Base64.encodeToString(bytes,Base64.NO_WRAP).equals(value))throw new GeneralSecurityException(Messages.t("Base64 inválido"));return bytes;
     }
     private void connect(JSONObject settings,long generation){
         if(generation!=connection||stopping)return;
@@ -152,15 +152,15 @@ public class RemoteService extends Service {
         SSLSocket wire=null;
         try{
             String host=settings.getString("host"),pin=settings.getString("pin");int port=settings.getInt("port");
-            if(!host.matches("[0-9.]+")||!pin.matches("[0-9a-f]{64}")||port<1024||port>65535)throw new GeneralSecurityException("Dirección o identidad inválida");
-            if(!LanDiscovery.allowed(host))throw new GeneralSecurityException("Usa una dirección local privada o Tailscale");
+            if(!host.matches("[0-9.]+")||!pin.matches("[0-9a-f]{64}")||port<1024||port>65535)throw new GeneralSecurityException(Messages.t("Dirección o identidad inválida"));
+            if(!LanDiscovery.allowed(host))throw new GeneralSecurityException(Messages.t("Usa una dirección local privada o Tailscale"));
             X509TrustManager trust=new X509TrustManager(){
                 public X509Certificate[] getAcceptedIssuers(){return new X509Certificate[0];}
-                public void checkClientTrusted(X509Certificate[] c,String t)throws CertificateException{throw new CertificateException("No es un servidor Android");}
+                public void checkClientTrusted(X509Certificate[] c,String t)throws CertificateException{throw new CertificateException(Messages.t("No es un servidor Android"));}
                 public void checkServerTrusted(X509Certificate[] chain,String type)throws CertificateException{
-                    try{if(chain==null||chain.length==0)throw new CertificateException("Sin certificado");chain[0].checkValidity();
-                        if(!MessageDigest.isEqual(hex(sha(chain[0].getEncoded())).getBytes(StandardCharsets.US_ASCII),pin.getBytes(StandardCharsets.US_ASCII)))throw new CertificateException("La identidad de la computadora cambió");
-                    }catch(CertificateException e){throw e;}catch(Exception e){throw new CertificateException("No se pudo verificar la identidad",e);}
+                    try{if(chain==null||chain.length==0)throw new CertificateException(Messages.t("Sin certificado"));chain[0].checkValidity();
+                        if(!MessageDigest.isEqual(hex(sha(chain[0].getEncoded())).getBytes(StandardCharsets.US_ASCII),pin.getBytes(StandardCharsets.US_ASCII)))throw new CertificateException(Messages.t("La identidad de la computadora cambió"));
+                    }catch(CertificateException e){throw e;}catch(Exception e){throw new CertificateException(Messages.t("No se pudo verificar la identidad"),e);}
                 }
             };
             SSLContext tls=SSLContext.getInstance("TLS");tls.init(null,new TrustManager[]{trust},null);
@@ -174,18 +174,18 @@ public class RemoteService extends Service {
                     base.connect(new InetSocketAddress(candidate,port),LanDiscovery.privateHost(candidate)?1500:8000);base.setTcpNoDelay(true);
                     attempt=(SSLSocket)tls.getSocketFactory().createSocket(base,candidate,port,true);attempt.setEnabledProtocols(new String[]{"TLSv1.3","TLSv1.2"});attempt.setSoTimeout(5000);attempt.setTcpNoDelay(true);
                     synchronized(this){if(generation!=connection){attempt.close();return;}socket=attempt;}
-                    attempt.startHandshake();wire=attempt;wire.setSoTimeout(70000);routeLabel=LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress())?"Red local":"Acceso remoto";
+                    attempt.startHandshake();wire=attempt;wire.setSoTimeout(70000);routeLabel=LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress())?Messages.t("Red local"):Messages.t("Acceso remoto");
                     if(LanDiscovery.privateHost(candidate))settings.put("lanHost",candidate);break;
                 }catch(Exception e){failure=e;if(attempt!=null)try{attempt.close();}catch(IOException ignored){}try{base.close();}catch(IOException ignored){}
                     synchronized(this){if(socket==attempt)socket=null;}if(generation!=connection)return;
                 }
             }
-            if(wire==null)throw new IOException("No se encontró el receptor. Abre Umbriel Connect; fuera de casa activa Tailscale.",failure);
+            if(wire==null)throw new IOException(Messages.t("No se encontró el receptor. Abre Umbriel Connect; fuera de casa activa Tailscale."),failure);
             boolean direct=LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress());
             KeyStore keys=AccessKeys.prepare();byte[] lanPublic=AccessKeys.publicKey(keys,AccessKeys.LAN),remotePublic=AccessKeys.publicKey(keys,AccessKeys.REMOTE);
             boolean upgrade=!settings.optBoolean("accessV2")&&!settings.has("token")&&keys.containsAlias(AccessKeys.LEGACY);
             String mode=upgrade?"upgrade":direct&&settings.optBoolean("accessV2")?"lan-auto":"interactive";
-            if(autoOnly&&!mode.equals("lan-auto"))throw new GeneralSecurityException("La reconexión automática espera una red local directa y un vínculo actualizado");
+            if(autoOnly&&!mode.equals("lan-auto"))throw new GeneralSecurityException(Messages.t("La reconexión automática espera una red local directa y un vínculo actualizado"));
             String alias=upgrade?AccessKeys.LEGACY:mode.equals("lan-auto")?AccessKeys.LAN:AccessKeys.REMOTE;
             byte[] publicKey=AccessKeys.publicKey(keys,alias);
             localAuto=mode.equals("lan-auto");autoOnly=localAuto;
@@ -197,15 +197,15 @@ public class RemoteService extends Service {
             while(generation==connection){
                 JSONObject message=readMessage(in);String type=message.optString("type");
                 if(type.equals("challenge")){
-                    if(prompted)throw new GeneralSecurityException("Desafío repetido");prompted=true;
+                    if(prompted)throw new GeneralSecurityException(Messages.t("Desafío repetido"));prompted=true;
                     byte[] challenge=decode(message.getString("challenge"));session.challenge(challenge);
                     Signature signature=Signature.getInstance("SHA256withECDSA");signature.initSign((PrivateKey)keys.getKey(alias,null));
-                    if(localAuto){if(!LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress()))throw new GeneralSecurityException("La ruta ya no es local");signature.update(challenge);completeAuthentication(signature.sign(),generation);}
-                    else {phase(ConnectionUi.Phase.AUTHENTICATING);MainActivity a=MainActivity.current.get();if(a==null||!a.visible)throw new GeneralSecurityException("Abre la aplicación para autorizar con huella o bloqueo del teléfono");a.approve(signature,challenge,this,generation,upgrade);}
+                    if(localAuto){if(!LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress()))throw new GeneralSecurityException(Messages.t("La ruta ya no es local"));signature.update(challenge);completeAuthentication(signature.sign(),generation);}
+                    else {phase(ConnectionUi.Phase.AUTHENTICATING);MainActivity a=MainActivity.current.get();if(a==null||!a.visible)throw new GeneralSecurityException(Messages.t("Abre la aplicación para autorizar con huella o bloqueo del teléfono"));a.approve(signature,challenge,this,generation,upgrade);}
                 }else if(type.equals("authorized")){
-                    if(!prompted||proofSubmitted!=generation||!message.optString("keyId").equals(hex(sha(publicKey)))||message.optInt("leaseSeconds")!=600||message.optBoolean("phoneControl")!=requestedPhone||message.optBoolean("localAuto")!=localAuto||!message.optBoolean("accessV2"))throw new GeneralSecurityException("Autorización inválida");
+                    if(!prompted||proofSubmitted!=generation||!message.optString("keyId").equals(hex(sha(publicKey)))||message.optInt("leaseSeconds")!=600||message.optBoolean("phoneControl")!=requestedPhone||message.optBoolean("localAuto")!=localAuto||!message.optBoolean("accessV2"))throw new GeneralSecurityException(Messages.t("Autorización inválida"));
                     session.authorize(message.optString("keyId"),message.optInt("leaseSeconds"),message.optBoolean("phoneControl"),SystemClock.elapsedRealtime());
-                    phase(localAuto?ConnectionUi.Phase.CONNECTED_LOCAL:ConnectionUi.Phase.CONNECTED_REMOTE);notificationStatus(localAuto?"Conectado automáticamente en la red local":"Acceso remoto autorizado por 10 minutos");
+                    phase(localAuto?ConnectionUi.Phase.CONNECTED_LOCAL:ConnectionUi.Phase.CONNECTED_REMOTE);notificationStatus(localAuto?Messages.t("Conectado automáticamente en la red local"):Messages.t("Acceso remoto autorizado por 10 minutos"));
                     retryCount=0;authorized=true;deadline=SystemClock.elapsedRealtime()+600000;wire.setSoTimeout(30000);
                     settings.remove("token");settings.remove("expires");settings.put("accessV2",true);
                     getSharedPreferences("connection",MODE_PRIVATE).edit().putString("server",settings.toString()).apply();
@@ -215,23 +215,23 @@ public class RemoteService extends Service {
                     if(!localAuto)EngineBridge.authorizedRemote();
                     if(direct&&!localAuto){autoOnly=true;closeConnection();retryLocal(100);return;}
                 }else if(type.equals("ping")){
-                    if(localAuto){if(!LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress()))throw new GeneralSecurityException("La conexión dejó la LAN");session.renewLocal(SystemClock.elapsedRealtime());}
-                    if(!isTransportAuthorized())throw new GeneralSecurityException("Sesión no autorizada");send(new JSONObject().put("type","pong"));
+                    if(localAuto){if(!LocalNetworks.direct(this,wire.getLocalAddress(),wire.getInetAddress()))throw new GeneralSecurityException(Messages.t("La conexión dejó la LAN"));session.renewLocal(SystemClock.elapsedRealtime());}
+                    if(!isTransportAuthorized())throw new GeneralSecurityException(Messages.t("Sesión no autorizada"));send(new JSONObject().put("type","pong"));
                 }else if(type.equals("result")){
-                    if(!isTransportAuthorized())throw new GeneralSecurityException("Sesión vencida");
+                    if(!isTransportAuthorized())throw new GeneralSecurityException(Messages.t("Sesión vencida"));
                     String requestId=message.optString("request");Runnable timeout=requestTimeouts.remove(requestId);if(timeout!=null)main.removeCallbacks(timeout);
                     Consumer<JSONObject> callback=callbacks.remove(requestId);if(callback!=null)callback.accept(message);
                 }else if(type.equals("media-changed")){
-                    if(!isTransportAuthorized())throw new GeneralSecurityException("Sesión vencida");MainActivity a=MainActivity.current.get();if(isAuthorized()&&a!=null)a.mediaChanged(this);
+                    if(!isTransportAuthorized())throw new GeneralSecurityException(Messages.t("Sesión vencida"));MainActivity a=MainActivity.current.get();if(isAuthorized()&&a!=null)a.mediaChanged(this);
                 }else if(type.startsWith("file-")){
-                    if(!isTransportAuthorized()||(!localAuto&&!unlocked())||(type.equals("file-offer")&&!isAuthorized()))throw new GeneralSecurityException("Transferencia no autorizada");
+                    if(!isTransportAuthorized()||(!localAuto&&!unlocked())||(type.equals("file-offer")&&!isAuthorized()))throw new GeneralSecurityException(Messages.t("Transferencia no autorizada"));
                     files.receive(message);
                 }else if(type.equals("controls-expired")){
-                    if(!authorized)throw new GeneralSecurityException("Sesión no autorizada");expireControls();
+                    if(!authorized)throw new GeneralSecurityException(Messages.t("Sesión no autorizada"));expireControls();
                 }else if(type.equals("pointer-error")){
-                    tell(message.optString("error","Activa el mouse de nuevo"));
+                    tell(message.optString("error",Messages.t("Activa el mouse de nuevo")));
                 }else if(type.equals("phone-command")){
-                    if(!isAuthorized()||!requestedPhone||!unlocked())throw new GeneralSecurityException("Control del teléfono no autorizado");
+                    if(!isAuthorized()||!requestedPhone||!unlocked())throw new GeneralSecurityException(Messages.t("Control del teléfono no autorizado"));
                     final JSONObject command=message;
                     main.post(()->{
                         if(generation!=connection||!isAuthorized()||!unlocked())return;
@@ -240,22 +240,22 @@ public class RemoteService extends Service {
                             try{send(new JSONObject().put("type","phone-result").put("id",command.optString("id")).put("ok",ok).put("error",error).put("value",value));}catch(JSONException ignored){}
                         });
                     });
-                }else throw new GeneralSecurityException(message.optString("error","Mensaje inesperado"));
+                }else throw new GeneralSecurityException(message.optString("error",Messages.t("Mensaje inesperado")));
             }
         }catch(Exception e){
-            if(generation==connection){boolean completed=expectedTransferClose;closeConnection();tell(completed?"Transferencia verificada. Sesión cerrada.":"Conexión cerrada: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));waitForLocal(Math.min(30000,1000L<<Math.min(++retryCount,5)));}
+            if(generation==connection){boolean completed=expectedTransferClose;closeConnection();tell(completed?Messages.t("Transferencia verificada. Sesión cerrada."):Messages.t("Conexión cerrada: ")+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));waitForLocal(Math.min(30000,1000L<<Math.min(++retryCount,5)));}
         }finally{connecting.set(false);if(wire!=null)try{wire.close();}catch(IOException ignored){}}
     }
     private static JSONObject readMessage(InputStream in)throws Exception{
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
-        int ch;while((ch=in.read())!=-1&&ch!='\n'){if(bytes.size()>=1048576)throw new IOException("Respuesta demasiado grande");bytes.write(ch);}
-        if(ch==-1)throw new EOFException("La computadora cerró la conexión");return new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
+        int ch;while((ch=in.read())!=-1&&ch!='\n'){if(bytes.size()>=1048576)throw new IOException(Messages.t("Respuesta demasiado grande"));bytes.write(ch);}
+        if(ch==-1)throw new EOFException(Messages.t("La computadora cerró la conexión"));return new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
     }
     private void sendUnsequenced(JSONObject message,long generation){
         try{writerExecutor.execute(()->{
             try{SSLSocket wire; synchronized(this){if(generation!=connection||socket==null)return;wire=socket;}
                 OutputStream out=wire.getOutputStream();out.write((message.toString()+"\n").getBytes(StandardCharsets.UTF_8));out.flush();}
-            catch(Exception e){if(generation==connection)transportFailed("Reconectando: no se pudo enviar la solicitud");}
+            catch(Exception e){if(generation==connection)transportFailed(Messages.t("Reconectando: no se pudo enviar la solicitud"));}
         });}catch(RejectedExecutionException e){closeConnection();}
     }
     void send(JSONObject message){
@@ -263,7 +263,7 @@ public class RemoteService extends Service {
         try{writerExecutor.execute(()->{
             try{SSLSocket wire; synchronized(this){if(generation!=connection||socket==null||!(permitted(message.optString("type"),message)||(message.optString("type").equals("pong")&&isTransportAuthorized())))return;message.put("seq",++sequence);wire=socket;}
                 OutputStream out=wire.getOutputStream();out.write((message.toString()+"\n").getBytes(StandardCharsets.UTF_8));out.flush();}
-            catch(Exception e){if(generation==connection)transportFailed("Reconectando: no se pudo enviar la solicitud");}
+            catch(Exception e){if(generation==connection)transportFailed(Messages.t("Reconectando: no se pudo enviar la solicitud"));}
         });}catch(RejectedExecutionException e){closeConnection();}
     }
     void completeAuthentication(byte[] signature,long generation){
@@ -287,15 +287,15 @@ public class RemoteService extends Service {
                     packet=new JSONObject().put("type","pointer").put("op","move").put("dx",x).put("dy",y).put("stream",true).put("seq",++sequence);
                 }
                 OutputStream out=wire.getOutputStream();out.write((packet.toString()+"\n").getBytes(StandardCharsets.UTF_8));out.flush();
-            }}catch(Exception e){if(epoch==connection)transportFailed("Reconectando: no se pudo enviar el movimiento");}
+            }}catch(Exception e){if(epoch==connection)transportFailed(Messages.t("Reconectando: no se pudo enviar el movimiento"));}
         });return true;}catch(RejectedExecutionException e){motionQueued=false;return false;}
     }
     void request(String type,JSONObject args,Consumer<JSONObject> callback){
-        if(!permitted(type,args)){try{callback.accept(new JSONObject().put("ok",false).put("error","La sesión ya no está autorizada para esta acción"));}catch(JSONException ignored){}return;}
-        if(callbacks.size()>=16){try{callback.accept(new JSONObject().put("ok",false).put("error","Espera a que terminen las solicitudes anteriores"));}catch(JSONException ignored){}return;}
+        if(!permitted(type,args)){try{callback.accept(new JSONObject().put("ok",false).put("error",Messages.t("La sesión ya no está autorizada para esta acción")));}catch(JSONException ignored){}return;}
+        if(callbacks.size()>=16){try{callback.accept(new JSONObject().put("ok",false).put("error",Messages.t("Espera a que terminen las solicitudes anteriores")));}catch(JSONException ignored){}return;}
         try{String id; synchronized(this){id=Long.toString(++requestNumber);}
             args.put("type",type).put("request",id);
-            Runnable timeout=()->{requestTimeouts.remove(id);Consumer<JSONObject> waiting=callbacks.remove(id);if(waiting!=null)try{waiting.accept(new JSONObject().put("ok",false).put("error","La computadora no respondió a tiempo"));}catch(JSONException ignored){}};
+            Runnable timeout=()->{requestTimeouts.remove(id);Consumer<JSONObject> waiting=callbacks.remove(id);if(waiting!=null)try{waiting.accept(new JSONObject().put("ok",false).put("error",Messages.t("La computadora no respondió a tiempo")));}catch(JSONException ignored){}};
             callbacks.put(id,callback);requestTimeouts.put(id,timeout);main.postDelayed(timeout,12000);send(args);
         }catch(JSONException e){closeConnection();}
     }

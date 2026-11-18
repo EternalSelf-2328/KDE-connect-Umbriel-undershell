@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "localremote.h"
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -24,14 +25,14 @@ void LocalRemote::call(QJsonObject request,Done done){
     auto finish=[socket,ended,done](Reply r){if(*ended)return;*ended=true;socket->abort();socket->deleteLater();done(r);};
     connect(socket,&QLocalSocket::connected,this,[socket,request]{socket->write(QJsonDocument(request).toJson(QJsonDocument::Compact)+'\n');});
     connect(socket,&QLocalSocket::readyRead,this,[socket,buffer,finish]{
-        *buffer+=socket->readAll();if(buffer->size()>1024*1024){finish({false,"Respuesta local demasiado grande",{}});return;}
+        *buffer+=socket->readAll();if(buffer->size()>1024*1024){finish({false,I18n::text("Respuesta local demasiado grande"),{}});return;}
         if(!buffer->contains('\n'))return;
         auto doc=QJsonDocument::fromJson(buffer->left(buffer->indexOf('\n')));
-        if(!doc.isObject()){finish({false,"Respuesta local inválida",{}});return;}auto o=doc.object();finish({o["ok"].toBool(),o["error"].toString(),o["value"].toVariant()});
+        if(!doc.isObject()){finish({false,I18n::text("Respuesta local inválida"),{}});return;}auto o=doc.object();finish({o["ok"].toBool(),o["error"].toString(),o["value"].toVariant()});
     });
-    connect(socket,&QLocalSocket::errorOccurred,this,[finish,socket](auto error){if(error!=QLocalSocket::PeerClosedError)finish({false,"Inicia el receptor de Umbriel Connect: "+socket->errorString(),{}});});
-    connect(socket,&QLocalSocket::disconnected,this,[finish]{finish({false,"El receptor cerró la conexión",{}});});
-    QTimer::singleShot(request["action"]=="share"?24*60*60*1000+15000:3000,socket,[finish]{finish({false,"El receptor no respondió a tiempo",{}});});
+    connect(socket,&QLocalSocket::errorOccurred,this,[finish,socket](auto error){if(error!=QLocalSocket::PeerClosedError)finish({false,I18n::text("Inicia el receptor de Umbriel Connect: ")+socket->errorString(),{}});});
+    connect(socket,&QLocalSocket::disconnected,this,[finish]{finish({false,I18n::text("El receptor cerró la conexión"),{}});});
+    QTimer::singleShot(request["action"]=="share"?24*60*60*1000+15000:3000,socket,[finish]{finish({false,I18n::text("El receptor no respondió a tiempo"),{}});});
     socket->connectToServer(path());
 }
 void LocalRemote::snapshot(std::function<void(QJsonObject)> done){

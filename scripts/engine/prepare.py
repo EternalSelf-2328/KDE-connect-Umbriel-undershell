@@ -75,10 +75,11 @@ for name in ['kio/kiokdeconnect.cpp','plugins/sftp/sftpplugin.cpp']:
 p=DEST/'kio/kdeconnect.json';data=json.loads(p.read_text());protocol=data['KDE-KIO-Protocols'].pop('kdeconnect');protocol['protocol']='umbriel-connect';protocol['exec']='umbrielconnect';data['KDE-KIO-Protocols']['umbriel-connect']=protocol;p.write_text(json.dumps(data,indent=4)+'\n')
 edit('kio/CMakeLists.txt','OUTPUT_NAME "kdeconnect"','OUTPUT_NAME "umbrielconnect"')
 with (DEST/'CMakeLists.txt').open('a') as stream:
-    stream.write(f'''\nadd_executable(umbriel-connect-files "{ROOT}/native/filebrowser.cpp" "{ROOT}/native/design.cpp")
+    stream.write(f'''\nadd_executable(umbriel-connect-files "{ROOT}/native/filebrowser.cpp" "{ROOT}/native/design.cpp" "{ROOT}/native/i18n.cpp")
+qt_add_resources(umbriel-connect-files translations PREFIX "/umbriel" BASE "{ROOT}" FILES "{ROOT}/data/translations/en.json")
 target_include_directories(umbriel-connect-files PRIVATE "{ROOT}/native")
 target_link_libraries(umbriel-connect-files PRIVATE Qt::Widgets KF6::KIOFileWidgets KF6::KIOWidgets)
-set_source_files_properties("{ROOT}/native/filebrowser.cpp" "{ROOT}/native/design.cpp" TARGET_DIRECTORY umbriel-connect-files PROPERTIES COMPILE_OPTIONS "-UQT_NO_CAST_FROM_ASCII;-UQT_NO_CAST_TO_ASCII")
+set_source_files_properties("{ROOT}/native/filebrowser.cpp" "{ROOT}/native/design.cpp" "{ROOT}/native/i18n.cpp" TARGET_DIRECTORY umbriel-connect-files PROPERTIES COMPILE_OPTIONS "-UQT_NO_CAST_FROM_ASCII;-UQT_NO_CAST_TO_ASCII")
 install(TARGETS umbriel-connect-files RUNTIME DESTINATION bin)
 ''')
 for name,target in [('app/main.cpp','kdeconnect-app'),('smsapp/main.cpp','kdeconnect-sms')]:
@@ -196,12 +197,15 @@ edit('app/qml/Main.qml','                        contentItem: Kirigami.IconTitle
 
 # Resolve private gettext catalogs even when the process was activated without the wrapper.
 for name in ['app/main.cpp','smsapp/main.cpp','daemon/kdeconnectd.cpp']:
-    edit(name,'#include "design.h"','#include "design.h"\n#include <QDir>\n#include <QLocale>')
+    edit(name,'#include "design.h"','#include "design.h"\n#include <QDir>\n#include <QLocale>\n#include <QSettings>\n#include <QStandardPaths>')
     edit(name,'    Design::install(&app);','''    Design::install(&app);
     const auto localeDir = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../share/locale"));
     for (const auto &domain : {"kdeconnect-app", "kdeconnect-sms", "kdeconnect-core", "kdeconnect-interfaces", "kdeconnect-plugins", "kdeconnect-kded", "kdeconnect-kio", "kdeconnect-urlhandler"})
         KLocalizedString::addDomainLocaleDir(QByteArray(domain), localeDir);
-    const auto language = qEnvironmentVariable("UMBRIEL_CONNECT_LANGUAGE", QLocale::system().language() == QLocale::C ? QStringLiteral("es") : QLocale::system().name());
+    const auto fallback = QLocale::system().language() == QLocale::C ? QStringLiteral("es") : QLocale::system().name();
+    QSettings preferences(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/umbriel-connect/ui.ini"), QSettings::IniFormat);
+    const auto selected = preferences.value(QStringLiteral("language"), fallback).toString();
+    const auto language = qEnvironmentVariable("UMBRIEL_CONNECT_LANGUAGE", selected.isEmpty() ? fallback : selected);
     KLocalizedString::setLanguages({language});''')
 
 # An icon-only button must remain discoverable when an icon theme lacks that glyph.

@@ -30,27 +30,27 @@ public final class EngineUnlockActivity extends Activity {
         scroll.addView(root);
         setContentView(scroll);
         d.add(root, d.label("Umbriel Connect", 14, d.accent, true), 16);
-        d.add(root, d.label("Tu teléfono, integrado", 28, d.text, true), 12);
+        d.add(root, d.label(Messages.t("Tu teléfono, integrado"), 28, d.text, true), 12);
         d.add(root,
-            d.label("Mensajes, notificaciones, archivos, multimedia, portapapeles y entrada remota. Tú "
-                    + "decides qué funciones pueden acceder a tus datos.",
+            d.label(Messages.t("Mensajes, notificaciones, archivos, multimedia, portapapeles y entrada remota. Tú ")
+                    + Messages.t("decides qué funciones pueden acceder a tus datos."),
                 16, d.muted, false),
             24);
         LinearLayout card = d.card();
         d.add(root, card, 20);
-        d.add(card, d.label("Autoriza una sesión", 20, d.text, true), 12);
-        d.add(card,d.label("En una LAN directa, los dispositivos ya emparejados se conectan automáticamente sin huella. Fuera de ella se requiere huella, PIN, patrón o contraseña del teléfono durante una sesión de hasta 10 minutos. Los permisos de Android siguen siendo independientes.",15,d.muted,false),16);
-        Button open = d.button(EngineGate.localAvailable()?"Abrir funciones en la red local":"Autorizar con huella o bloqueo", true);
+        d.add(card, d.label(Messages.t("Autoriza una sesión"), 20, d.text, true), 12);
+        d.add(card,d.label(Messages.t("En una LAN directa, los dispositivos ya emparejados se conectan automáticamente sin huella. Fuera de ella se requiere huella, PIN, patrón o contraseña del teléfono durante una sesión de hasta 10 minutos. Los permisos de Android siguen siendo independientes."),15,d.muted,false),16);
+        Button open = d.button(EngineGate.localAvailable()?Messages.t("Abrir funciones en la red local"):Messages.t("Autorizar con huella o bloqueo"), true);
         d.add(card, open, 8);
         open.setOnClickListener(v -> unlock());
-        Button end = d.button("Cerrar sesión de funciones", false);
+        Button end = d.button(Messages.t("Cerrar sesión de funciones"), false);
         d.add(card, end, 0);
         end.setOnClickListener(v -> {
             getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("autoPaused",true).apply();EngineGate.revoke();
-            status.setText("Sesión cerrada. No se intercambian datos del teléfono.");
+            status.setText(Messages.t("Sesión cerrada. No se intercambian datos del teléfono."));
         });
         status =
-            d.label("No se copian las claves ni los emparejamientos de KDE Connect.", 14, d.muted, false);
+            d.label(Messages.t("No se copian las claves ni los emparejamientos de KDE Connect."), 14, d.muted, false);
         d.add(root, status, 16);
     }
     @Override
@@ -90,8 +90,8 @@ public final class EngineUnlockActivity extends Activity {
             new SecureRandom().nextBytes(nonce);
             cancel = new CancellationSignal();
             new BiometricPrompt.Builder(this)
-                .setTitle("Autorizar funciones de Umbriel")
-                .setSubtitle("Dispositivos emparejados · 10 minutos")
+                .setTitle(Messages.t("Autorizar funciones de Umbriel"))
+                .setSubtitle(Messages.t("Dispositivos emparejados · 10 minutos"))
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
                 .build()
                 .authenticate(new BiometricPrompt.CryptoObject(signature), cancel, getMainExecutor(),
@@ -108,12 +108,12 @@ public final class EngineUnlockActivity extends Activity {
                                 verifier.initVerify(store.getCertificate(alias));
                                 verifier.update(nonce);
                                 if (!verifier.verify(proof))
-                                    throw new GeneralSecurityException("Firma inválida");
+                                    throw new GeneralSecurityException(Messages.t("Firma inválida"));
                                 EngineGate.grant();
 
                                 openFeatures();
                             } catch (Exception e) {
-                                status.setText("No se pudo comprobar la autorización biométrica.");
+                                status.setText(Messages.t("No se pudo comprobar la autorización biométrica."));
                             }
                         }
                         @Override
@@ -130,10 +130,10 @@ public final class EngineUnlockActivity extends Activity {
             } catch (Exception ignored) {
             }
             status.setText(
-                "Cambió la biometría del teléfono. Presiona Continuar para crear una clave nueva.");
+                Messages.t("Cambió la biometría del teléfono. Presiona Continuar para crear una clave nueva."));
         } catch (Exception e) {
             status.setText(
-                "No se pudo iniciar la huella. Configura biometría segura en Android y vuelve a intentarlo.");
+                Messages.t("No se pudo iniciar la huella. Configura biometría segura en Android y vuelve a intentarlo."));
         }
     }
     @Override protected void onDestroy(){if(cancel!=null)cancel.cancel();super.onDestroy();}
@@ -143,7 +143,7 @@ public final class EngineUnlockActivity extends Activity {
                 new Intent(this, Class.forName("org.eternalself.umbrielremote.MainActivity")));
         } catch (ClassNotFoundException e) {
             EngineGate.revoke();
-            status.setText("La compilación no incluye el motor de funciones.");
+            status.setText(Messages.t("La compilación no incluye el motor de funciones."));
         }
     }
 }

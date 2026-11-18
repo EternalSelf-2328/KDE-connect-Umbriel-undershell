@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.eternalself.umbrielremote" android:versionCode="12" android:versionName="0.7.0-experimental">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.eternalself.umbrielremote" android:versionCode="13" android:versionName="0.8.0-experimental">
     <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="36"/>
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK"/><uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     <uses-feature android:name="android.hardware.fingerprint" android:required="false"/>
-    <application android:label="Umbriel Remote" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
+    <application android:localeConfig="@xml/locales_config" android:label="Umbriel Remote" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
             <intent-filter>

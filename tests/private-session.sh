@@ -14,5 +14,5 @@ cat > "$CASE/bus.conf" <<'XML'
 </busconfig>
 XML
 env -u WAYLAND_DISPLAY -u DISPLAY XDG_CONFIG_HOME="$CASE/config" XDG_DATA_HOME="$CASE/data" XDG_CACHE_HOME="$CASE/cache" XDG_RUNTIME_DIR="$CASE/run" \
-  DBUS_SYSTEM_BUS_ADDRESS="unix:path=$CASE/no-system-bus" GIO_USE_VFS=local QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SOLID_DISABLE_KDECONNECT=1 \
+  UMBRIEL_CONNECT_LANGUAGE=es DBUS_SYSTEM_BUS_ADDRESS="unix:path=$CASE/no-system-bus" GIO_USE_VFS=local QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SOLID_DISABLE_KDECONNECT=1 \
   dbus-run-session --config-file="$CASE/bus.conf" -- "$@"

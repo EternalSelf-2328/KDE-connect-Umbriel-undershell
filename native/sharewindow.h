@@ -8,7 +8,7 @@ class QLabel;class QComboBox;class QPushButton;class QProgressBar;
 class ShareWindow : public QDialog {
     Q_OBJECT
 public:
-    explicit ShareWindow(QStringList files,bool preview=false,QWidget *parent=nullptr);
+    explicit ShareWindow(QStringList files,bool preview=false,QWidget *parent=nullptr,QString preferredPeer={});
     void applyDevices(const QJsonObject &state);
 signals:
     void sendRequested(const QString &peer,const QStringList &files);

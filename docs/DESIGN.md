@@ -29,3 +29,12 @@ no demuestra que todos los plugins/portales funcionen en el Galaxy o en Wayland.
 La instalación física de Android y sus permisos Samsung siguen pendientes.
 
 [Notas originales conservadas](DESIGN-HISTORY.md), con decisiones y renders de versiones anteriores.
+
+## Android0.8.0
+
+Paletas completas por roles: sistema/verde agua/lavanda/rosa/ámbar, con variantes
+clara y oscura; texto principal y secundario contrastan al menos4.5:1 con las
+superficies verificadas. La personalización y el idioma están en Ajustes; los
+controles nuevos están también en Inicio. La barra de cuatro destinos se conserva.
+Los renders de [0.8.0](screenshots/0.8.0/) muestran Views reales con datos sintéticos
+y títulos de ejemplo, incluyendo inglés y las paletas lavanda y rosa.

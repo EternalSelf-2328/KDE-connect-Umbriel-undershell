@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "engineclient.h"
 #include <QDBusArgument>
 #include <QDBusMessage>
@@ -149,25 +150,25 @@ void EngineClient::refresh(Done done) {
     call(root, "org.kde.kdeconnect.daemon", "forceOnNetworkChange", {}, std::move(done));
 }
 void EngineClient::operation(const QString &id, const QString &operation, const QString &argument, Done done) {
-    if (!validId(id)) { done({false, "ID de dispositivo inválido", {}}); return; }
+    if (!validId(id)) { done({false, I18n::text("ID de dispositivo inválido"), {}}); return; }
     snapshot([this, id, operation, argument, done](const QJsonObject &state) {
         if (!state["available"].toBool()) { done({false, state["error"].toString(), {}}); return; }
         QJsonObject device;
         for (const auto &entry : state["devices"].toArray()) {
             if (entry.toObject()["id"].toString() == id) device = entry.toObject();
         }
-        if (device.isEmpty()) { done({false, "No existe ese dispositivo", {}}); return; }
+        if (device.isEmpty()) { done({false, I18n::text("No existe ese dispositivo"), {}}); return; }
         QString suffix, method;
         QVariantList args;
         if (operation == "pair") method = "requestPairing";
         else if (operation == "accept") {
-            if (!device["pairRequested"].toBool()) { done({false, "No hay solicitud de emparejamiento", {}}); return; }
+            if (!device["pairRequested"].toBool()) { done({false, I18n::text("No hay solicitud de emparejamiento"), {}}); return; }
             method = "acceptPairing";
         } else if (operation == "reject") method = "cancelPairing";
         else if (operation == "unpair") method = "unpair";
         else {
             if (!device["paired"].toBool() || !device["reachable"].toBool()) {
-                done({false, "El dispositivo debe estar emparejado y conectado", {}}); return;
+                done({false, I18n::text("El dispositivo debe estar emparejado y conectado"), {}}); return;
             }
             if (operation == "ring") { suffix = "findmyphone"; method = "ring"; }
             else if (operation == "ping") { suffix = "ping"; method = "sendPing"; args = {argument}; }
@@ -175,23 +176,23 @@ void EngineClient::operation(const QString &id, const QString &operation, const 
             else if (operation == "share") {
                 const auto url = QUrl::fromUserInput(argument, QDir::currentPath(), QUrl::AssumeLocalFile);
                 if (!url.isValid() || (!url.isLocalFile() && url.scheme() != "https" && url.scheme() != "http")) {
-                    done({false, "Usa un archivo local o una URL http/https", {}}); return;
+                    done({false, I18n::text("Usa un archivo local o una URL http/https"), {}}); return;
                 }
                 if (url.isLocalFile() && !QFileInfo(url.toLocalFile()).isFile()) {
-                    done({false, "El archivo no existe", {}}); return;
+                    done({false, I18n::text("El archivo no existe"), {}}); return;
                 }
                 suffix = "share"; method = "shareUrl"; args = {url.toString(QUrl::FullyEncoded)};
             } else if (operation == "browse") { suffix = "sftp"; method = "startBrowsing"; }
-            else { done({false, "Operación desconocida", {}}); return; }
+            else { done({false, I18n::text("Operación desconocida"), {}}); return; }
             if (!device["plugins"].toArray().contains("kdeconnect_" + suffix)) {
-                done({false, "El plugin " + suffix + " no está disponible en este dispositivo", {}}); return;
+                done({false, I18n::text("El plugin ") + suffix + I18n::text(" no está disponible en este dispositivo"), {}}); return;
             }
         }
         call(devicePath(id) + (suffix.isEmpty() ? "" : "/" + suffix),
              deviceInterface + (suffix.isEmpty() ? "" : "." + suffix), method, args,
              [done](Reply result) {
             if (result.ok && result.value.metaType() == QMetaType::fromType<bool>() && !result.value.toBool())
-                result = {false, "KDE Connect no pudo completar la operación", {}};
+                result = {false, I18n::text("KDE Connect no pudo completar la operación"), {}};
             done(result);
         });
     });

@@ -13,7 +13,7 @@ import org.robolectric.*;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36,qualifiers="w412dp-h892dp-port-mdpi")
+@Config(application=UiTestApplication.class,sdk=36,qualifiers="w412dp-h892dp-port-mdpi")
 public class TouchpadInputTest {
     ActivityController<Activity> screen;Activity activity;Touchpad pad;List<String> events=new ArrayList<>();
     Touchpad.Sink sink=new Touchpad.Sink(){public boolean move(int x,int y){events.add(x+","+y);return true;}public void event(String op,String button,boolean down,int steps){events.add(op+":"+steps);}};

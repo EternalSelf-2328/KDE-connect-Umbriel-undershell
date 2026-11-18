@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+package org.eternalself.umbrielremote;
+import android.app.*;
+import android.content.*;
+import android.widget.*;
+import org.json.*;
+/** Explicit clipboard operations and bounded text input; no background clipboard watcher. */
+final class TextControls {
+ static void build(RemoteDashboard d){UiDesign ui=d.ui;LinearLayout c=d.card(Messages.t("Texto y teclado"),Messages.t("Escribe en la ventana enfocada de tu computadora o comparte texto por el portapapeles."));
+    EditText input=new EditText(d.activity);input.setTag("keyboard-input");input.setHint(Messages.t("Escribe para la computadora…"));input.setMinLines(3);input.setMaxLines(8);input.setImportantForAutofill(android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);ui.add(c,input,12);
+    Button send=ui.button(Messages.t("Escribir en la PC"),true);send.setTag("keyboard-send");send.setEnabled(d.features.optBoolean("keyboard"));send.setOnClickListener(v->{String text=input.getText().toString();if(text.length()>2000){d.status.accept(Messages.t("Escribe hasta 2000 caracteres por envío"));return;}d.request("keyboard",d.object("op","text","text",text),r->{d.result(r);if(r.optBoolean("ok"))input.setText("");});});ui.add(c,send,12);
+    for(String[][] row:new String[][][]{{{"Tab","tab"},{Messages.t("Intro"),"enter"},{Messages.t("Borrar"),"backspace"}},{{"←","left"},{"↓","down"},{"↑","up"},{"→","right"}},{{"Esc","escape"},{Messages.t("Inicio"),"home"},{Messages.t("Fin"),"end"}}}){Button[] buttons=new Button[row.length];for(int i=0;i<row.length;i++){final String key=row[i][1];buttons[i]=ui.button(row[i][0],false);buttons[i].setEnabled(d.features.optBoolean("keyboard"));buttons[i].setOnClickListener(v->d.request("keyboard",d.object("op","key","key",key),d::result));}d.row(c,buttons);}
+    LinearLayout clip=d.card(Messages.t("Portapapeles"),Messages.t("Se comparte solo cuando presionas un botón; no se sincroniza en segundo plano."));Button toPc=ui.button(Messages.t("Enviar portapapeles a la PC"),false),fromPc=ui.button(Messages.t("Copiar portapapeles de la PC"),false);toPc.setTag("clipboard-to-pc");fromPc.setTag("clipboard-from-pc");toPc.setEnabled(d.features.optBoolean("clipboard"));fromPc.setEnabled(d.features.optBoolean("clipboard"));
+    toPc.setOnClickListener(v->{ClipboardManager manager=d.activity.getSystemService(ClipboardManager.class);ClipData data=manager.getPrimaryClip();CharSequence text=data==null||data.getItemCount()==0?null:data.getItemAt(0).getText();if(text==null){d.status.accept(Messages.t("El portapapeles no contiene texto"));return;}if(text.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>65536){d.status.accept(Messages.t("El portapapeles supera el límite de 64 KiB"));return;}d.request("clipboard-set",d.object("text",text.toString()),d::result);});
+    fromPc.setOnClickListener(v->d.request("clipboard-get",new JSONObject(),r->{JSONObject value=r.optJSONObject("value");if(r.optBoolean("ok")&&value!=null){ClipData data=ClipData.newPlainText("Umbriel Connect",value.optString("text"));android.os.PersistableBundle extras=new android.os.PersistableBundle();extras.putBoolean("android.content.extra.IS_SENSITIVE",true);data.getDescription().setExtras(extras);d.activity.getSystemService(ClipboardManager.class).setPrimaryClip(data);d.status.accept(Messages.t("Texto copiado desde la computadora"));}else d.result(r);}));ui.add(clip,toPc,12);ui.add(clip,fromPc,0);
+ }
+}

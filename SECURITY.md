@@ -154,3 +154,25 @@ la política a cada redirección. No usa cookies ni proxy del sistema. Se rechaz
 red privada/Tailscale, loopback, HTTP, otros puertos y credenciales en la URL.
 Un reproductor o proceso malicioso que ya ejecute código con el mismo UID en la PC
 queda fuera de una promesa de aislamiento del propio usuario.
+
+## Controles propios0.8.0
+
+El portapapeles es manual, de texto hasta64KiB; no se registra su contenido ni se
+transmite en argv. El sobre IPC local admite el límite de64KiB aun con escape JSON,
+y vuelve a validar el tamaño del texto antes de enviarlo al teléfono. Android exige la app visible y el permiso de control propio.
+Las teclas siguen la sesión vigente y el bloqueo; el acceso hacia Android excluye
+campos de contraseña. El catálogo GIO solo acepta IDs .desktop instalados, sin
+argumentos de shell remotos. Las acciones de logind usan una lista cerrada, políticas
+locales y token aleatorio de un solo uso con caducidad de30segundos.
+
+La pantalla requiere aprobación por el socket Unix local verificado por UID; no se
+puede aprobar desde TLS. La concesión queda ligada al socket de la ventana local y
+a la identidad remota, monitor y sesión vigentes. Se revoca al cerrar la ventana,
+bloquear, desconectar o caducar; las respuestas asíncronas se vuelven a comprobar.
+Hay límites de solicitudes, un solo visor, memoria de captura acotada y JPEG reducido.
+No existe aprobación silenciosa persistente de captura. El protocolo Wayland de
+captura confía en procesos del mismo usuario; no aísla un escritorio ya comprometido.
+
+La selección múltiple conserva los límites y SHA256 por archivo; no permite iniciar
+otro al expirar el control. Colores/idiomas son preferencias locales, sin servicios
+externos. [Uso, restricciones y pruebas](docs/UPDATE-0.8.0.md).

@@ -17,7 +17,7 @@ import org.robolectric.util.ReflectionHelpers;
 import java.util.function.Consumer;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36,qualifiers="w412dp-h892dp-port-notnight-mdpi")
+@Config(application=UiTestApplication.class,sdk=36,qualifiers="w412dp-h892dp-port-notnight-mdpi")
 public class HomeNavigationTest {
     static class Computer extends RemoteService {
         boolean connected=true,local=true;int starts,stops;
@@ -27,9 +27,10 @@ public class HomeNavigationTest {
         @Override String configuration(){return "{\"pin\":\""+"a".repeat(64)+"\",\"host\":\"192.168.8.10\",\"port\":31594,\"accessV2\":true}";}
         @Override void request(String type,JSONObject args,Consumer<JSONObject> callback){try{
             Object value=new JSONArray();
-            if(type.equals("features"))value=new JSONObject().put("pointer",true).put("files",true).put("wallpapers",true).put("media",true).put("audioOutputs",true);
+            if(type.equals("features"))value=new JSONObject().put("pointer",true).put("files",true).put("wallpapers",true).put("media",true).put("audioOutputs",true).put("keyboard",true).put("clipboard",true).put("applications",true).put("systemActions",true).put("screen",true);
             if(type.equals("media-state"))value=new JSONObject().put("players",new JSONArray().put(new JSONObject().put("id","org.mpris.MediaPlayer2.example").put("title","Un viaje tranquilo").put("artist","Artista de ejemplo").put("source","Reproductor de ejemplo").put("origin","Archivo local").put("status","Playing").put("canPlay",true).put("canPause",true).put("canNext",true).put("canPrevious",true)));
             if(type.equals("audio-outputs"))value=new JSONObject().put("outputs",new JSONArray().put(new JSONObject().put("id","1").put("name","Altavoces").put("default",true)).put(new JSONObject().put("id","2").put("name","Audífonos").put("default",false)));
+            if(type.equals("applications"))value=new JSONArray().put(new JSONObject().put("id","example-editor.desktop").put("name","Example Editor")).put(new JSONObject().put("id","example-browser.desktop").put("name","Example Browser"));
             if(type.equals("audio-state"))value=new JSONObject().put("volume",48).put("muted",false);
             if(type.equals("catalog")){
                 JSONArray actions=new JSONArray();for(String id:new String[]{"umbriel.focus-up","umbriel.focus-left","umbriel.focus-right","umbriel.focus-down","umbriel.overview-toggle","umbriel.workspace-next","umbriel.workspace-previous","noctalia.volume-set","noctalia.volume-mute","noctalia.volume-down","noctalia.volume-up","noctalia.media-previous","noctalia.media-next","noctalia.media-play-pause","noctalia.theme-light","noctalia.theme-dark","noctalia.dnd-on","noctalia.dnd-off","noctalia.caffeine-enable","noctalia.caffeine-disable","undershell.show","undershell.hide","undershell.edit-on","undershell.edit-off","undershell.demo-on","undershell.demo-off"})actions.put(new JSONObject().put("id",id).put("name",id.equals("undershell.demo-on")?"Activar demostración":id.equals("undershell.demo-off")?"Desactivar demostración":id).put("group",id.startsWith("undershell")?"undershell":"noctalia").put("available",true));value=actions;

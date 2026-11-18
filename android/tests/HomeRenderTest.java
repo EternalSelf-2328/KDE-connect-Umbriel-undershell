@@ -16,7 +16,7 @@ import java.io.*;
 
 /** Renders the actual Views with synthetic authorized data, never a device or desktop capture. */
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36,qualifiers="w412dp-h892dp-port-notnight-mdpi")
+@Config(application=UiTestApplication.class,sdk=36,qualifiers="w412dp-h892dp-port-notnight-mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class HomeRenderTest {
     static class GalleryComputer extends HomeNavigationTest.Computer {
@@ -30,14 +30,16 @@ public class HomeRenderTest {
     }
     private void capture(String name,boolean dark,int width,int height,int destination,int control,boolean connected,boolean registered) throws Exception {
         RuntimeEnvironment.setQualifiers("w"+width+"dp-h"+height+"dp-port-"+(dark?"night":"notnight")+"-"+(name.contains("hdpi")?"hdpi":"mdpi"));
-        Application app=RuntimeEnvironment.getApplication();app.getSharedPreferences("connection",0).edit().clear().commit();
+        Application app=RuntimeEnvironment.getApplication();app.getSharedPreferences("connection",0).edit().clear().commit();app.getSharedPreferences("appearance",0).edit().clear().putString("language","es").commit();Messages.init(app);
         Configuration config=new Configuration(app.getResources().getConfiguration());config.screenWidthDp=width;config.screenHeightDp=height;config.smallestScreenWidthDp=Math.min(width,height);config.fontScale=name.contains("large-text")?1.3f:1f;config.uiMode=(config.uiMode&~Configuration.UI_MODE_NIGHT_MASK)|(dark?Configuration.UI_MODE_NIGHT_YES:Configuration.UI_MODE_NIGHT_NO);app.getResources().updateConfiguration(config,app.getResources().getDisplayMetrics());
         HomeNavigationTest.Computer computer=new GalleryComputer();computer.connected=connected;computer.phase=connected?ConnectionUi.Phase.CONNECTED_LOCAL:ConnectionUi.Phase.REMOTE_REQUIRED;
         if(registered)app.getSharedPreferences("connection",0).edit().putString("server",computer.configuration()).commit();
+        if(name.contains("-english")){app.getSharedPreferences("appearance",0).edit().putString("language","en").commit();Messages.init(app);}if(name.contains("-lavender"))app.getSharedPreferences("appearance",0).edit().putString("palette","lavender").commit();if(name.contains("-rose"))app.getSharedPreferences("appearance",0).edit().putString("palette","rose").commit();
         RemoteService.instance=registered?computer:null;
         ActivityController<MainActivity> screen=Robolectric.buildActivity(MainActivity.class).setup();
         try{
             MainActivity a=screen.get();if(destination==1)a.openControl(control);else if(destination!=0)a.navigate(destination);
+            if(name.startsWith("app-appearance")){org.robolectric.util.ReflectionHelpers.setField(a,"settingsPage","appearance");org.robolectric.util.ReflectionHelpers.callInstanceMethod(a,"render");}
             if(name.equals("mouse-settings")){org.robolectric.util.ReflectionHelpers.setField(a,"settingsPage","mouse");org.robolectric.util.ReflectionHelpers.callInstanceMethod(a,"render");}
             if(name.contains("expanded"))a.findViewById(android.R.id.content).findViewWithTag("widget-more").performClick();
             if(name.contains("paused")){computer.phase=ConnectionUi.Phase.REMOTE_REQUIRED;a.mediaChanged(computer);}
@@ -53,6 +55,11 @@ public class HomeRenderTest {
         }finally{screen.pause().stop().destroy();RemoteService.instance=null;MainActivity.current.clear();}
     }
     @Test public void realHomeAndControlSurfaces() throws Exception {
+        capture("home-english-lavender",true,412,892,0,0,true,true);
+        capture("text-english",true,412,892,1,9,true,true);
+        capture("applications-english",true,412,892,1,10,true,true);
+        capture("screen-english",true,412,892,1,8,true,true);
+        capture("app-appearance-english-rose",true,412,892,3,0,true,true);
         capture("home-dark",true,412,892,0,0,true,true);
         capture("home-light",false,412,892,0,0,true,true);
         capture("mouse-dark",true,412,892,1,1,true,true);

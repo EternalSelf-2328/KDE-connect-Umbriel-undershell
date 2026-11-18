@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "remoteauth.h"
 #include "remoteserver.h"
 #include "design.h"
 #include <QApplication>
 #include <QComboBox>
+#include <QClipboard>
+#include <QLineEdit>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QScrollArea>
 #include <QFrame>
 #include <QDir>
 #include <QFile>
@@ -41,16 +45,16 @@ void localCall(QObject *context, const QJsonObject &message, Done done) {
     QObject::connect(socket, &QLocalSocket::connected, context, [socket, message] { socket->write(QJsonDocument(message).toJson(QJsonDocument::Compact) + '\n'); });
     QObject::connect(socket, &QLocalSocket::readyRead, context, [socket, buffer, finish] {
         *buffer += socket->readAll();
-        if (buffer->size() > 2 * 1024 * 1024) { finish({false, "Respuesta demasiado grande", {}}); return; }
+        if (buffer->size() > 2 * 1024 * 1024) { finish({false, I18n::text("Respuesta demasiado grande"), {}}); return; }
         if (!buffer->contains('\n')) return;
         const auto doc = QJsonDocument::fromJson(buffer->left(buffer->indexOf('\n')));
-        if (!doc.isObject()) { finish({false, "Respuesta local inválida", {}}); return; }
+        if (!doc.isObject()) { finish({false, I18n::text("Respuesta local inválida"), {}}); return; }
         const auto o = doc.object(); finish({o["ok"].toBool(), o["error"].toString(), o["value"].toVariant()});
     });
     QObject::connect(socket, &QLocalSocket::errorOccurred, context, [socket, finish](auto error) {
         if (error != QLocalSocket::PeerClosedError) finish({false, socket->errorString(), {}});
     });
-    QTimer::singleShot(12000, socket, [finish] { finish({false, "El control local no respondió", {}}); });
+    QTimer::singleShot(12000, socket, [finish] { finish({false, I18n::text("El control local no respondió"), {}}); });
     socket->connectToServer(qEnvironmentVariable("XDG_RUNTIME_DIR", "/run/user/" + QString::number(getuid())) + "/umbriel-connect-remote.sock");
 }
 class PhoneImage : public QLabel {
@@ -74,16 +78,7 @@ public:
     }
 };
 void help() {
-    QTextStream(stdout) << "Umbriel Connect Remote — experimental, activación manual\n"
-        "  init                         Crear identidad TLS local\n"
-        "  pair DIRECCIÓN [PUERTO]      Crear archivo privado para registrar Android (5 min)\n"
-        "  pair-proxy IP_TAILNET [PUERTO] Registro para un proxy TCP privado de Tailscale\n"
-        "  serve DIRECCIÓN [PUERTO]     Escuchar con TLS y habilitar red local privada; puerto 31594\n"
-        "  stop                         Cerrar este receptor mediante su socket local privado\n"
-        "  clients                      Sesiones activas con identidad verificada\n"
-        "  revoke ID                    Retirar confianza y cerrar sesiones del teléfono\n"
-        "  phone ID ACCIÓN [ARGS...]    back, home, recents, screen, tap X Y, swipe X1 Y1 X2 Y2, text TEXTO\n"
-        "  --phone                      Panel de control del teléfono autorizado\n";
+    QTextStream(stdout) << I18n::text("Umbriel Connect Remote — experimental, activación manual\n") + "  init                         Crear identidad TLS local\n" + I18n::text("  pair DIRECCIÓN [PUERTO]      Crear archivo privado para registrar Android (5 min)\n") + I18n::text("  pair-proxy IP_TAILNET [PUERTO] Registro para un proxy TCP privado de Tailscale\n") + I18n::text("  serve DIRECCIÓN [PUERTO]     Escuchar con TLS y habilitar red local privada; puerto 31594\n") + I18n::text("  stop                         Cerrar este receptor mediante su socket local privado\n") + I18n::text("  clients                      Sesiones activas con identidad verificada\n") + I18n::text("  revoke ID                    Retirar confianza y cerrar sesiones del teléfono\n") + I18n::text("  phone ID ACCIÓN [ARGS...]    back, home, recents, screen, tap X Y, swipe X1 Y1 X2 Y2, text TEXTO\n") + I18n::text("  --phone                      Panel de control del teléfono autorizado\n");
 }
 }
 int main(int argc, char **argv) {
@@ -96,17 +91,19 @@ int main(int argc, char **argv) {
     const auto dir = RemoteAuth::root();
     if (gui) {
         Design::install(static_cast<QApplication*>(app.get()));
-        QWidget window; window.setWindowTitle("Teléfono · Umbriel Connect");window.setAutoFillBackground(true);
+        QWidget window; window.setWindowTitle(I18n::text("Teléfono · Umbriel Connect"));window.setAutoFillBackground(true);
         const auto size=QGuiApplication::primaryScreen()->availableGeometry().size();window.resize(std::min(520,int(size.width()*.8)),std::min(760,int(size.height()*.9)));
-        auto *layout = new QVBoxLayout(&window);
+        auto *outer=new QVBoxLayout(&window);outer->setContentsMargins(0,0,0,0);
+        auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);outer->addWidget(scroll);
+        auto *body=new QWidget;scroll->setWidget(body);auto *layout=new QVBoxLayout(body);
         layout->setContentsMargins(24,24,24,24);layout->setSpacing(12);
-        auto *title=new QLabel("Tu teléfono, a mano.");title->setProperty("role","title");layout->addWidget(title);
-        auto *subtitle=new QLabel("Solo durante una sesión aprobada por ti.");subtitle->setProperty("role","muted");layout->addWidget(subtitle);
+        auto *title=new QLabel(I18n::text("Tu teléfono, a mano."));title->setProperty("role","title");layout->addWidget(title);
+        auto *subtitle=new QLabel(I18n::text("Solo durante una sesión aprobada por ti."));subtitle->setProperty("role","muted");layout->addWidget(subtitle);
         auto *peers = new QComboBox; layout->addWidget(peers);
-        auto *refreshPeers = new QPushButton("Buscar teléfonos autorizados"); layout->addWidget(refreshPeers);
+        auto *refreshPeers = new QPushButton(I18n::text("Buscar teléfonos autorizados")); layout->addWidget(refreshPeers);
         auto *frame=new QFrame;frame->setObjectName("card");auto *frameLayout=new QVBoxLayout(frame);frameLayout->setContentsMargins(16,16,16,16);
-        auto *image = new PhoneImage;image->setText("Tu teléfono aparecerá aquí.\nAprueba la conexión desde Android.");image->setProperty("role","muted"); image->setAlignment(Qt::AlignCenter); image->setMinimumSize(120, 180);frameLayout->addWidget(image);layout->addWidget(frame,1);
-        auto *status = new QLabel("Conecta en la LAN o autoriza el acceso remoto con huella o bloqueo. Permite controlar el teléfono en Android."); status->setWordWrap(true); status->setTextFormat(Qt::PlainText);
+        auto *image = new PhoneImage;image->setText(I18n::text("Tu teléfono aparecerá aquí.\nAprueba la conexión desde Android."));image->setProperty("role","muted"); image->setAlignment(Qt::AlignCenter); image->setMinimumSize(120, 180);frameLayout->addWidget(image);layout->addWidget(frame,1);
+        auto *status = new QLabel(I18n::text("Conecta en la LAN o autoriza el acceso remoto con huella o bloqueo. Permite controlar el teléfono en Android.")); status->setWordWrap(true); status->setTextFormat(Qt::PlainText);
         status->setProperty("role","muted");
         auto send = [&window, peers, status, image](QJsonObject request) {
             request["peer"] = peers->currentData().toString();
@@ -116,25 +113,28 @@ int main(int argc, char **argv) {
                 if (value.contains("png")) {
                     const auto data = QByteArray::fromBase64(value["png"].toByteArray());
                     QImage screen;
-                    if (!screen.loadFromData(data, "PNG")) { status->setText("Imagen inválida"); return; }
-                    image->image = screen; image->update(); status->setText("Captura recibida; presiona sobre ella para tocar ese punto.");
-                } else status->setText("Acción enviada al teléfono");
+                    if (!screen.loadFromData(data, "PNG")) { status->setText(I18n::text("Imagen inválida")); return; }
+                    image->image = screen; image->update(); status->setText(I18n::text("Captura recibida; presiona sobre ella para tocar ese punto."));
+                }else if(value.contains("text")){if(value["text"].toString().toUtf8().size()>65536){status->setText(I18n::text("El portapapeles supera el límite de 64 KiB"));return;}QGuiApplication::clipboard()->setText(value["text"].toString());status->setText(I18n::text("Portapapeles del teléfono copiado en la PC"));} else status->setText(I18n::text("Acción enviada al teléfono"));
             });
         };
         auto *row = new QHBoxLayout;
-        for (const auto &entry : QList<QPair<QString, QString>>{{"Atrás", "back"}, {"Inicio", "home"}, {"Recientes", "recents"}, {"Ver pantalla", "screen"}}) {
+        for (const auto &entry : QList<QPair<QString, QString>>{{I18n::text("Atrás"), "back"}, {I18n::text("Inicio"), "home"}, {I18n::text("Recientes"), "recents"}, {I18n::text("Ver pantalla"), "screen"}}) {
             auto *b = new QPushButton(entry.first); row->addWidget(b);
             if(entry.second=="screen")b->setProperty("kind","primary");
             QObject::connect(b, &QPushButton::clicked, &window, [send, entry] { send({{"action", entry.second}}); });
         }
         layout->addLayout(row); layout->addWidget(status);
+        auto *keyboard=new QLineEdit;keyboard->setPlaceholderText(I18n::text("Texto para el campo enfocado del teléfono"));keyboard->setMaxLength(2000);layout->addWidget(keyboard);auto *write=new QPushButton(I18n::text("Escribir en el teléfono"));layout->addWidget(write);QObject::connect(write,&QPushButton::clicked,&window,[send,keyboard]{send({{"action","type"},{"args",QJsonArray{keyboard->text()}}});});
+        auto *keyRow=new QHBoxLayout;for(auto entry:QList<QPair<QString,QString>>{{I18n::text("Intro"),"enter"},{"Tab","tab"},{I18n::text("Borrar"),"backspace"},{"←","left"},{"→","right"}}){auto *key=new QPushButton(entry.first);keyRow->addWidget(key);QObject::connect(key,&QPushButton::clicked,&window,[send,entry]{send({{"action","key"},{"args",QJsonArray{entry.second}}});});}layout->addLayout(keyRow);
+        auto *copyToPhone=new QPushButton(I18n::text("Enviar portapapeles al teléfono")),*copyFromPhone=new QPushButton(I18n::text("Copiar portapapeles del teléfono"));layout->addWidget(copyToPhone);layout->addWidget(copyFromPhone);QObject::connect(copyToPhone,&QPushButton::clicked,&window,[send,status]{auto text=QGuiApplication::clipboard()->text();if(text.toUtf8().size()>65536){status->setText(I18n::text("El portapapeles supera el límite de 64 KiB"));return;}send({{"action","clipboard-set"},{"args",QJsonArray{text}}});});QObject::connect(copyFromPhone,&QPushButton::clicked,&window,[send]{send({{"action","clipboard-get"},{"args",QJsonArray{}}});});
         image->tap = [send](double x, double y) { send({{"action", "tap"}, {"args", QJsonArray{x, y}}}); };
         auto refresh = [&window, peers, status] {
             localCall(&window, {{"action", "clients"}}, [peers, status](Reply reply) {
                 peers->clear();
                 if (!reply.ok) { status->setText(reply.error); return; }
                 for (const auto &v : reply.value.toList()) {
-                    const auto p = v.toMap(); if (p["phoneControl"].toBool()) peers->addItem("Teléfono " + p["id"].toString().left(12), p["id"]);
+                    const auto p = v.toMap(); if (p["phoneControl"].toBool()) peers->addItem(p.value("name",I18n::text("Teléfono Umbriel")).toString(), p["id"]);
                 }
             });
         };
@@ -150,36 +150,36 @@ int main(int argc, char **argv) {
     }
     if (args[0] == "init" && args.size() == 1) {
         if (!RemoteAuth::initialize(dir, &error)) { QTextStream(stderr) << error << '\n'; return 1; }
-        QTextStream(stdout) << "Identidad creada. SHA256 TLS: " << RemoteAuth::fingerprint(dir) << '\n'; return 0;
+        QTextStream(stdout) << I18n::text("Identidad creada. SHA256 TLS: ") << RemoteAuth::fingerprint(dir) << '\n'; return 0;
     }
     if ((args[0] == "serve" || args[0] == "pair" || args[0] == "pair-proxy") && (args.size() == 2 || args.size() == 3)) {
         QHostAddress address(args[1]); bool validPort = true;
         const auto port = args.size() == 3 ? args[2].toUShort(&validPort) : quint16(31594);
         const bool allowed = args[0] == "pair-proxy" ? address.isInSubnet(QHostAddress("100.64.0.0"),10) : RemoteServer::allowedAddress(address);
-        if (!allowed || !validPort || port < 1024) { QTextStream(stderr) << "Dirección o puerto no permitido; usa loopback o Tailscale\n"; return 2; }
+        if (!allowed || !validPort || port < 1024) { QTextStream(stderr) << I18n::text("Dirección o puerto no permitido; usa loopback o Tailscale\n"); return 2; }
         if (args[0] == "pair" || args[0] == "pair-proxy") {
             const auto pin = RemoteAuth::fingerprint(dir); const auto token = RemoteAuth::random();
-            if (pin.isEmpty() || token.isEmpty()) { QTextStream(stderr) << "Ejecuta init primero\n"; return 1; }
+            if (pin.isEmpty() || token.isEmpty()) { QTextStream(stderr) << I18n::text("Ejecuta init primero\n"); return 1; }
             QLockFile lock(dir + "/enrollment.lock");
             if (!lock.tryLock(0)) return 1;
             const auto expires = QDateTime::currentSecsSinceEpoch() + 300;
             if (!RemoteAuth::writeJson(dir + "/enrollment.json", {{"hash", RemoteAuth::digest(token)}, {"expires", expires}}, &error)
                 || !RemoteAuth::writeJson(dir + "/pairing.json", {{"host", address.toString()}, {"port", port}, {"pin", pin},
                       {"token", QString::fromLatin1(token.toBase64())}, {"expires", expires}}, &error)) { QTextStream(stderr) << error << '\n'; return 1; }
-            QTextStream(stdout) << "Registro válido 5 minutos: " << dir + "/pairing.json" << "\nTransfiere este archivo solo por un medio privado.\n"; return 0;
+            QTextStream(stdout) << I18n::text("Registro válido 5 minutos: ") << dir + "/pairing.json" << I18n::text("\nTransfiere este archivo solo por un medio privado.\n"); return 0;
         }
         RemoteServer server(dir);
         if (!server.start(address, port, &error)) { QTextStream(stderr) << error << '\n'; return 1; }
-        QTextStream(stdout) << "Canal TLS activo en " << address.toString() << ':' << port << "; identidad registrada: LAN automática, acceso remoto autenticado.\n";
+        QTextStream(stdout) << I18n::text("Canal TLS activo en ") << address.toString() << ':' << port << I18n::text("; identidad registrada: LAN automática, acceso remoto autenticado.\n");
         return app->exec();
     }
     if (args[0] == "revoke" && args.size() == 2) {
         QLockFile lock(dir + "/enrollment.lock"); if (!lock.tryLock(0)) return 1;
         auto clients = RemoteAuth::readJson(dir + "/clients.json", &error);
-        if (!error.isEmpty() || !clients.contains(args[1])) { QTextStream(stderr) << "No existe esa identidad\n"; return 1; }
+        if (!error.isEmpty() || !clients.contains(args[1])) { QTextStream(stderr) << I18n::text("No existe esa identidad\n"); return 1; }
         clients.remove(args[1]);
         if (!RemoteAuth::writeJson(dir + "/clients.json", clients, &error)) { QTextStream(stderr) << error << '\n'; return 1; }
-        QTextStream(stdout) << "Confianza retirada\n"; return 0;
+        QTextStream(stdout) << I18n::text("Confianza retirada\n"); return 0;
     }
     QJsonObject request;
     QString output;

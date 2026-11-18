@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 public final class CrashReports {
     private static boolean installed;
     public static synchronized void install(Context context) {
+        Messages.init(context);
         if(installed)return;
         Thread.UncaughtExceptionHandler previous=Thread.getDefaultUncaughtExceptionHandler();
         if(previous==null)return;
@@ -21,7 +22,7 @@ public final class CrashReports {
         });
     }
     static String format(Throwable error,int sdk) {
-        StringBuilder text=new StringBuilder("Umbriel Connect 0.7.0 · Android API "+sdk+"\n");
+        StringBuilder text=new StringBuilder("Umbriel Connect 0.8.0 · Android API "+sdk+"\n");
         for(int cause=0;error!=null&&cause<5;cause++,error=error.getCause()){
             text.append(error.getClass().getName()).append('\n');
             StackTraceElement[] frames=error.getStackTrace();

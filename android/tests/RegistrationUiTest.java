@@ -14,7 +14,7 @@ import org.robolectric.android.controller.ActivityController;
 import org.robolectric.shadows.ShadowAlertDialog;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application=Application.class,sdk=36)
+@Config(application=UiTestApplication.class,sdk=36)
 public class RegistrationUiTest {
     private JSONObject registration() throws Exception {return new JSONObject().put("host","192.168.8.10").put("port",31594).put("pin","b".repeat(64)).put("token",Base64.encodeToString(new byte[32],Base64.NO_WRAP)).put("expires",System.currentTimeMillis()/1000+300);}
     private Uri link(JSONObject registration){return Uri.parse("umbriel-connect://pair?data="+Base64.encodeToString(registration.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8),Base64.URL_SAFE|Base64.NO_WRAP|Base64.NO_PADDING));}

@@ -17,17 +17,12 @@ final class UiDesign {
     final int background,surface,raised,text,muted,accent,onAccent,outline,danger;
     UiDesign(Activity activity){
         this.activity=activity;
-        boolean dark=(activity.getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES;
-        background=dark?Color.rgb(16,22,22):Color.rgb(244,248,247);
-        surface=dark?Color.rgb(25,33,33):Color.WHITE;
-        raised=dark?Color.rgb(37,49,49):Color.rgb(229,238,236);
-        text=dark?Color.rgb(228,238,235):Color.rgb(23,43,40);
-        muted=dark?Color.rgb(175,194,189):Color.rgb(74,98,93);
+        String theme=activity.getSharedPreferences("appearance",0).getString("theme","system");boolean dark=theme.equals("dark")||(!theme.equals("light")&&(activity.getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES);
+        int[] colors=AppearanceSettings.colors(activity.getSharedPreferences("appearance",0).getString("palette","system"),dark);background=colors[0];surface=colors[1];raised=colors[2];text=colors[3];muted=colors[4];outline=colors[5];
         int generated=dark?Color.rgb(155,208,204):Color.rgb(38,107,99);
         if(Build.VERSION.SDK_INT>=31)generated=activity.getColor(dark?android.R.color.system_accent1_200:android.R.color.system_accent1_600);
-        accent=generated;
+        accent=AppearanceSettings.accent(activity.getSharedPreferences("appearance",0).getString("palette","system"),dark,generated);
         onAccent=Color.luminance(accent)>.179?Color.BLACK:Color.WHITE;
-        outline=dark?Color.rgb(59,79,73):Color.rgb(199,216,211);
         danger=dark?Color.rgb(255,180,171):Color.rgb(167,51,58);
     }
     int dp(float value){return Math.round(value*activity.getResources().getDisplayMetrics().density);}

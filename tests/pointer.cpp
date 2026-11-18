@@ -4,10 +4,19 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
+#ifdef UMBRIEL_FAKEKEY
+#include <fakekey/fakekey.h>
+#endif
 #include <X11/Xlib.h>
 #include <X11/extensions/XTest.h>
 static QStringList events;
 extern "C" {
+#ifdef UMBRIEL_FAKEKEY
+FakeKey *fakekey_init(Display*){events<<"keyboard-open";return reinterpret_cast<FakeKey*>(malloc(1));}
+int fakekey_press(FakeKey*,const unsigned char *text,int size,int){events<<"text:"+QString::fromUtf8(reinterpret_cast<const char*>(text),size);return 1;}
+void fakekey_release(FakeKey*){events<<"keyboard-release";}
+int fakekey_press_keysym(FakeKey*,KeySym,int){events<<"key";return 1;}
+#endif
 Display *XOpenDisplay(const char*){events<<"open";return reinterpret_cast<Display*>(1);}
 int XCloseDisplay(Display*){events<<"close";return 0;}
 int XFlush(Display*){return 0;}
@@ -30,6 +39,11 @@ private slots:
     }
     void cancellingAnActivationCannotEnableItLater(){
         events.clear();Pointer pointer;bool done=false;Reply result;pointer.start([&](Reply r){result=r;done=true;});pointer.stop();QTRY_VERIFY(done);QVERIFY(!result.ok);QVERIFY(!events.contains("open"));
+    }
+    void keyboardIsBoundedUnicodeAndStopsOnLock(){
+#ifdef UMBRIEL_FAKEKEY
+        events.clear();Pointer p;QVERIFY(!p.keyboard({{"op","text"},{"text","x"}}).ok);bool done=false;p.start([&](Reply r){QVERIFY(r.ok);done=true;});QTRY_VERIFY(done);QVERIFY(p.keyboard({{"op","text"},{"text",QString::fromUtf8("ñ🙂")}}).ok);QVERIFY(events.contains(QString::fromUtf8("text:ñ")));QVERIFY(events.contains(QString::fromUtf8("text:🙂")));auto before=events.size();QVERIFY(!p.keyboard({{"op","text"},{"text",QString(2001,'x')}}).ok);QVERIFY(!p.keyboard({{"op","key"},{"key","exec"}}).ok);QCOMPARE(events.size(),before);p.lockChanged(true);QVERIFY(!p.keyboard({{"op","key"},{"key","enter"}}).ok);QVERIFY(events.contains("keyboard-release"));
+#endif
     }
     void destructorReleasesDragAndScrollIsBounded(){
         events.clear();{Pointer pointer;bool done=false;pointer.start([&](Reply r){QVERIFY(r.ok);done=true;});QTRY_VERIFY(done);

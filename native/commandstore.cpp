@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "i18n.h"
 #include "commandstore.h"
 #include "integration.h"
 #include <QDateTime>
@@ -37,13 +38,13 @@ QJsonObject CommandStore::commands(const QString &binary, const QJsonArray &prof
 }
 Reply CommandStore::update(const QString &configRoot, const QString &deviceId,
                             const QJsonObject &commands, QDBusConnection bus) {
-    if (!EngineClient::validId(deviceId)) return {false, "ID inválido", {}};
+    if (!EngineClient::validId(deviceId)) return {false, I18n::text("ID inválido"), {}};
     for (auto it = commands.begin(); it != commands.end(); ++it)
-        if (!it.key().startsWith(prefix) || !it.value().isObject()) return {false, "Comando ajeno al catálogo", {}};
+        if (!it.key().startsWith(prefix) || !it.value().isObject()) return {false, I18n::text("Comando ajeno al catálogo"), {}};
     const auto dir = configRoot + "/umbriel-connect/engine/" + deviceId + "/kdeconnect_runcommand";
-    if (!QDir().mkpath(dir)) return {false, "No se pudo crear " + dir, {}};
+    if (!QDir().mkpath(dir)) return {false, I18n::text("No se pudo crear ") + dir, {}};
     QLockFile lock(dir + "/umbriel-connect.lock");
-    if (!lock.tryLock(0)) return {false, "Otra instancia está actualizando los comandos", {}};
+    if (!lock.tryLock(0)) return {false, I18n::text("Otra instancia está actualizando los comandos"), {}};
     const auto path = dir + "/config";
     QSettings config(path, QSettings::IniFormat);
     config.setAtomicSyncRequired(true);
@@ -51,25 +52,25 @@ Reply CommandStore::update(const QString &configRoot, const QString &deviceId,
     QJsonParseError error;
     const auto doc = QJsonDocument::fromJson(raw, &error);
     if (config.status() != QSettings::NoError || error.error != QJsonParseError::NoError || !doc.isObject())
-        return {false, "La configuración contiene comandos inválidos; no se sobrescribió", {}};
+        return {false, I18n::text("La configuración contiene comandos inválidos; no se sobrescribió"), {}};
     auto merged = doc.object();
     const auto keys = merged.keys();
     for (const auto &key : keys) if (key.startsWith(prefix)) merged.remove(key);
     for (auto it = commands.begin(); it != commands.end(); ++it) merged[it.key()] = it.value();
-    if (merged == doc.object()) return {true, {}, "Sin cambios"};
+    if (merged == doc.object()) return {true, {}, I18n::text("Sin cambios")};
     QString backup;
     if (QFile::exists(path)) {
         backup = path + ".bak-umbriel-connect-" + QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss-zzz")
             + "-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
-        if (!QFile::copy(path, backup)) return {false, "No se pudo crear el respaldo", {}};
+        if (!QFile::copy(path, backup)) return {false, I18n::text("No se pudo crear el respaldo"), {}};
         QFile::setPermissions(backup, QFile::ReadOwner | QFile::WriteOwner);
     }
     config.setValue("commands", QJsonDocument(merged).toJson(QJsonDocument::Compact));
     config.sync();
-    if (config.status() != QSettings::NoError) return {false, "No se pudieron guardar los comandos; respaldo: " + backup, {}};
+    if (config.status() != QSettings::NoError) return {false, I18n::text("No se pudieron guardar los comandos; respaldo: ") + backup, {}};
     QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner);
     auto signal = QDBusMessage::createSignal("/kdeconnect/" + deviceId + "/kdeconnect_runcommand",
                                             "org.kde.kdeconnect.config", "configChanged");
-    if (!bus.send(signal)) return {false, "Comandos guardados, pero no se pudo avisar a KDE Connect. Reconecta el teléfono. Respaldo: " + backup, {}};
-    return {true, {}, backup.isEmpty() ? "Comandos publicados" : "Comandos publicados. Respaldo: " + backup};
+    if (!bus.send(signal)) return {false, I18n::text("Comandos guardados, pero no se pudo avisar a KDE Connect. Reconecta el teléfono. Respaldo: ") + backup, {}};
+    return {true, {}, backup.isEmpty() ? I18n::text("Comandos publicados") : I18n::text("Comandos publicados. Respaldo: ") + backup};
 }
