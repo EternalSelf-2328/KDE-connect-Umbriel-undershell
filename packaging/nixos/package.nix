@@ -5,6 +5,8 @@ let
 in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
   pname = "umbriel-connect";
   version = "0.8.0";
+  outputs = [ "out" ];
+  separateDebugInfo = false;
   inherit src;
   patches = [];
   nativeBuildInputs = (old.nativeBuildInputs or []) ++ [
@@ -19,7 +21,17 @@ in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
     chmod -R u+w "$sourceRoot/vendor/kdeconnect-kde"
   '';
   prePatch = "";
-  postPatch = "";
+  # These tests generate executable mock scripts at runtime. They must use store
+  # interpreters/tools too; patchShebangs cannot see their embedded shebangs.
+  postPatch = ''
+    substituteInPlace tests/desktopcontrols.cpp tests/services.cpp tests/remote.py \
+      tests/remote-session.py tests/design.cpp tests/native.cpp \
+      --replace-warn '#!/usr/bin/env python3' '#!${pkgs.python3}/bin/python3' \
+      --replace-warn '/usr/bin/cat' '${pkgs.coreutils}/bin/cat' \
+      --replace-warn '/usr/bin/printf' '${pkgs.coreutils}/bin/printf' \
+      --replace-warn '/bin:/usr/bin' '/bin:${lib.makeBinPath [ pkgs.coreutils pkgs.bash pkgs.python3 ]}' \
+      --replace-warn '/bin/sh' '${pkgs.runtimeShell}'
+  '';
   configurePhase = ''
     runHook preConfigure
     python3 scripts/engine/prepare.py

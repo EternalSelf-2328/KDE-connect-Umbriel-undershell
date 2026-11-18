@@ -137,6 +137,10 @@ jobs:
           nix path-info --closure-size --json ./result > out/nix-closure.json
           nix-store --export $(nix-store --query --requisites ./result) | xz -T2 -3 > out/umbriel-connect-0.8.0-nixos-26.05-x86_64.nar.xz
           readlink -f result > out/nix-store-path.txt
+      - name: Render installed Nix applications in isolation
+        run: bash packaging/smoke.sh "$(readlink -f result)" "$GITHUB_WORKSPACE/previews"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'previews-nixos', path: 'previews/*.png', retention-days: 7}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: {name: 'package-nixos', path: 'out/*', if-no-files-found: error, retention-days: 7}
   source:
