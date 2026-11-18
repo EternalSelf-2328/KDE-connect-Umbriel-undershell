@@ -72,6 +72,8 @@ import it with `xz -dc FILE.nar.xz | sudo nix-store --import`, then install the 
 path recorded in `nix-store-path.txt` with `nix profile install /nix/store/PATH`.
 Importing a verified export does not require disabling Nix signature enforcement.
 The locked flake remains the recommended update/rebuild path.
+The 0.8.0 export downloads about 460 MiB and occupies about 2 GiB with its complete
+runtime closure. It was imported and exercised in a container without network access.
 
 ## Build
 
@@ -90,7 +92,11 @@ The complete source archive works without Git metadata. `scripts/source_integrit
 verifies both vendored source trees against their committed revision and tree digests;
 Git checkouts additionally require the exact clean upstream revision. Windows script
 line endings are normalized according to the upstream `.gitattributes` when hashing.
+Use the `umbriel-connect-0.8.0-source.tar.xz` release asset: GitHub's automatically
+generated source archives omit Git submodules.
 
 Tags must match the CMake version and the signed APK's release number. The existing
 signed APK is verified and attached; publishing never uploads the Android private
 signing key to GitHub Actions. SHA256 sums are generated after all assets are collected.
+For another version, update CMake, the signed APK and its checksum, the distribution
+recipes and the workflow's versioned asset names together before creating the tag.

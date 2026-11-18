@@ -58,9 +58,9 @@ not prove that all of them work in the compositor.
 
 ## Release packages
 
-[GitHub Releases](https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell/releases)
-will carry the signed Android APK, complete sources and native Linux packages for
-Arch, Debian13, Ubuntu26.04LTS, Fedora44, Void (glibc) and NixOS26.05 on x86_64.
+The [experimental v0.8.0 release](https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell/releases/tag/v0.8.0)
+provides the signed Android APK, complete sources and native Linux packages for
+Arch, Debian 13, Ubuntu 26.04 LTS, Fedora 44, Void (glibc) and NixOS 26.05 on x86_64.
 See [package installation and rebuilding](packaging/README.md) for the matching format,
 optional services and the differences from a user-prefix source installation.
 

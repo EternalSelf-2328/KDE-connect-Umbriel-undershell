@@ -1,4 +1,10 @@
-# Red local, archivos propios y respuesta del mouse — 0.4.1
+# Red local, archivos propios y respuesta del mouse
+
+**Vinculación actual (0.6–0.8):** puedes vincular desde Inicio mediante un código
+en la misma red local, sin importar un archivo JSON. Después se reconecta
+automáticamente. Consulta la [guía de vinculación local](UPDATE-0.6.0.md) y las
+[funciones de 0.8.0](UPDATE-0.8.0.md). El registro privado descrito abajo sigue
+disponible como alternativa.
 
 Desde 0.4.1 la LAN directa usa conexión automática con autenticación criptográfica del
 dispositivo, sin pedir huella. Fuera de LAN se exige huella fuerte o PIN/patrón/
@@ -24,8 +30,8 @@ Si la detección falla por firewall o aislamiento Wi-Fi:
 3. Si el router bloquea la comunicación, usar una red que la permita o Tailscale.
 
 ```bash
-~/.local/bin/umbriel-connect-remote network
-~/.local/bin/umbriel-remote-session lan
+umbriel-connect-remote network
+umbriel-remote-session lan
 ```
 
 El registro inicial es privado, válido cinco minutos y de un uso. No se necesita
