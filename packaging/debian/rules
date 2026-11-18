@@ -5,9 +5,10 @@ export UMBRIEL_BUILD_JOBS ?= 2
 override_dh_auto_configure:
 	:
 override_dh_auto_build:
-	bash packaging/build.sh /usr $(CURDIR)/debian/tmp
+	bash packaging/build.sh /usr $(CURDIR)/build/package-stage
 override_dh_auto_install:
-	:
+	mkdir -p $(CURDIR)/debian/tmp
+	cp -a $(CURDIR)/build/package-stage/. $(CURDIR)/debian/tmp/
 override_dh_auto_test:
 	:
 override_dh_makeshlibs:
