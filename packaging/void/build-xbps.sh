@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="${1:?Output directory required}"
 xbps-install -Syu
 xbps-install -Syu
-xbps-install -y base-devel git cmake ninja pkg-config python3 python3-cryptography gettext dbus font-dejavu
+xbps-install -y base-devel git cmake ninja pkg-config python3 python3-cryptography gettext dbus font-dejavu iproute2 openssh openssl
 # Match Void's Qt6/KF6 development split, without installing the official daemon.
 xbps-install -y extra-cmake-modules qt6-base-devel qt6-base-private-devel qt6-declarative-devel qt6-declarative-host-tools qt6-tools qt6-connectivity-devel qt6-multimedia-devel qt6-wayland-devel \
  kf6-kcmutils-devel kf6-kconfigwidgets-devel kf6-kdbusaddons-devel kf6-ki18n-devel kf6-kiconthemes-devel kf6-kio-devel \

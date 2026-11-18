@@ -1,0 +1,45 @@
+{
+  "nodes": {
+    "engine-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794883693,
+        "narHash": "sha256-TgbM+MSSykgmeP0dP6bNfPZLDysOTnA+/7hw9AHcb5o=",
+        "ref": "refs/heads/master",
+        "rev": "642a710abd9dfff4358b5d943ca61965fb34ec6e",
+        "revCount": 5894,
+        "type": "git",
+        "url": "https://invent.kde.org/network/kdeconnect-kde.git"
+      },
+      "original": {
+        "rev": "642a710abd9dfff4358b5d943ca61965fb34ec6e",
+        "type": "git",
+        "url": "https://invent.kde.org/network/kdeconnect-kde.git"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1794872590,
+        "narHash": "sha256-E+XLAfnC7+bdr4qlEgRv6cdGmiqTU5oeFNKCha7epqQ=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f68407657ad294471eb4b2e65d193df26edf729f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "engine-source": "engine-source",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

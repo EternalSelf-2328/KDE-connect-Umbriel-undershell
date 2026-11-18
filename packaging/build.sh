@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFIX="${1:?usage: packaging/build.sh PREFIX STAGING_DIRECTORY}"
 STAGE="${2:?usage: packaging/build.sh PREFIX STAGING_DIRECTORY}"
 [[ "$PREFIX" = /* && "$STAGE" = /* && "$STAGE" != / ]] || { echo 'Use absolute prefix/staging paths.' >&2; exit 2; }
+for tool in openssl ssh-keygen ip; do command -v "$tool" >/dev/null || { echo "Missing test dependency: $tool" >&2; exit 1; }; done
 python3 "$ROOT/scripts/source_integrity.py" kdeconnect-kde
 bash "$ROOT/scripts/engine/build.sh" "$PREFIX"
 bash "$ROOT/tests/engine.sh"

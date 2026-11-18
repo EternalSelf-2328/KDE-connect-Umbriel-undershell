@@ -6,7 +6,7 @@ License:        GPL-3.0-or-later AND LicenseRef-KDE-Accepted-GPL
 URL:            https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell
 Source0:        %{url}/releases/download/v%{version}/%{name}-%{version}-source.tar.xz
 BuildRequires:  gcc-c++, cmake, ninja-build, git, python3, python3-cryptography, gettext, dbus-daemon
-BuildRequires:  extra-cmake-modules, dejavu-sans-fonts
+BuildRequires:  extra-cmake-modules, dejavu-sans-fonts, iproute, openssh-clients, openssl
 BuildRequires:  cmake(Qt6Core) >= 6.8
 BuildRequires:  cmake(Qt6GuiPrivate), cmake(Qt6DBus), cmake(Qt6Quick), cmake(Qt6QuickWidgets)
 BuildRequires:  cmake(Qt6QuickControls2), cmake(Qt6Network), cmake(Qt6Multimedia)

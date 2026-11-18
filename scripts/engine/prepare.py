@@ -94,6 +94,10 @@ s=s.replace('''    if (m_ei && m_textDevice && !modified) {
 #endif
     {''')
 p.write_text(s)
+# These are notification-only cases; old libei headers do not define them.
+with (DEST/'plugins/shareinputdevices/CMakeLists.txt').open('a') as stream:
+    stream.write('\nif(PKG_libei_VERSION VERSION_GREATER_EQUAL "1.6")\n target_compile_definitions(kdeconnect_shareinputdevices PRIVATE UMBRIEL_EI_TEXT)\nendif()\n')
+edit('plugins/shareinputdevices/inputcapturesession.cpp','    case EI_EVENT_TEXT_KEYSYM:\n    case EI_EVENT_TEXT_UTF8:', '#ifdef UMBRIEL_EI_TEXT\n    case EI_EVENT_TEXT_KEYSYM:\n    case EI_EVENT_TEXT_UTF8:\n#endif')
 # Use the same dynamic palette and keyboard handling in the bundled graphical tools.
 for name in ['app/main.cpp','smsapp/main.cpp','daemon/kdeconnectd.cpp']:
     edit(name,'#include <QApplication>','#include <QApplication>\n#include "design.h"\n#include "quickkeyboard.h"')

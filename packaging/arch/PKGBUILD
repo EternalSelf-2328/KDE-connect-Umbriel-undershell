@@ -14,7 +14,7 @@ depends=('bash' 'dbus' 'qt6-base>=6.8' 'qt6-declarative' 'qt6-multimedia' 'qt6-c
  'modemmanager-qt' 'pulseaudio-qt' 'libei' 'libevdev' 'libfakekey' 'libx11'
  'libxkbcommon' 'libxtst' 'wayland' 'openssl' 'libwebp' 'libpulse' 'glib2' 'prison' 'wl-clipboard')
 makedepends=('git' 'cmake' 'ninja' 'pkgconf' 'python' 'python-cryptography' 'gettext'
- 'extra-cmake-modules' 'wayland-protocols' 'qt6-tools')
+ 'extra-cmake-modules' 'wayland-protocols' 'qt6-tools' 'iproute2' 'openssh')
 optdepends=('sshfs: phone filesystem access' 'openssh: SFTP transport'
  'scrcpy: interactive phone screen/camera' 'android-tools: separately authorized ADB'
  'ffmpeg: optional camera integration')

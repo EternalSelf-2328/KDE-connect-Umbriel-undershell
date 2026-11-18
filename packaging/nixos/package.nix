@@ -8,7 +8,7 @@ in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
   inherit src;
   patches = [];
   nativeBuildInputs = (old.nativeBuildInputs or []) ++ [
-    pkgs.git pkgs.pkg-config (pkgs.python3.withPackages (p: [ p.cryptography ]))
+    pkgs.git pkgs.pkg-config pkgs.iproute2 pkgs.openssh pkgs.openssl (pkgs.python3.withPackages (p: [ p.cryptography ]))
   ];
   buildInputs = (old.buildInputs or []) ++ [
     pkgs.openssl pkgs.glib pkgs.libsysprof-capture pkgs.libpulseaudio pkgs.libwebp pkgs.kdePackages.prison
