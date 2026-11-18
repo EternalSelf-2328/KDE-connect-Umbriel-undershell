@@ -8,7 +8,7 @@ OUT="${2:?usage: build-release.sh TARGET OUTPUT_DIRECTORY}"
 [[ "$OUT" = /* ]] || { echo 'Output directory must be absolute.' >&2; exit 2; }
 mkdir -p "$OUT"
 cd "$ROOT"
-VERSION="$(sed -n 's/^project(UmbrielConnect VERSION \([^ ]*\).*/\1/p' CMakeLists.txt)"
+PACKAGE_VERSION="$(sed -n 's/^project(UmbrielConnect VERSION \([^ ]*\).*/\1/p' CMakeLists.txt)"
 . /etc/os-release
 case "$TARGET:$ID:${VERSION_ID:-}" in
  debian-13:debian:13|ubuntu-26.04:ubuntu:26.04)
@@ -18,16 +18,16 @@ case "$TARGET:$ID:${VERSION_ID:-}" in
   cp -a packaging/debian debian
   apt-get build-dep -y --no-install-recommends "$ROOT"
   dpkg-buildpackage -us -uc -b
-  find "$ROOT/.." -maxdepth 1 -name 'umbriel-connect_*.deb' ! -name '*dbgsym*' -exec cp {} "$OUT/umbriel-connect_${VERSION}-1_${TARGET}_amd64.deb" \;
+  find "$ROOT/.." -maxdepth 1 -name 'umbriel-connect_*.deb' ! -name '*dbgsym*' -exec cp {} "$OUT/umbriel-connect_${PACKAGE_VERSION}-1_${TARGET}_amd64.deb" \;
   ;;
  fedora-44:fedora:44)
   dnf -y -q install git rpm-build dnf-plugins-core
   dnf -y builddep packaging/fedora/umbriel-connect.spec
   WORK="$ROOT/build/rpm-package";mkdir -p "$WORK/SOURCES" "$WORK/SPECS"
-  VERSION="$(sed -n 's/^Version: *//p' packaging/fedora/umbriel-connect.spec)"
-  mkdir -p "$WORK/umbriel-connect-$VERSION"
-  tar --exclude=.git --exclude=build --exclude=dist --exclude=.ccache -cf - . | tar -C "$WORK/umbriel-connect-$VERSION" -xf -
-  tar -C "$WORK" -cJf "$WORK/SOURCES/umbriel-connect-$VERSION-source.tar.xz" "umbriel-connect-$VERSION"
+  PACKAGE_VERSION="$(sed -n 's/^Version: *//p' packaging/fedora/umbriel-connect.spec)"
+  mkdir -p "$WORK/umbriel-connect-$PACKAGE_VERSION"
+  tar --exclude=.git --exclude=build --exclude=dist --exclude=.ccache -cf - . | tar -C "$WORK/umbriel-connect-$PACKAGE_VERSION" -xf -
+  tar -C "$WORK" -cJf "$WORK/SOURCES/umbriel-connect-$PACKAGE_VERSION-source.tar.xz" "umbriel-connect-$PACKAGE_VERSION"
   cp packaging/fedora/umbriel-connect.spec "$WORK/SPECS/"
   rpmbuild -ba --define "_topdir $WORK" --define '_build_id_links none' "$WORK/SPECS/umbriel-connect.spec"
   find "$WORK/RPMS" -name 'umbriel-connect-[0-9]*.rpm' ! -name '*debug*' -exec cp {} "$OUT/" \;
