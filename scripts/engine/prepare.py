@@ -41,6 +41,9 @@ p=DEST/'daemon/CMakeLists.txt';s=p.read_text();s='\n'.join(line for line in s.sp
 p=DEST/'CMakeLists.txt';s=p.read_text()
 # Qt 6.8 is supported by the packaged Debian 13 build; all plugins are retained.
 s=s.replace('set(QT_MIN_VERSION "6.9.0")','set(QT_MIN_VERSION "6.8.0")')
+# Older supported KF6 headers still use Qt's Java-style iterators. This is a
+# compile-time deprecation policy, not an authentication/security setting.
+s=s.replace(' -DQT_ENABLE_STRICT_MODE_UP_TO=0x060900','')
 for name in ['data','icons','indicator','nautilus-extension','fileitemactionplugin','plasmoid']:
     s=s.replace('add_subdirectory('+name+')','# Umbriel: no global integration for '+name)
 # Compile the bundled Spanish source catalogs into the private prefix.
@@ -74,6 +77,7 @@ s=s.replace('''            if (ei_device_has_capability(device, EI_DEVICE_CAP_TE
                 m_textDevice = device;
             }
 #endif''')
+s=s.replace('        case EI_EVENT_TEXT_KEYSYM:\n        case EI_EVENT_TEXT_UTF8:', '#ifdef UMBRIEL_EI_TEXT\n        case EI_EVENT_TEXT_KEYSYM:\n        case EI_EVENT_TEXT_UTF8:\n#endif')
 s=s.replace('''    if (m_ei && m_textDevice && !modified) {
         const QByteArray utfkey = text.toUtf8();
         ei_device_text_utf8_with_length(m_textDevice, utfkey.constData(), utfkey.size());

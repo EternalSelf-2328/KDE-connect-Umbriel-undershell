@@ -14,9 +14,9 @@ case "$TARGET:$ID:${VERSION_ID:-}" in
  debian-13:debian:13|ubuntu-26.04:ubuntu:26.04)
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -q
-  apt-get install -y -q --no-install-recommends ca-certificates build-essential devscripts equivs
+  apt-get install -y -q --no-install-recommends ca-certificates build-essential dpkg-dev debhelper
   cp -a packaging/debian debian
-  mk-build-deps --install --remove --tool 'apt-get -y --no-install-recommends' debian/control
+  apt-get build-dep -y --no-install-recommends "$ROOT"
   dpkg-buildpackage -us -uc -b
   find "$ROOT/.." -maxdepth 1 -name 'umbriel-connect_*.deb' ! -name '*dbgsym*' -exec cp {} "$OUT/umbriel-connect_${VERSION}-1_${TARGET}_amd64.deb" \;
   ;;

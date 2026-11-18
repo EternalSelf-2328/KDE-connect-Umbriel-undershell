@@ -11,7 +11,7 @@ in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
     pkgs.git pkgs.pkg-config (pkgs.python3.withPackages (p: [ p.cryptography ]))
   ];
   buildInputs = (old.buildInputs or []) ++ [
-    pkgs.openssl pkgs.glib pkgs.libpulseaudio pkgs.libwebp pkgs.kdePackages.prison
+    pkgs.openssl pkgs.glib pkgs.libsysprof-capture pkgs.libpulseaudio pkgs.libwebp pkgs.kdePackages.prison
   ];
   postUnpack = ''
     mkdir -p "$sourceRoot/vendor/kdeconnect-kde"
@@ -31,7 +31,7 @@ in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
       -DQtWaylandScanner_EXECUTABLE=${pkgs.qt6.qtbase}/libexec/qtwaylandscanner \
       -DINSTALL_UFW_APPLICATION_RULE=OFF -DBUILD_TESTING=ON
     cmake -S . -B build/native -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$out" \
-      -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_TESTING=ON
+      -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_TESTING=ON -DUMBRIEL_REQUIRE_DESKTOP_FEATURES=ON
     runHook postConfigure
   '';
   buildPhase = ''

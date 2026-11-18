@@ -1,0 +1,37 @@
+[
+  {
+    "target": "debian-13",
+    "image": "debian:13",
+    "bootstrap": "apt-get update -q && apt-get install -y -q git ca-certificates",
+    "runtimeBootstrap": "apt-get update -q && apt-get install -y -q git ca-certificates python3 dbus fonts-dejavu-core",
+    "install": "apt-get install -y ./packages/*.deb"
+  },
+  {
+    "target": "ubuntu-26.04",
+    "image": "ubuntu:26.04",
+    "bootstrap": "apt-get update -q && apt-get install -y -q git ca-certificates",
+    "runtimeBootstrap": "apt-get update -q && apt-get install -y -q git ca-certificates python3 dbus fonts-dejavu-core",
+    "install": "apt-get install -y ./packages/*.deb"
+  },
+  {
+    "target": "fedora-44",
+    "image": "fedora:44",
+    "bootstrap": "dnf -y -q install git",
+    "runtimeBootstrap": "dnf -y -q install git python3 dbus-daemon dejavu-sans-fonts",
+    "install": "dnf -y install ./packages/*.rpm"
+  },
+  {
+    "target": "arch",
+    "image": "archlinux:latest",
+    "bootstrap": "pacman -Syu --noconfirm --needed git",
+    "runtimeBootstrap": "pacman -Syu --noconfirm --needed git python dbus ttf-dejavu",
+    "install": "pacman -U --noconfirm packages/*.pkg.tar.zst"
+  },
+  {
+    "target": "void",
+    "image": "ghcr.io/void-linux/void-glibc-full:latest",
+    "bootstrap": "xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git bash libstdc++",
+    "runtimeBootstrap": "xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git bash libstdc++ python3 dbus font-dejavu",
+    "install": "xbps-rindex -a packages/*.xbps && xbps-install -y -R \"$PWD/packages\" umbriel-connect"
+  }
+]

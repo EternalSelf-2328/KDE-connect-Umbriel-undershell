@@ -3,10 +3,10 @@ Section: net
 Priority: optional
 Maintainer: EternalSelf-2328 <71615506+EternalSelf-2328@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13), cmake, ninja-build, git, python3, python3-cryptography,
- pkgconf, extra-cmake-modules, gettext, dbus-daemon, fonts-dejavu-core,
+ pkgconf, extra-cmake-modules, gettext, dbus-daemon, libdbus-1-dev, fonts-dejavu-core,
  qt6-base-dev (>= 6.8), qt6-base-private-dev, qt6-declarative-dev,
  qt6-declarative-private-dev, qt6-connectivity-dev, qt6-multimedia-dev,
- qt6-wayland-dev, qt6-wayland-dev-tools, qt6-tools-dev,
+ qt6-wayland-dev, qt6-wayland-dev-tools | qt6-base-dev-tools, qt6-tools-dev,
  kirigami-addons-dev, libkirigami-dev, libkf6configwidgets-dev, libkf6crash-dev,
  libkf6dbusaddons-dev, libkf6guiaddons-dev, libkf6i18n-dev, libkf6iconthemes-dev,
  libkf6itemmodels-dev, libkf6kcmutils-dev, libkf6kio-dev, libkf6modemmanagerqt-dev,
@@ -31,7 +31,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, bash, dbus, wl-clipboard, qt6-wayla
  qml6-module-org-kde-kirigami, qml6-module-org-kde-kirigamiaddons-components,
  qml6-module-org-kde-kirigamiaddons-formcard, qml6-module-org-kde-kitemmodels,
  qml6-module-org-kde-kquickcontrolsaddons, qml6-module-org-kde-people,
- libkf6qqc2desktopstyle6
+ qml6-module-org-kde-desktop
 Recommends: sshfs, openssh-client, breeze-icon-theme
 Suggests: scrcpy, adb, ffmpeg
 Description: phone integration for Umbriel, Noctalia and undershell

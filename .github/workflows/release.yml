@@ -1,8 +1,14 @@
 name: Release packages
 on:
   push:
-    tags: ['v0.*']
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        default: all
+        options: [all, debian-13, ubuntu-26.04, fedora-44, arch, void, nixos]
+        description: Build all targets or one target without publishing
 permissions:
   contents: read
 concurrency:
@@ -10,10 +16,28 @@ concurrency:
   cancel-in-progress: false
 jobs:
   version:
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+      native: ${{ steps.targets.outputs.native }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: {persist-credentials: false}
+      - id: targets
+        name: Select build targets
+        env:
+          TARGET: ${{ inputs.target || 'all' }}
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          targets=json.loads(Path('packaging/targets.json').read_text());choice=os.environ['TARGET']
+          assert choice in ['all','nixos']+[t['target'] for t in targets]
+          selected=[t for t in targets if choice=='all' or t['target']==choice]
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+            output.write('matrix='+json.dumps({'include':selected})+'\n')
+            output.write('native='+str(bool(selected)).lower()+'\n')
+          PY
       - name: Validate version and signed APK checksum
         env:
           REF: ${{ github.ref }}
@@ -28,6 +52,7 @@ jobs:
             digest,name=line.split();assert hashlib.sha256((Path('downloads')/name).read_bytes()).hexdigest()==digest,name
           PY
   build:
+    if: needs.version.outputs.native == 'true'
     needs: version
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-24.04
@@ -36,13 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 3
-      matrix:
-        include:
-          - {target: debian-13, image: 'debian:13', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates'}
-          - {target: ubuntu-26.04, image: 'ubuntu:26.04', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates'}
-          - {target: fedora-44, image: 'fedora:44', bootstrap: 'dnf -y -q install git'}
-          - {target: arch, image: 'archlinux:latest', bootstrap: 'pacman -Syu --noconfirm --needed git'}
-          - {target: void, image: 'ghcr.io/void-linux/void-glibc-full:latest', bootstrap: 'xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git libstdc++'}
+      matrix: ${{ fromJSON(needs.version.outputs.matrix) }}
     steps:
       - name: Bootstrap Git
         run: ${{ matrix.bootstrap }}
@@ -58,7 +77,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   verify:
-    needs: build
+    needs: [version, build]
     name: Install ${{ matrix.target }} on a clean image
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -66,15 +85,9 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 3
-      matrix:
-        include:
-          - {target: debian-13, image: 'debian:13', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates python3 dbus fonts-dejavu-core', install: 'apt-get install -y ./packages/*.deb'}
-          - {target: ubuntu-26.04, image: 'ubuntu:26.04', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates python3 dbus fonts-dejavu-core', install: 'apt-get install -y ./packages/*.deb'}
-          - {target: fedora-44, image: 'fedora:44', bootstrap: 'dnf -y -q install git python3 dbus-daemon dejavu-sans-fonts', install: 'dnf -y install ./packages/*.rpm'}
-          - {target: arch, image: 'archlinux:latest', bootstrap: 'pacman -Syu --noconfirm --needed git python dbus ttf-dejavu', install: 'pacman -U --noconfirm packages/*.pkg.tar.zst'}
-          - {target: void, image: 'ghcr.io/void-linux/void-glibc-full:latest', bootstrap: 'xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git libstdc++ python3 dbus font-dejavu', install: 'xbps-rindex -a packages/*.xbps && xbps-install -y -R "$PWD/packages" umbriel-connect'}
+      matrix: ${{ fromJSON(needs.version.outputs.matrix) }}
     steps:
-      - run: ${{ matrix.bootstrap }}
+      - run: ${{ matrix.runtimeBootstrap }}
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: {persist-credentials: false}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -85,6 +98,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: {name: 'previews-${{ matrix.target }}', path: previews/*.png, retention-days: 7}
   nix:
+    if: github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'nixos'
     needs: version
     name: Build NixOS 26.05 package
     runs-on: ubuntu-24.04
