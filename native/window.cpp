@@ -142,7 +142,7 @@ Window::Window(bool preview) : m_client(this), m_remote(this), m_integration(thi
     auto *actionRow = new QHBoxLayout;
     m_ring = button(I18n::text("Encontrar teléfono"), actionRow); m_ping = button(I18n::text("Enviar aviso"), actionRow);
     m_files = button(I18n::text("Explorar archivos"), actionRow); details->addLayout(actionRow);
-    for(auto *b:{m_ring,m_ping,m_files}){b->setProperty("kind","tile");b->setIconSize(QSize(24,24));}
+    for(auto *b:{m_ring,m_ping,m_files}){const auto label=b->text();b->setAccessibleName(label);b->setToolTip(label);b->setText(QString(label).replace(' ','\n'));b->setProperty("kind","tile");b->setIconSize(QSize(24,24));}
     m_ring->setIcon(Design::icon("ring"));m_ping->setIcon(Design::icon("send"));m_files->setIcon(Design::icon("folder"));
     m_ring->setProperty("glyph","ring");m_ping->setProperty("glyph","send");m_files->setProperty("glyph","folder");
     auto *sharing = new QGroupBox(I18n::text("Compartir con el teléfono"));
