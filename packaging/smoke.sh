@@ -11,8 +11,8 @@ python3 - "$PREFIX" <<'PY'
 from pathlib import Path
 import subprocess,sys
 prefix=Path(sys.argv[1]);count=0
-for folder in [prefix/'bin',prefix/'lib/umbriel-connect/engine']:
- for p in folder.rglob('*'):
+candidates=list((prefix/'bin').glob('umbriel-connect*'))+list((prefix/'bin').glob('.umbriel-connect*-wrapped'))+list((prefix/'lib/umbriel-connect/engine').rglob('*'))
+for p in candidates:
   if not p.is_file() or p.is_symlink():continue
   with p.open('rb') as f:magic=f.read(4)
   if magic!=b'\x7fELF':continue
