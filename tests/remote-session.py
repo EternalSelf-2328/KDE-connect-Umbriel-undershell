@@ -51,4 +51,11 @@ if 'serve' in args:
     env["UC_TEST_ADDRESS"]="192.0.2.1"
     rejected=subprocess.run(["bash",str(root/"scripts/remote-session.sh"),"pair"],env=env,capture_output=True)
     assert rejected.returncode!=0
+    # A system-prefix install must find its adjacent receiver without ~/.local/bin.
+    bin_dir=temp/"prefix/bin";bin_dir.mkdir(parents=True)
+    script=bin_dir/"umbriel-remote-session";script.write_text((root/"scripts/remote-session.sh").read_text())
+    remote=bin_dir/"umbriel-connect-remote";remote.write_text("#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$UC_PREFIX_LOG\"\n");remote.chmod(0o755)
+    prefix_log=temp/"prefix-calls";installed_env={**env,"UC_PREFIX_LOG":str(prefix_log)};installed_env.pop("UMBRIEL_REMOTE_BIN",None)
+    subprocess.run(["bash",str(script),"lan"],env=installed_env,check=True,timeout=3)
+    assert prefix_log.read_text().splitlines()==["init","serve 127.0.0.1 31594"]
 print("Remote session wrapper: private flags, proxy and cleanup passed")

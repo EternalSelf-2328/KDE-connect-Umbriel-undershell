@@ -23,7 +23,7 @@ case "$TARGET:$ID:${VERSION_ID:-}" in
  fedora-44:fedora:44)
   dnf -y -q install git rpm-build dnf-plugins-core
   dnf -y builddep packaging/fedora/umbriel-connect.spec
-  WORK="$(mktemp -d)";mkdir -p "$WORK/SOURCES" "$WORK/SPECS"
+  WORK="$ROOT/build/rpm-package";mkdir -p "$WORK/SOURCES" "$WORK/SPECS"
   VERSION="$(sed -n 's/^Version: *//p' packaging/fedora/umbriel-connect.spec)"
   mkdir -p "$WORK/umbriel-connect-$VERSION"
   tar --exclude=.git --exclude=build --exclude=dist -cf - . | tar -C "$WORK/umbriel-connect-$VERSION" -xf -
@@ -37,8 +37,9 @@ case "$TARGET:$ID:${VERSION_ID:-}" in
   source packaging/arch/PKGBUILD
   pacman -S --noconfirm --needed "${depends[@]}" "${makedepends[@]}"
   useradd -m builder
-  WORK="$(mktemp -d)";cp packaging/arch/PKGBUILD "$WORK/"
+  WORK="$ROOT/build/arch-package";mkdir -p "$WORK";cp packaging/arch/PKGBUILD "$WORK/"
   chown builder:builder "$WORK";chmod -R a+rX "$ROOT"
+  if [[ -n "${CCACHE_DIR:-}" ]]; then mkdir -p "$CCACHE_DIR";chown -R builder:builder "$CCACHE_DIR";fi
   runuser -u builder -- env UMBRIEL_PACKAGE_SOURCE="$ROOT" bash -c 'cd "$1";makepkg --noconfirm' _ "$WORK"
   find "$WORK" -maxdepth 1 -name 'umbriel-connect-[0-9]*.pkg.tar.zst' -exec cp {} "$OUT/" \;
   ;;

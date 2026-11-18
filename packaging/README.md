@@ -25,8 +25,13 @@ systemctl --user enable --now umbriel-connect-engine.service umbriel-connect-rem
 This is opt-in. Packages do not start services, disable KDE Connect, open firewall
 ports or alter Tailscale and desktop settings. If the official daemon is still
 running, follow the existing migration instructions before enabling both engines.
-If `~/.local/bin` contains an older installation, use `/usr/bin/umbriel-connect` or
-remove the old user installation after backing it up; packages do not delete it.
+Umbriel/Noctalia/undershell controls need those components installed and running.
+If migrating from `~/.local`, finish transfers and back up the old installation.
+Old user-prefix helpers, D-Bus activation files and user units can override the
+packaged ones; invoking `/usr/bin/umbriel-connect` alone is not a complete migration.
+Inspect `command -v umbriel-connect` and `systemctl --user cat umbriel-connect-engine.service`,
+then remove only the old installation files you have identified and backed up.
+Packages never delete your user-prefix installation or pairing data.
 
 ### Void Linux
 

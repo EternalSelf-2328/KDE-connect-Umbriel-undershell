@@ -6,6 +6,7 @@ PREFIX="${1:-$HOME/.local}"
 ENGINE="$PREFIX/lib/umbriel-connect/engine"
 python3 "$ROOT/scripts/engine/prepare.py"
 EXTRA=()
+if command -v ccache >/dev/null; then EXTRA+=("-DCMAKE_C_COMPILER_LAUNCHER=ccache" "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"); fi
 if [[ -d "$ROOT/build/deps/usr/share/ECM/cmake" ]]; then EXTRA+=("-DECM_DIR=$ROOT/build/deps/usr/share/ECM/cmake"); fi
 cmake -S "$ROOT/build/engine-source" -B "$ROOT/build/engine" -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="$ENGINE" -DKDE_INSTALL_USE_QT_SYS_PATHS=OFF \

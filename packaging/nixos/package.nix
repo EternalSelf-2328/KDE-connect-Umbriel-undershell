@@ -1,7 +1,7 @@
 { pkgs, src, engineSource }:
 let
   inherit (pkgs) lib;
-  runtimeTools = [ pkgs.wl-clipboard pkgs.openssh pkgs.sshfs ];
+  runtimeTools = [ pkgs.wl-clipboard pkgs.openssh pkgs.sshfs pkgs.python3 ];
 in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
   pname = "umbriel-connect";
   version = "0.8.0";
@@ -42,6 +42,7 @@ in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
   '';
   doCheck = true;
   checkPhase = ''
+    export FONTCONFIG_FILE=${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }}
     bash tests/private-session.sh ctest --test-dir build/engine --output-on-failure
     ctest --test-dir build/native --output-on-failure
   '';

@@ -3,7 +3,8 @@
 set -euo pipefail
 umask 077
 TOOLS="${UMBRIEL_TAILSCALE_DIR:-$HOME/.local/libexec/umbriel-connect-tailscale}"
-REMOTE="${UMBRIEL_REMOTE_BIN:-$HOME/.local/bin/umbriel-connect-remote}"
+PREFIX_UC="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+REMOTE="${UMBRIEL_REMOTE_BIN:-$PREFIX_UC/bin/umbriel-connect-remote}"
 RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/umbriel-connect-tailscale"
 SOCKET="$RUNTIME/umbriel-tailscale.sock"

@@ -9,7 +9,9 @@ for tool in openssl ssh-keygen ip; do command -v "$tool" >/dev/null || { echo "M
 python3 "$ROOT/scripts/source_integrity.py" kdeconnect-kde
 bash "$ROOT/scripts/engine/build.sh" "$PREFIX"
 bash "$ROOT/tests/engine.sh"
-cmake -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_TESTING=ON -DUMBRIEL_REQUIRE_DESKTOP_FEATURES=ON
+CACHE_FLAGS=()
+if command -v ccache >/dev/null; then CACHE_FLAGS+=("-DCMAKE_C_COMPILER_LAUNCHER=ccache" "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"); fi
+cmake "${CACHE_FLAGS[@]}" -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_TESTING=ON -DUMBRIEL_REQUIRE_DESKTOP_FEATURES=ON
 cmake --build "$ROOT/build" --parallel "${UMBRIEL_BUILD_JOBS:-2}"
 ctest --test-dir "$ROOT/build" --output-on-failure
 DESTDIR="$STAGE" cmake --install "$ROOT/build/engine" --strip
