@@ -18,4 +18,4 @@ override_dh_shlibdeps:
 override_dh_auto_clean:
 	rm -rf build
 override_dh_installsystemduser:
-	dh_installsystemduser --no-enable --no-start
+	dh_installsystemduser --no-enable
