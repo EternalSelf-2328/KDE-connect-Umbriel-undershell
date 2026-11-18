@@ -13,7 +13,7 @@ makedepends="qt6-base-devel qt6-base-private-devel qt6-declarative-devel qt6-con
  kf6-kwindowsystem-devel kf6-solid-devel kf6-prison-devel kirigami-addons-devel pulseaudio-qt-devel
  libei-devel libevdev-devel libfakekey-devel libXtst-devel libX11-devel libxkbcommon-devel wayland-devel wayland-protocols
  openssl-devel libwebp-devel pulseaudio-devel glib-devel"
-depends="bash dbus wl-clipboard qt6-plugin-tls-openssl kf6-kirigami kf6-qqc2-desktop-style kirigami-addons"
+depends="bash python3 dbus wl-clipboard qt6-plugin-tls-openssl kf6-kirigami kf6-qqc2-desktop-style kirigami-addons"
 short_desc="Phone integration for Umbriel, Noctalia and undershell"
 maintainer="EternalSelf-2328 <71615506+EternalSelf-2328@users.noreply.github.com>"
 license="GPL-3.0-or-later, LicenseRef-KDE-Accepted-GPL"

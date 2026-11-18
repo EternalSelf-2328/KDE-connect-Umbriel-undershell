@@ -6,7 +6,7 @@ pkgdesc='Phone integration for Umbriel, Noctalia and undershell with a private e
 arch=('x86_64')
 url='https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell'
 license=('GPL-3.0-or-later' 'LicenseRef-KDE-Accepted-GPL')
-depends=('bash' 'dbus' 'qt6-base>=6.8' 'qt6-declarative' 'qt6-multimedia' 'qt6-connectivity'
+depends=('bash' 'python' 'dbus' 'qt6-base>=6.8' 'qt6-declarative' 'qt6-multimedia' 'qt6-connectivity'
  'qt6-wayland' 'qt6-svg' 'kconfig' 'kcoreaddons' 'kcrash' 'kdbusaddons' 'kdeclarative'
  'kguiaddons' 'ki18n' 'kiconthemes' 'kio' 'kirigami' 'kirigami-addons' 'kitemmodels'
  'knotifications' 'kpeople' 'kservice' 'kstatusnotifieritem' 'kwindowsystem'

@@ -24,7 +24,7 @@ BuildRequires:  pkgconfig(wayland-client), pkgconfig(wayland-protocols), pkgconf
 BuildRequires:  pkgconfig(gio-unix-2.0), pkgconfig(openssl), pkgconfig(libpulse), pkgconfig(libwebp)
 BuildRequires:  pkgconfig(xtst), pkgconfig(x11), pkgconfig(libfakekey), pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(libei-1.0), pkgconfig(libevdev)
-Requires:       bash, dbus, wl-clipboard, qt6-qtwayland, kf6-kirigami, kf6-qqc2-desktop-style
+Requires:       bash, python3, dbus, wl-clipboard, qt6-qtwayland, kf6-kirigami, kf6-qqc2-desktop-style
 Requires:       kf6-kirigami-addons, kf6-kitemmodels, kf6-kpeople, qt6-qtquickcontrols2
 Recommends:     fuse-sshfs, openssh-clients, breeze-icon-theme
 Suggests:       scrcpy, android-tools, ffmpeg-free

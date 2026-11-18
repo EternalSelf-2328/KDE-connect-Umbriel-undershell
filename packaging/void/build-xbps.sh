@@ -18,7 +18,7 @@ STAGE="$ROOT/build/void-stage"
 bash "$ROOT/packaging/build.sh" /usr "$STAGE"
 VERSION="$(sed -n 's/^project(UmbrielConnect VERSION \([^ ]*\).*/\1/p' "$ROOT/CMakeLists.txt")"
 QT_CORE="$(xbps-query -p pkgver qt6-core)"
-DEPS="bash dbus wl-clipboard $QT_CORE qt6-gui qt6-widgets qt6-network qt6-dbus qt6-declarative qt6-multimedia qt6-connectivity qt6-wayland qt6-plugin-tls-openssl \
+DEPS="bash python3 dbus wl-clipboard $QT_CORE qt6-gui qt6-widgets qt6-network qt6-dbus qt6-declarative qt6-multimedia qt6-connectivity qt6-wayland qt6-plugin-tls-openssl \
  kf6-kconfig kf6-kcoreaddons kf6-kcrash kf6-kdbusaddons kf6-kdeclarative kf6-kguiaddons kf6-ki18n kf6-kiconthemes kf6-kio kf6-kirigami kf6-kitemmodels \
  kf6-knotifications kf6-kpeople kf6-kservice kf6-kstatusnotifieritem kf6-kwindowsystem kf6-kwidgetsaddons kf6-kpackage kf6-solid kf6-qqc2-desktop-style \
  kf6-kcolorscheme kf6-modemmanager-qt pulseaudio-qt kirigami-addons kf6-prison libei libevdev libfakekey libXtst libX11 libxkbcommon wayland openssl libwebp libpulseaudio glib"
