@@ -8,7 +8,7 @@ in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
   inherit src;
   patches = [];
   nativeBuildInputs = (old.nativeBuildInputs or []) ++ [
-    pkgs.git pkgs.pkg-config pkgs.iproute2 pkgs.openssh pkgs.openssl (pkgs.python3.withPackages (p: [ p.cryptography ]))
+    pkgs.git pkgs.pkg-config pkgs.dbus pkgs.iproute2 pkgs.openssh pkgs.openssl (pkgs.python3.withPackages (p: [ p.cryptography ]))
   ];
   buildInputs = (old.buildInputs or []) ++ [
     pkgs.openssl pkgs.glib pkgs.libsysprof-capture pkgs.libpulseaudio pkgs.libwebp pkgs.kdePackages.prison
@@ -43,6 +43,9 @@ in pkgs.kdePackages.kdeconnect-kde.overrideAttrs (old: {
   doCheck = true;
   checkPhase = ''
     export FONTCONFIG_FILE=${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }}
+    for directory in ${pkgs.kdePackages.kio}/lib/qt*/plugins; do
+      export QT_PLUGIN_PATH="$directory''${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+    done
     bash tests/private-session.sh ctest --test-dir build/engine --output-on-failure
     ctest --test-dir build/native --output-on-failure
   '';

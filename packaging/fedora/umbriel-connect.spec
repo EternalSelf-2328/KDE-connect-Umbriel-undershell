@@ -1,3 +1,4 @@
+%global debug_package %{nil}
 Name:           umbriel-connect
 Version:        0.8.0
 Release:        1%{?dist}

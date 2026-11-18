@@ -30,7 +30,7 @@ fi
 prepare() {
  if [[ -n "${UMBRIEL_PACKAGE_SOURCE:-}" ]]; then
   mkdir -p "$srcdir/umbriel-connect"
-  tar -C "$UMBRIEL_PACKAGE_SOURCE" --exclude=.git --exclude=build --exclude=dist -cf - . | tar -C "$srcdir/umbriel-connect" -xf -
+  tar -C "$UMBRIEL_PACKAGE_SOURCE" --exclude=.git --exclude=build --exclude=dist --exclude=.ccache -cf - . | tar -C "$srcdir/umbriel-connect" -xf -
  else
   mkdir -p "$srcdir/umbriel-connect/vendor/kdeconnect-kde"
   cp -a "$srcdir/engine/." "$srcdir/umbriel-connect/vendor/kdeconnect-kde/"

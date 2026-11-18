@@ -26,7 +26,7 @@ case "$TARGET:$ID:${VERSION_ID:-}" in
   WORK="$ROOT/build/rpm-package";mkdir -p "$WORK/SOURCES" "$WORK/SPECS"
   VERSION="$(sed -n 's/^Version: *//p' packaging/fedora/umbriel-connect.spec)"
   mkdir -p "$WORK/umbriel-connect-$VERSION"
-  tar --exclude=.git --exclude=build --exclude=dist -cf - . | tar -C "$WORK/umbriel-connect-$VERSION" -xf -
+  tar --exclude=.git --exclude=build --exclude=dist --exclude=.ccache -cf - . | tar -C "$WORK/umbriel-connect-$VERSION" -xf -
   tar -C "$WORK" -cJf "$WORK/SOURCES/umbriel-connect-$VERSION-source.tar.xz" "umbriel-connect-$VERSION"
   cp packaging/fedora/umbriel-connect.spec "$WORK/SPECS/"
   rpmbuild -ba --define "_topdir $WORK" --define '_build_id_links none' "$WORK/SPECS/umbriel-connect.spec"

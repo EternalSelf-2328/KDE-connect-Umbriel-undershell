@@ -16,3 +16,6 @@ server-cert.pem
 *.jks
 *.keystore
 phone-screen*.png
+
+# Per-distribution compiler cache (not source or release content).
+.ccache/

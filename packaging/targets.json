@@ -31,7 +31,7 @@
     "target": "void",
     "image": "ghcr.io/void-linux/void-glibc-full:latest",
     "bootstrap": "xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git bash libstdc++ ccache zstd",
-    "runtimeBootstrap": "xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git bash libstdc++ python3 dbus font-dejavu",
+    "runtimeBootstrap": "xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git bash libstdc++ python3 dbus dejavu-fonts-ttf",
     "install": "xbps-rindex -a packages/*.xbps && xbps-install -y -R \"$PWD/packages\" umbriel-connect"
   }
 ]

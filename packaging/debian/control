@@ -9,7 +9,7 @@ Build-Depends: debhelper-compat (= 13), cmake, ninja-build, git, python3, python
  qt6-wayland-dev, qt6-wayland-dev-tools | qt6-base-dev-tools, qt6-tools-dev,
  kirigami-addons-dev, libkirigami-dev, libkf6configwidgets-dev, libkf6crash-dev,
  libkf6dbusaddons-dev, libkf6guiaddons-dev, libkf6i18n-dev, libkf6iconthemes-dev,
- libkf6itemmodels-dev, libkf6kcmutils-dev, libkf6kio-dev, libkf6modemmanagerqt-dev,
+ libkf6itemmodels-dev, libkf6kcmutils-dev, libkf6kio-dev, kio6, libkf6modemmanagerqt-dev,
  libkf6notifications-dev, libkf6package-dev, libkf6people-dev, libkf6pulseaudioqt-dev,
  libkf6qqc2desktopstyle-dev, libkf6service-dev, libkf6solid-dev,
  libkf6statusnotifieritem-dev, libkf6windowsystem-dev, libkf6prison-dev,
@@ -22,7 +22,7 @@ Rules-Requires-Root: no
 
 Package: umbriel-connect
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, bash, dbus, wl-clipboard, qt6-wayland,
+Depends: ${shlibs:Depends}, ${misc:Depends}, bash, dbus, wl-clipboard, qt6-wayland, kio6,
  qml6-module-qtcore, qml6-module-qtmultimedia, qml6-module-qtqml,
  qml6-module-qtqml-models, qml6-module-qtqml-workerscript, qml6-module-qtquick,
  qml6-module-qtquick-controls, qml6-module-qtquick-dialogs, qml6-module-qtquick-layouts,
