@@ -1,0 +1,47 @@
+# Maintainer: EternalSelf-2328 <71615506+EternalSelf-2328@users.noreply.github.com>
+pkgname=umbriel-connect
+pkgver=0.8.0
+pkgrel=1
+pkgdesc='Phone integration for Umbriel, Noctalia and undershell with a private engine'
+arch=('x86_64')
+url='https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell'
+license=('GPL-3.0-or-later' 'LicenseRef-KDE-Accepted-GPL')
+depends=('bash' 'dbus' 'qt6-base>=6.8' 'qt6-declarative' 'qt6-multimedia' 'qt6-connectivity'
+ 'qt6-wayland' 'qt6-svg' 'kconfig' 'kcoreaddons' 'kcrash' 'kdbusaddons' 'kdeclarative'
+ 'kguiaddons' 'ki18n' 'kiconthemes' 'kio' 'kirigami' 'kirigami-addons' 'kitemmodels'
+ 'knotifications' 'kpeople' 'kservice' 'kstatusnotifieritem' 'kwindowsystem'
+ 'kwidgetsaddons' 'kpackage' 'solid' 'qqc2-desktop-style' 'kcolorscheme'
+ 'modemmanager-qt' 'pulseaudio-qt' 'libei' 'libevdev' 'libfakekey' 'libx11'
+ 'libxkbcommon' 'libxtst' 'wayland' 'openssl' 'libwebp' 'libpulse' 'glib2' 'prison' 'wl-clipboard')
+makedepends=('git' 'cmake' 'ninja' 'pkgconf' 'python' 'python-cryptography' 'gettext'
+ 'extra-cmake-modules' 'wayland-protocols' 'qt6-tools')
+optdepends=('sshfs: phone filesystem access' 'openssh: SFTP transport'
+ 'scrcpy: interactive phone screen/camera' 'android-tools: separately authorized ADB'
+ 'ffmpeg: optional camera integration')
+options=('!lto')
+if [[ -n "${UMBRIEL_PACKAGE_SOURCE:-}" ]]; then
+ source=()
+ sha256sums=()
+else
+ source=("umbriel-connect::git+$url.git#tag=v$pkgver"
+         'engine::git+https://invent.kde.org/network/kdeconnect-kde.git#commit=642a710abd9dfff4358b5d943ca61965fb34ec6e')
+ sha256sums=('SKIP' 'SKIP') # Git revisions, not unchecked archive downloads.
+fi
+prepare() {
+ if [[ -n "${UMBRIEL_PACKAGE_SOURCE:-}" ]]; then
+  mkdir -p "$srcdir/umbriel-connect"
+  tar -C "$UMBRIEL_PACKAGE_SOURCE" --exclude=.git --exclude=build --exclude=dist -cf - . | tar -C "$srcdir/umbriel-connect" -xf -
+ else
+  mkdir -p "$srcdir/umbriel-connect/vendor/kdeconnect-kde"
+  cp -a "$srcdir/engine/." "$srcdir/umbriel-connect/vendor/kdeconnect-kde/"
+ fi
+}
+build() {
+ cd "$srcdir/umbriel-connect"
+ bash packaging/build.sh /usr "$srcdir/stage"
+}
+package() {
+ cp -a "$srcdir/stage/." "$pkgdir/"
+ # This engine uses Qt private headers: require the Qt version used to build it.
+ depends+=("qt6-base=$(pkg-config --modversion Qt6Core)")
+}

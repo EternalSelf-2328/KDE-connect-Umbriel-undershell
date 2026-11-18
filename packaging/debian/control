@@ -1,0 +1,40 @@
+Source: umbriel-connect
+Section: net
+Priority: optional
+Maintainer: EternalSelf-2328 <71615506+EternalSelf-2328@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13), cmake, ninja-build, git, python3, python3-cryptography,
+ pkgconf, extra-cmake-modules, gettext, dbus-daemon, fonts-dejavu-core,
+ qt6-base-dev (>= 6.8), qt6-base-private-dev, qt6-declarative-dev,
+ qt6-declarative-private-dev, qt6-connectivity-dev, qt6-multimedia-dev,
+ qt6-wayland-dev, qt6-wayland-dev-tools, qt6-tools-dev,
+ kirigami-addons-dev, libkirigami-dev, libkf6configwidgets-dev, libkf6crash-dev,
+ libkf6dbusaddons-dev, libkf6guiaddons-dev, libkf6i18n-dev, libkf6iconthemes-dev,
+ libkf6itemmodels-dev, libkf6kcmutils-dev, libkf6kio-dev, libkf6modemmanagerqt-dev,
+ libkf6notifications-dev, libkf6package-dev, libkf6people-dev, libkf6pulseaudioqt-dev,
+ libkf6qqc2desktopstyle-dev, libkf6service-dev, libkf6solid-dev,
+ libkf6statusnotifieritem-dev, libkf6windowsystem-dev, libkf6prison-dev,
+ libssl-dev, libpulse-dev, libglib2.0-dev, libwebp-dev, libfakekey-dev,
+ libwayland-dev, libwayland-bin, wayland-protocols, libx11-dev, libxtst-dev,
+ libxkbcommon-dev, libei-dev, libevdev-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell
+Rules-Requires-Root: no
+
+Package: umbriel-connect
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, bash, dbus, wl-clipboard, qt6-wayland,
+ qml6-module-qtcore, qml6-module-qtmultimedia, qml6-module-qtqml,
+ qml6-module-qtqml-models, qml6-module-qtqml-workerscript, qml6-module-qtquick,
+ qml6-module-qtquick-controls, qml6-module-qtquick-dialogs, qml6-module-qtquick-layouts,
+ qml6-module-qtquick-particles, qml6-module-qtquick-window,
+ qml6-module-org-kde-config, qml6-module-org-kde-kcmutils,
+ qml6-module-org-kde-kirigami, qml6-module-org-kde-kirigamiaddons-components,
+ qml6-module-org-kde-kirigamiaddons-formcard, qml6-module-org-kde-kitemmodels,
+ qml6-module-org-kde-kquickcontrolsaddons, qml6-module-org-kde-people,
+ libkf6qqc2desktopstyle6
+Recommends: sshfs, openssh-client, breeze-icon-theme
+Suggests: scrcpy, adb, ffmpeg
+Description: phone integration for Umbriel, Noctalia and undershell
+ Native Qt desktop client and private device engine with authenticated LAN and
+ remote controls, file sharing, clipboard, keyboard, media and screen preview.
+ Uses its own D-Bus identity and plugins; does not require the KDE Connect daemon.

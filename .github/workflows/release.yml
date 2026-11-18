@@ -1,0 +1,147 @@
+name: Release packages
+on:
+  push:
+    tags: ['v0.*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: {persist-credentials: false}
+      - name: Validate version and signed APK checksum
+        env:
+          REF: ${{ github.ref }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,os,re
+          version=re.search(r'project\(UmbrielConnect VERSION ([^ ]+)',Path('CMakeLists.txt').read_text())[1]
+          if os.environ['REF'].startswith('refs/tags/'):assert os.environ['TAG']=='v'+version
+          for line in Path('downloads/SHA256SUMS').read_text().splitlines():
+            digest,name=line.split();assert hashlib.sha256((Path('downloads')/name).read_bytes()).hexdigest()==digest,name
+          PY
+  build:
+    needs: version
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {target: debian-13, image: 'debian:13', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates'}
+          - {target: ubuntu-26.04, image: 'ubuntu:26.04', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates'}
+          - {target: fedora-44, image: 'fedora:44', bootstrap: 'dnf -y -q install git'}
+          - {target: arch, image: 'archlinux:latest', bootstrap: 'pacman -Syu --noconfirm --needed git'}
+          - {target: void, image: 'ghcr.io/void-linux/void-glibc-full:latest', bootstrap: 'xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git libstdc++'}
+    steps:
+      - name: Bootstrap Git
+        run: ${{ matrix.bootstrap }}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: {submodules: recursive, persist-credentials: false}
+      - name: Build and test native package
+        env: {UMBRIEL_PACKAGE_CONTAINER: '1', UMBRIEL_BUILD_JOBS: '3'}
+        run: bash packaging/build-release.sh '${{ matrix.target }}' "$GITHUB_WORKSPACE/out"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-${{ matrix.target }}
+          path: out/*
+          if-no-files-found: error
+          retention-days: 7
+  verify:
+    needs: build
+    name: Install ${{ matrix.target }} on a clean image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {target: debian-13, image: 'debian:13', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates python3 dbus fonts-dejavu-core', install: 'apt-get install -y ./packages/*.deb'}
+          - {target: ubuntu-26.04, image: 'ubuntu:26.04', bootstrap: 'apt-get update -q && apt-get install -y -q git ca-certificates python3 dbus fonts-dejavu-core', install: 'apt-get install -y ./packages/*.deb'}
+          - {target: fedora-44, image: 'fedora:44', bootstrap: 'dnf -y -q install git python3 dbus-daemon dejavu-sans-fonts', install: 'dnf -y install ./packages/*.rpm'}
+          - {target: arch, image: 'archlinux:latest', bootstrap: 'pacman -Syu --noconfirm --needed git python dbus ttf-dejavu', install: 'pacman -U --noconfirm packages/*.pkg.tar.zst'}
+          - {target: void, image: 'ghcr.io/void-linux/void-glibc-full:latest', bootstrap: 'xbps-install -Syu -y && xbps-install -Syu -y && xbps-install -y git libstdc++ python3 dbus font-dejavu', install: 'xbps-rindex -a packages/*.xbps && xbps-install -y -R "$PWD/packages" umbriel-connect'}
+    steps:
+      - run: ${{ matrix.bootstrap }}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: {name: 'package-${{ matrix.target }}', path: packages}
+      - run: ${{ matrix.install }}
+      - name: Render installed applications in isolation
+        run: bash packaging/smoke.sh /usr "$GITHUB_WORKSPACE/previews"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'previews-${{ matrix.target }}', path: previews/*.png, retention-days: 7}
+  nix:
+    needs: version
+    name: Build NixOS 26.05 package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: cachix/install-nix-action@d698718aa798980d17dd749f03beae0b51183399 # v31
+      - name: Lock and build
+        run: |
+          if test ! -f flake.lock; then
+            test '${{ github.event_name }}' = workflow_dispatch
+            nix flake lock
+          fi
+          nix build --no-write-lock-file --print-build-logs .#default
+          mkdir -p out
+          cp flake.lock out/flake.lock
+          nix path-info --closure-size --json ./result > out/nix-closure.json
+          nix-store --export $(nix-store --query --requisites ./result) | xz -T2 -3 > out/umbriel-connect-0.8.0-nixos-26.05-x86_64.nar.xz
+          readlink -f result > out/nix-store-path.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'package-nixos', path: 'out/*', if-no-files-found: error, retention-days: 7}
+  source:
+    needs: version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {submodules: recursive, persist-credentials: false, fetch-depth: 0}
+      - name: Complete corresponding sources and signed Android app
+        run: |
+          mkdir -p out
+          bash packaging/source.sh "$PWD/out"
+          cp downloads/UmbrielConnect-0.8.0.apk out/
+          cp downloads/SIGNING-CERTIFICATE-SHA256 out/ANDROID-SIGNING-CERTIFICATE-SHA256
+          source_hash=$(sha256sum out/*-source.tar.xz | cut -d' ' -f1)
+          sed "s/RELEASE_SOURCE_SHA256/$source_hash/" packaging/void/template > out/umbriel-connect-0.8.0-void-template
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'source-and-android', path: 'out/*', if-no-files-found: error, retention-days: 7}
+  release:
+    needs: [verify, nix, source]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions: {contents: write}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'package-*', merge-multiple: true, path: release}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'source-and-android', path: release}
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS
+          cd ..
+          gh release create "$TAG" --verify-tag --prerelease --title "Umbriel Connect $TAG · experimental" --notes-file packaging/release-notes.md release/*

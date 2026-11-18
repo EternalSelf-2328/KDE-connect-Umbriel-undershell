@@ -1,0 +1,6 @@
+umbriel-connect (0.8.0-1) unstable; urgency=medium
+
+  * Package the native client, private engine and authenticated control channel.
+  * Retain all device plugins and support Qt 6.8 on Debian 13.
+
+ -- EternalSelf-2328 <71615506+EternalSelf-2328@users.noreply.github.com>  Tue, 17 Nov 2026 20:00:00 -0500

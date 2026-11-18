@@ -7,10 +7,9 @@ SOURCE=ROOT/'vendor/kdeconnect-kde'
 PIN='642a710abd9dfff4358b5d943ca61965fb34ec6e'
 FINAL=ROOT/'build/engine-source'
 DEST=ROOT/'build/engine-staging'
-if subprocess.check_output(['git','-C',str(SOURCE),'rev-parse','HEAD'],text=True).strip()!=PIN:
-    raise SystemExit('Engine source revision differs from the reviewed pin')
-if subprocess.check_output(['git','-C',str(SOURCE),'status','--porcelain'],text=True).strip():
-    raise SystemExit('Upstream engine has local modifications; refusing to discard them')
+sys.path.insert(0,str(ROOT/'scripts'))
+from source_integrity import verify
+verify('kdeconnect-kde',PIN)
 if DEST.exists():shutil.rmtree(DEST)
 shutil.copytree(SOURCE,DEST,ignore=shutil.ignore_patterns('.git','po'))
 shutil.copytree(ROOT/'translations',DEST/'po',ignore=shutil.ignore_patterns('README.md'))
@@ -40,6 +39,8 @@ edit('daemon/kdeconnectd.cpp','QStringLiteral("kdeconnect.daemon")','QStringLite
 # No global autostart, firewall rules, Plasma, file-manager hooks or official app handlers.
 p=DEST/'daemon/CMakeLists.txt';s=p.read_text();s='\n'.join(line for line in s.splitlines() if not ('install(FILES' in line));p.write_text(s+'\n')
 p=DEST/'CMakeLists.txt';s=p.read_text()
+# Qt 6.8 is supported by the packaged Debian 13 build; all plugins are retained.
+s=s.replace('set(QT_MIN_VERSION "6.9.0")','set(QT_MIN_VERSION "6.8.0")')
 for name in ['data','icons','indicator','nautilus-extension','fileitemactionplugin','plasmoid']:
     s=s.replace('add_subdirectory('+name+')','# Umbriel: no global integration for '+name)
 # Compile the bundled Spanish source catalogs into the private prefix.
@@ -55,6 +56,39 @@ set_target_properties(kdeconnectcore PROPERTIES OUTPUT_NAME umbrielconnectengine
 set_target_properties(kdeconnectmodels PROPERTIES OUTPUT_NAME umbrielconnectenginemodels)
 
 '''
+p.write_text(s)
+# Preserve the keyboard/pointer plugin on Debian's libei 1.3. New TEXT capability
+# is negotiated only on libei >=1.6; older portals keep the existing XKB fallback.
+edit('plugins/mousepad/CMakeLists.txt','libei-1.0>=1.6','libei-1.0>=1.3')
+with (DEST/'plugins/mousepad/CMakeLists.txt').open('a') as stream:
+    stream.write('\nif(PKG_libei_VERSION VERSION_GREATER_EQUAL "1.6")\n target_compile_definitions(kdeconnect_mousepad PRIVATE UMBRIEL_EI_TEXT)\nendif()\n')
+p=DEST/'plugins/mousepad/waylandremoteinput.cpp';s=p.read_text()
+s=s.replace('                                      EI_DEVICE_CAP_TEXT,','''
+#ifdef UMBRIEL_EI_TEXT
+                                      EI_DEVICE_CAP_TEXT,
+#endif''')
+s=s.replace('''            if (ei_device_has_capability(device, EI_DEVICE_CAP_TEXT) && !m_textDevice) {
+                m_textDevice = device;
+            }''','''#ifdef UMBRIEL_EI_TEXT
+            if (ei_device_has_capability(device, EI_DEVICE_CAP_TEXT) && !m_textDevice) {
+                m_textDevice = device;
+            }
+#endif''')
+s=s.replace('''    if (m_ei && m_textDevice && !modified) {
+        const QByteArray utfkey = text.toUtf8();
+        ei_device_text_utf8_with_length(m_textDevice, utfkey.constData(), utfkey.size());
+        ei_device_frame(m_textDevice, ei_now(m_ei));
+    } else {''','''#ifdef UMBRIEL_EI_TEXT
+    if (m_ei && m_textDevice && !modified) {
+        const QByteArray utfkey = text.toUtf8();
+        ei_device_text_utf8_with_length(m_textDevice, utfkey.constData(), utfkey.size());
+        ei_device_frame(m_textDevice, ei_now(m_ei));
+        return;
+    }
+#else
+    Q_UNUSED(modified);
+#endif
+    {''')
 p.write_text(s)
 # Use the same dynamic palette and keyboard handling in the bundled graphical tools.
 for name in ['app/main.cpp','smsapp/main.cpp','daemon/kdeconnectd.cpp']:

@@ -1,0 +1,12 @@
+{
+  "kdeconnect-kde": {
+    "commit": "642a710abd9dfff4358b5d943ca61965fb34ec6e",
+    "sha256": "64f1fbc8bf1bca4cc57d904309dae1247f9df145ccf8529705be1a9a14e3f54a",
+    "files": 1280
+  },
+  "kdeconnect-android": {
+    "commit": "f753fddd2a62676ff0537fd28e191f0ec4c50d9e",
+    "sha256": "38f81792b97405e3a9f27b815c9585dce8d47892d09b2105bae0f48cddf381d5",
+    "files": 685
+  }
+}

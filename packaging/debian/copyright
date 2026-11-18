@@ -1,0 +1,15 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Umbriel Connect
+Source: https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell
+
+Files: *
+Copyright: 2026 EternalSelf-2328 and the authors listed in individual source files
+License: GPL-3+
+ See /usr/share/licenses/umbriel-connect/LICENSE for the full license text.
+
+Files: vendor/kdeconnect-kde/*
+Copyright: KDE Connect contributors; see the retained source headers
+License: various
+ Individual SPDX license identifiers and copyright notices are preserved.
+ Full license texts are installed in /usr/share/licenses/umbriel-connect/engine/.
+ See /usr/share/doc/umbriel-connect/THIRD_PARTY_NOTICES.md for provenance.

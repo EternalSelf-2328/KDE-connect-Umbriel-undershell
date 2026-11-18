@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Build a first-party application from pinned, attributed GPL Android sources."""
 from pathlib import Path
-import os,shutil,subprocess,xml.etree.ElementTree as E
+import os,shutil,subprocess,sys,xml.etree.ElementTree as E
 ROOT=Path(__file__).resolve().parents[2];SRC=ROOT/'vendor/kdeconnect-android';OUT=ROOT/'build/android-full-source'
 PIN='f753fddd2a62676ff0537fd28e191f0ec4c50d9e'
-if subprocess.check_output(['git','-C',str(SRC),'rev-parse','HEAD'],text=True).strip()!=PIN:raise SystemExit('Android upstream pin mismatch')
-if subprocess.check_output(['git','-C',str(SRC),'status','--porcelain'],text=True).strip():raise SystemExit('Android upstream has local changes')
+sys.path.insert(0,str(ROOT/'scripts'))
+from source_integrity import verify
+verify('kdeconnect-android',PIN)
 # Preserve Gradle caches/build outputs across preparation, but synchronize all source files.
 OUT.mkdir(exist_ok=True)
 for p in SRC.iterdir():
