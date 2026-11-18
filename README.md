@@ -1,57 +1,62 @@
 # Umbriel Connect
 
-Tu teléfono integrado con **Umbriel, Noctalia y undershell**, con cliente C++20/Qt6
-y aplicación Android propia. **Escritorio y Android 0.8.0 experimental** incorpora un motor privado derivado
-de KDE Connect: ya no necesita ejecutar sus aplicaciones de escritorio o móvil.
-Sí utiliza Qt/KDE Frameworks y conserva el protocolo y los créditos del código original.
+Your phone integrated with **Umbriel, Noctalia and undershell**, with a C++20/Qt6
+client and its own Android app. The **experimental desktop and Android 0.8.0 releases**
+include a private engine derived from KDE Connect, so you no longer need to run its
+desktop or mobile applications. Qt/KDE Frameworks are still required, and the original
+protocol and code credits are preserved.
 
-![Umbriel Connect: inglés y paleta lavanda, datos de ejemplo](docs/screenshots/0.8.0/home-english-lavender.png)
+![Umbriel Connect: English UI and lavender palette, example data](docs/screenshots/0.8.0/home-english-lavender.png)
 
-[Descargar Android completo 0.8.0](downloads/UmbrielConnect-0.8.0.apk) ·
-[Instalación y compilación](docs/BUILDING.md) ·
-[Funciones y límites comprobados](docs/COMPATIBILITY.md) ·
-[Seguridad y permisos](SECURITY.md)
+[Download the full Android app 0.8.0](downloads/UmbrielConnect-0.8.0.apk) ·
+[Installation and building](docs/BUILDING.md) ·
+[Verified features and limitations](docs/COMPATIBILITY.md) ·
+[Security and permissions](SECURITY.md)
 
-Android abre **Inicio**, con Mouse, Navegación, Sonido, Apariencia, Fondos y Widgets
-a un toque, reproducción y volumen. También ofrece Texto y teclado, Aplicaciones y
-Pantalla. Puedes enviar varios archivos y elegir idioma, paleta y tema de la app. La barra **Inicio / Control / Archivos / Ajustes**
-permanece visible; el registro y los permisos tienen su propia sección. La conexión
-LAN ya vinculada es automática; fuera de ella se ofrece autorización explícita.
-[Novedades0.8: pantalla, texto, aplicaciones, archivos y colores](docs/UPDATE-0.8.0.md).
+Android opens on **Home**, with one-tap access to Mouse, Navigation, Sound, Appearance,
+Wallpapers and Widgets, plus playback and volume controls. It also offers Text and
+keyboard, Applications and Screen. You can send multiple files and choose the app's
+language, palette and theme. The **Home / Control / Files / Settings** bar stays visible;
+pairing and permissions have their own section. Paired devices connect automatically
+on the LAN; connections outside it require explicit authorization.
+[What's new in 0.8: screen, text, applications, files and colors](docs/UPDATE-0.8.0.md).
 
-<img src="docs/screenshots/0.8.0/home-dark.png" width="280" alt="Inicio Android: datos sintéticos, tema oscuro">
-<img src="docs/screenshots/0.8.0/home-light.png" width="280" alt="Inicio Android: datos sintéticos, tema claro">
+<img src="docs/screenshots/0.8.0/home-dark.png" width="280" alt="Android Home: synthetic data, dark theme">
+<img src="docs/screenshots/0.8.0/home-light.png" width="280" alt="Android Home: synthetic data, light theme">
 
-## Qué integra
+## Features
 
-- Descubrimiento, emparejamiento, batería, señal móvil, archivos, enlaces y texto.
-- Notificaciones con acciones/respuesta, portapapeles, multimedia/MPRIS y volumen.
-- Reproductor móvil con estado real, carátula, título/origen y selección de aplicación;
-  salida de audio de la PC y preferencias de dirección del touchpad.
-- Mensajes SMS/MMS y contactos, avisos de llamada y encontrar dispositivos.
-- Entrada remota, presentación, tableta y órdenes, con permisos y opt-in por dispositivo.
-- Explorador de archivos y ventana de mensajes incluidos en el prefijo privado.
-- Pantalla interactiva, cámara frontal/posterior, webcam bajo demanda y audio Bluetooth,
-  desde la sección **Teléfono**, mediante scrcpy/ADB, v4l2loopback y BlueZ.
-- Controles propios de escritorios, foco, sonido, tema y no molestar; editor, widgets,
-  rendimiento, mascotas y perfiles de undershell.
-- Galería móvil/escritorio de undershell-wall con miniaturas, favoritos y filtros por
-  carpeta/origen: imágenes propias o Wallpaper Engine.
-- Canal TLS propio con certificado fijado, acceso automático en LAN, autorización remota y archivos grandes en
-  ambos sentidos. Integración Yazi `umbriel-connect --send ARCHIVOS...`.
+- Discovery, pairing, battery status, mobile signal, files, links and text.
+- Notifications with actions and replies, clipboard, multimedia/MPRIS and volume.
+- Mobile media player with actual playback state, artwork, title/source and player
+  selection; PC audio output selection and touchpad direction preferences.
+- SMS/MMS messages and contacts, call notifications and device finding.
+- Remote input, presentations, tablet input and commands, with permissions and
+  per-device opt-in.
+- File browser and messaging window included in the private installation prefix.
+- Interactive screen mirroring, front/rear cameras, an on-demand webcam and Bluetooth
+  audio from the **Phone** section, using scrcpy/ADB, v4l2loopback and BlueZ.
+- Dedicated controls for workspaces, window focus, sound, themes and Do Not Disturb;
+  undershell editing, widgets, performance, pets and profiles.
+- Mobile/desktop undershell-wall gallery with thumbnails, favorites and folder/source
+  filters for your own images or Wallpaper Engine content.
+- A dedicated TLS channel with certificate pinning, automatic LAN access, remote
+  authorization and large files in both directions. Yazi integration through
+  `umbriel-connect --send FILES...`.
 
-El motor deriva de las fuentes oficiales C++ y Android, mantenidas como submódulos
-fijados. Los extras de pantalla/cámara se portaron desde las funciones de
-[Caelestia Connect](https://github.com/maylton/caelestia-connect) y su
-[fork de KingSahil](https://github.com/KingSahil/caelestia-connect).
-[Procedencia y licencias](THIRD_PARTY_NOTICES.md).
+The engine derives from the official C++ and Android sources, maintained as pinned
+submodules. The additional screen/camera features were ported from
+[Caelestia Connect](https://github.com/maylton/caelestia-connect) and
+[KingSahil's fork](https://github.com/KingSahil/caelestia-connect).
+[Provenance and licenses](THIRD_PARTY_NOTICES.md).
 
-**Límites actuales:** el monitor virtual requiere un backend de credenciales seguro
-y un portal compatible y permanece bloqueado. Las funciones Wayland, cámara, SMS,
-Bluetooth y permisos Samsung requieren validación física; compilar los plugins no
-prueba que todos funcionen en el compositor. [Matriz detallada](docs/COMPATIBILITY.md).
+**Current limitations:** the virtual monitor requires a secure credentials backend
+and a compatible portal, and remains disabled. Wayland, camera, SMS, Bluetooth and
+Samsung permissions require testing on real devices; compiling the plugins does
+not prove that all of them work in the compositor.
+[Detailed compatibility matrix](docs/COMPATIBILITY.md).
 
-## Instalar y enlazar
+## Install and pair
 
 ```bash
 git submodule update --init --recursive
@@ -59,86 +64,91 @@ git submodule update --init --recursive
 ~/.local/bin/umbriel-connect
 ```
 
-Consulta primero las [bibliotecas necesarias](docs/BUILDING.md). El instalador
-respalda los binarios anteriores, compila y prueba los dos proyectos, e instala en
-`~/.local`. `./install.sh --autostart` habilita sus servicios de usuario al iniciar
-la siguiente sesión gráfica; la opción predeterminada conserva los procesos actuales.
-No modifica red, firewall, atajos ni configuraciones de otros programas. No elimina
-el paquete KDE Connect existente; utiliza su propio servicio y plugins privados.
+Check the [required libraries](docs/BUILDING.md) first. The installer backs up previous
+binaries, builds and tests both projects, and installs into `~/.local`.
+`./install.sh --autostart` enables its user services for the next graphical login;
+the default option preserves running processes. It does not modify networking,
+firewall rules, shortcuts or other applications' settings. It does not remove an
+existing KDE Connect package; it uses its own service and private plugins.
 
-Instala el APK completo y abre **Inicio** en ambos equipos dentro de la misma LAN.
-En Android elige la computadora detectada y solicita el vínculo. Compara el código
-en ambas pantallas y confirma en la PC. No necesita un archivo; se hace una sola vez.
-El QR/JSON privado queda disponible como alternativa en **Ajustes → Vincular con QR…**.
-Borrar los datos de Android requiere volver a vincular; actualizar el APK los conserva.
+Install the full APK and open **Home** on both devices on the same LAN. In Android,
+select the discovered computer and request pairing. Compare the code on both screens
+and confirm on the PC. This is a one-time setup and does not require a file. Private
+QR/JSON pairing remains available under **Settings → Pair with QR code…**.
+Clearing Android app data requires pairing again; updating the APK preserves it.
 
-Para los plugins del motor compatible, **Ajustes → Dispositivos y funciones** permite
-emparejar comparando la clave en ambos extremos. Su confianza sigue separada del canal
-firmado de controles; no se fusiona por nombre/IP. Las claves privadas de KDE Connect
-no se importan. La actualización conserva paquete, firma y registros propios anteriores.
-No necesitas borrar los datos ni volver a registrar normalmente.
+For compatible engine plugins, **Settings → Devices and features** lets you pair by
+comparing the key on both devices. Their trust remains separate from the signed
+control channel; identities are not merged by name or IP address. KDE Connect private
+keys are not imported. Updates preserve the package, signing identity and existing
+Umbriel pairing records. You normally do not need to clear data or register again.
 
-**En LAN directa, los dispositivos vinculados se conectan automáticamente**, también
-con la app en segundo plano y notificación visible. **Fuera de ella, Android exige
-huella o el PIN, patrón o contraseña del teléfono** por hasta diez minutos. Al bloquear
-termina la autorización remota; el control del teléfono siempre respeta su bloqueo.
-«Pausar conexión» desactiva la reconexión hasta presionar Conectar. Los permisos
-Android y los plugins siguen siendo decisiones independientes.
+**On a direct LAN, paired devices connect automatically**, including when the app
+is in the background, with a visible notification. **Outside the LAN, Android requires
+a fingerprint or the phone's PIN, pattern or password** for up to ten minutes. Locking
+the phone ends remote authorization; phone control always respects its lock state.
+“Pause connection” disables reconnection until you press Connect. Android permissions
+and plugin activation remain separate choices.
 
-Un registro antiguo puede pedir **una última huella para migrar las claves**: su
-clave original solo aceptaba biometría. Después permite también el bloqueo del teléfono.
-Si esa huella ya no está disponible, se necesita un registro nuevo; no se omite la
-validación de identidad. Los permisos remotos persistentes de 0.4.0 se retiran.
-[Corrección del cierre reportado y estados de conexión](docs/UPDATE-0.4.2.md).
+An older pairing may request **one final fingerprint to migrate its keys**: the
+original key only accepted biometrics. After migration, the phone's screen lock is
+also supported. If that fingerprint is no longer available, a new pairing is
+required; identity verification is not bypassed. Persistent remote permissions from
+0.4.0 are removed.
+[Reported crash fix and connection states](docs/UPDATE-0.4.2.md).
 
-El APK ampliado incluye capacidades sensibles opcionales. Si Play Protect impide
-instalarlo, no desactives esa protección; conserva la edición mínima
-[Umbriel Remote 0.3.1](downloads/UmbrielRemote-0.3.1.apk), solo teléfono→PC, y comunica
-el diagnóstico sin compartir datos personales. [Contexto de distribución](docs/PLAY-PROTECT.md).
+The full APK includes optional sensitive capabilities. If Play Protect blocks its
+installation, do not disable that protection; keep the minimal
+[Umbriel Remote 0.3.1](downloads/UmbrielRemote-0.3.1.apk), which only controls the PC
+from the phone, and share the diagnostic without personal data.
+[Distribution details](docs/PLAY-PROTECT.md).
 
-## Navegar con teclado
+## Keyboard navigation
 
-**Ctrl+K** busca y localiza una función sin ejecutarla; **Alt+1…5** cambia de sección en la navegación lateral.
-Tab/Mayús+Tab recorre controles, IJKL y flechas navegan, Enter/Espacio activan y F1
-muestra ayuda. Los campos conservan sus letras normales; Esc/Q cierran fuera de
-edición. El diseño sigue la paleta Noctalia con variantes clara/oscura y foco visible,
-sin animaciones permanentes. [Diseño](docs/DESIGN.md).
+**Ctrl+K** finds a feature without running it; **Alt+1…5** switches sections in the
+sidebar. Tab/Shift+Tab moves between controls, IJKL and arrow keys navigate,
+Enter/Space activates controls, and F1 shows help. Text fields keep their normal
+letter input; Esc/Q closes the window outside text editing. The design follows
+Noctalia's palette, with light/dark variants and visible keyboard focus, without
+continuous animations. [Design](docs/DESIGN.md).
 
-## LAN, Tailscale y archivos
+## LAN, Tailscale and files
 
-En la misma red no necesitas Tailscale. Si no aparece la computadora, revisa
-[los puertos propios en el firewall](docs/FIREWALL.md): permitir solo KDE Connect
-no cubre UDP31595/TCP31594. El canal propio descubre la computadora en
-LAN y mantiene la misma verificación TLS. Fuera de casa puedes usar el proxy privado
-Tailscale Serve ya configurado para controles y archivos. El modo **userspace** no
-transporta automáticamente todos los plugins, SFTP, ADB ni multicast del motor.
-Bluetooth y webcam son locales. [Restricciones completas](docs/COMPATIBILITY.md).
+You do not need Tailscale on the same network. If the computer does not appear, check
+[the dedicated firewall ports](docs/FIREWALL.md): allowing KDE Connect alone does not
+cover UDP31595/TCP31594. The dedicated channel discovers the computer on the LAN
+and keeps the same TLS verification. Outside your home network, you can use a private
+Tailscale Serve proxy configured for controls and files. **Userspace** mode does not
+automatically carry all engine plugins, SFTP, ADB or multicast traffic. Bluetooth and
+webcam features are local. [Full limitations](docs/COMPATIBILITY.md).
 
-Los archivos del motor usan streaming binario TLS; el selector informa cuando se
-ponen en cola, sin confundirlo con recepción confirmada. El canal firmado propio
-conserva SHA256, espacio disponible, progreso y recepción confirmada; su codificación
-Base64 añade aproximadamente un tercio al tráfico. [Archivos grandes](docs/LARGE-FILES.md).
+Engine file transfers use binary TLS streaming; the picker reports when files are
+queued, without presenting that as confirmed delivery. The dedicated signed channel
+retains SHA256 verification, free-space checks, progress and confirmed receipt;
+Base64 encoding adds approximately one third to the traffic.
+[Large files](docs/LARGE-FILES.md).
 
-La ventana de envío comparte tema y estados con el programa. Si Yazi todavía abre
-un selector antiguo, vuelve a abrir Yazi para cargar su configuración actualizada.
+The sharing window uses the same theme and states as the main application. If Yazi
+still opens an older picker, reopen Yazi to load its updated configuration.
 
-## CLI y desarrollo
+## CLI and development
 
 ```bash
 umbriel-connect list
 umbriel-connect commands
 umbriel-connect watch
-umbriel-connect --send /ruta/archivo
+umbriel-connect --send /path/to/file
 umbriel-connect-features
 umbriel-connect-messages
 umbriel-connect-protocol --help
 ```
 
-Los controles también pueden publicarse en el plugin de órdenes del **motor propio**;
-`umbriel-connect publish ID` respalda y conserva órdenes personales, y `withdraw ID`
-retira solo las generadas por Umbriel. La ruta firmada no necesita activar ese plugin.
-El widget Noctalia sigue siendo opcional y no se activa automáticamente.
+Controls can also be published to the **private engine's** command plugin;
+`umbriel-connect publish ID` backs up and preserves personal commands, while
+`withdraw ID` removes only those generated by Umbriel. The signed channel does not
+require that plugin to be enabled. The Noctalia widget remains optional and is not
+activated automatically.
 
-[Compilación y pruebas aisladas](docs/BUILDING.md). El Python original se conserva
-como referencia histórica, fuera de la ruta instalada. No se han capturado pantallas,
-mensajes, archivos ni cámaras reales de usuarios durante las pruebas de esta versión.
+[Building and isolated tests](docs/BUILDING.md). The original Python code is preserved
+as a historical reference, outside the installed execution path. No users' real
+screens, messages, files or cameras were captured during this release's tests.
