@@ -22,7 +22,13 @@ DEPS="bash python3 dbus wl-clipboard $QT_CORE qt6-gui qt6-widgets qt6-network qt
  kf6-kconfig kf6-kcoreaddons kf6-kcrash kf6-kdbusaddons kf6-kdeclarative kf6-kguiaddons kf6-ki18n kf6-kiconthemes kf6-kio kf6-kirigami kf6-kitemmodels \
  kf6-knotifications kf6-kpeople kf6-kservice kf6-kstatusnotifieritem kf6-kwindowsystem kf6-kwidgetsaddons kf6-kpackage kf6-solid kf6-qqc2-desktop-style \
  kf6-kcolorscheme kf6-modemmanager-qt pulseaudio-qt kirigami-addons kf6-prison libei libevdev libfakekey libXtst libX11 libxkbcommon wayland openssl libwebp libpulseaudio glib"
+# xbps-create requires versioned dependency patterns, including for base tools.
+RUNTIME_DEPS=()
+for dependency in $DEPS; do
+ if [[ "$dependency" == "$QT_CORE" ]]; then RUNTIME_DEPS+=("$dependency");
+ else RUNTIME_DEPS+=("$dependency>=0"); fi
+done
 mkdir -p "$OUT";cd "$OUT"
 xbps-create -A x86_64 -n "umbriel-connect-${VERSION}_1" -s 'Phone integration for Umbriel, Noctalia and undershell' \
- -l 'GPL-3.0-or-later, LicenseRef-KDE-Accepted-GPL' -H 'https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell' -D "$DEPS" "$STAGE"
+ -l 'GPL-3.0-or-later, LicenseRef-KDE-Accepted-GPL' -H 'https://github.com/EternalSelf-2328/KDE-connect-Umbriel-undershell' -D "${RUNTIME_DEPS[*]}" "$STAGE"
 xbps-rindex -a "umbriel-connect-${VERSION}_1.x86_64.xbps"
