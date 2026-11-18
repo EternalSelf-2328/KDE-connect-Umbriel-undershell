@@ -31,6 +31,8 @@ def edit(name,old,new):
     p=DEST/name;s=p.read_text()
     if old not in s:raise SystemExit(f'Patch context changed: {name}: {old}')
     p.write_text(s.replace(old,new))
+# Keep the upstream credits, but direct users to this fork's app and pairing flow.
+shutil.copy2(ROOT/'data/engine-welcome.qml', DEST/'app/qml/WelcomePage.qml')
 edit('declarativeplugin/CMakeLists.txt','URI "org.eternalself.UmbrielConnect.Engine"','URI "org.kde.kdeconnect"')
 edit('core/kdeconnectconfig.cpp','absoluteFilePath(QStringLiteral("kdeconnect"))','absoluteFilePath(QStringLiteral("umbriel-connect/engine"))')
 edit('core/pluginloader.cpp','findPlugins(QStringLiteral("kdeconnect"))','findPlugins(QStringLiteral("umbriel-connect/engine"))')
@@ -148,6 +150,9 @@ for name in ['app/main.cpp','smsapp/main.cpp','daemon/kdeconnectd.cpp']:
     p.write_text(s)
 for name,desktop in [('app/main.cpp','org.eternalself.UmbrielConnect.Features'),('smsapp/main.cpp','org.eternalself.UmbrielConnect.Messages')]:
     p=DEST/name;s=p.read_text().replace('KAboutData::setApplicationData(aboutData);','aboutData.setDesktopFileName(QStringLiteral("'+desktop+'"));\n    KAboutData::setApplicationData(aboutData);');p.write_text(s)
+for name,domain in [('app/main.cpp','kdeconnect-app'),('smsapp/main.cpp','kdeconnect-sms')]:
+    edit(name,'QQmlApplicationEngine engine;','QQmlApplicationEngine engine;\n    engine.setUiLanguage(language);')
+    edit(name,'KLocalization::setupLocalizedContext(&engine);','KLocalization::setupLocalizedContext(&engine)->setTranslationDomain(QStringLiteral("'+domain+'"));')
 edit('core/openconfig.cpp','job->setDesktopName(QStringLiteral("org.kde.kdeconnect.app"))','job->setDesktopName(QStringLiteral("org.eternalself.UmbrielConnect.Features"))')
 # Distinct GUI activation names prevent an installed official window receiving our requests.
 for name,old,new in [('app/main.cpp','"kdeconnect.app"','"umbriel-connect.features"'),('smsapp/main.cpp','"kdeconnect.sms"','"umbriel-connect.messages"')]:edit(name,old,new)
